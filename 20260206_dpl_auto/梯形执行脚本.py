@@ -12,6 +12,9 @@ HEIGHT = 2159
 X_STEP = 6
 Y_STEP = 3
 
+# True=only test the first row, False=full test
+TEST_SINGLE_ROW = False
+
 # output path configuration
 OUTPUT_PATH = r"D:\software\heiweilu\workspace\xgimi\code\20260206_dpl_auto"
 
@@ -24,7 +27,7 @@ class CSVWriterWithCounter:
         self.filename = filename
         self.target_rows = target_rows
         self.current_rows = 0
-        # 确保目录存在
+
         directory = os.path.dirname(filename)
         if directory and not os.path.exists(directory):
             os.makedirs(directory)
@@ -119,10 +122,10 @@ def main():
     try:
         # Process all combinations sequentially
         points = [
-            [[0, 0], [2745, 1670]],
-            [[3839, 0], [1111, 1670]],
-            [[0, 2159], [2685, 691]],
-            [[3839, 2159], [1186, 691]]
+            [[0, 0], [1536, 864]],          # Top Left: (0,0) -> (1536,864)
+            [[3839, 0], [2304, 864]],       # Top Right: (3839,0) -> (2304,864)
+            [[0, 2159], [1536, 1296]],      # Bottom Left: (0,2159) -> (1536,1296)
+            [[3839, 2159], [2304, 1296]]    # Bottom Right: (3839,2159) -> (2304,1296)
         ]
 
         index = 0
@@ -134,21 +137,44 @@ def main():
 
         fixed_points = [point[0] for i, point in enumerate(points) if i != index]
 
+        # calculate  total  steps
+        total_x_steps = (abs(x_end - x_start) // abs(x_step)) + 1
+        total_y_steps = (abs(y_end - y_start) // abs(y_step)) + 1
+        
+        print("=" * 60)
+        print("testing point:")
+        print("  Corner: {} (index={})".format(
+            ["Top Left", "Top Right", "Bottom Left", "Bottom Right"][index], index))
+        print("  X range: {} -> {} (step={}, total steps={})".format(x_start, x_end, x_step, total_x_steps))
+        print("  Y range: {} -> {} (step={}, total rows={})".format(y_start, y_end, y_step, total_y_steps))
+        print("  Test mode: {}".format("Single row test" if TEST_SINGLE_ROW else "Full test"))
+        print("=" * 60)
+        
+        row_count = 0
+        single_row_time = 0
+        
         for current_y in range(y_start, y_end + y_step, y_step):
+            row_start_time = time.time()  # Start time
+            test_count = 0
+            
+            print("\n[Y={}] Starting tests for this row...".format(current_y))
+            
             for current_x in range(x_start, x_end + x_step, x_step):
                 result = copy.deepcopy(fixed_points)
                 result.insert(index, [current_x, current_y])
                 res = check(result, csv_writer)
+                test_count += 1
+                
                 if not res:
                     if y_step > 0:
                         new_y_start = max(current_y - Y_STEP, 0)
-                        new_y_step = 1
+                        new_y_step = 1  # Fine-grained scan step length (optimized)
                     else:
                         new_y_start = current_y + Y_STEP
                         new_y_step = -1
                     if x_step > 0:
                         new_x_start = max(current_x - X_STEP, 0)
-                        new_x_step = 1
+                        new_x_step = 1  # Fine-grained scan step length (optimized)
                     else:
                         new_x_start = current_x + X_STEP
                         new_x_step = -1
@@ -170,10 +196,65 @@ def main():
                             new_res = check(new_result, csv_writer)
                     print("stop this inner circle")
                     break
+            
+            # End timing for this row
+            row_end_time = time.time()
+            row_elapsed = row_end_time - row_start_time
+            row_count += 1
+            
+            print("[Y={}] Completed! Tested {} points, time taken: {:.2f} seconds ({:.3f} seconds/point)".format(
+                current_y, test_count, row_elapsed, row_elapsed / test_count if test_count > 0 else 0))
+            
+            # Record time for the first row
+            if row_count == 1:
+                single_row_time = row_elapsed
+                
+                print("\n" + "=" * 60)
+                print("[Single Row Test Completed - Time Estimation]")
+                print("=" * 60)
+                print("Time for single row: {:.2f} seconds ({:.2f} minutes)".format(single_row_time, single_row_time / 60))
+                print("Average time per point: {:.3f} seconds".format(single_row_time / test_count if test_count > 0 else 0))
+                print("")
+                
+                # Estimate time for each corner based on points array
+                corner_names = ["Top Left", "Top Right", "Bottom Left", "Bottom Right"]
+                total_estimated_time = 0
+                
+                for i, corner_points in enumerate(points):
+                    corner_x_start = corner_points[0][0]
+                    corner_x_end = corner_points[1][0]
+                    corner_y_start = corner_points[0][1]
+                    corner_y_end = corner_points[1][1]
+                    
+                    corner_x_steps = (abs(corner_x_end - corner_x_start) // abs(x_step)) + 1
+                    corner_y_steps = (abs(corner_y_end - corner_y_start) // abs(y_step)) + 1
+                    
+                    estimated_time = single_row_time * corner_y_steps
+                    total_estimated_time += estimated_time
+                    
+                    print("{}: ({},{}) -> ({},{}), {} rows x {:.2f} sec/row = {:.2f} sec ({:.2f} min, {:.2f} hours)".format(
+                        corner_names[i], corner_x_start, corner_y_start, corner_x_end, corner_y_end,
+                        corner_y_steps, single_row_time, estimated_time, 
+                        estimated_time / 60, estimated_time / 3600))
+                
+                print("")
+                print("Total Estimated Time: {:.2f} seconds = {:.2f} minutes = {:.2f} hours = {:.2f} days".format(
+                    total_estimated_time, total_estimated_time / 60, total_estimated_time / 3600, total_estimated_time / 86400))
+                print("=" * 60)
+            
+            # If in single row test mode, exit after testing the first row
+            if TEST_SINGLE_ROW:
+                print("\nSingle row test mode completed, exiting loop.")
+                print("To perform a full test, set TEST_SINGLE_ROW to False")
+                break
+                
     except Exception as e:
         print("Error occurred:", traceback.format_exc())
     finally:
         csv_writer.close()
+        end_time = time.time()
+        total_elapsed = end_time - start_time
+        print("\nTotal program runtime: {:.2f} seconds ({:.2f} minutes)".format(total_elapsed, total_elapsed / 60))
 
 
 print("Starting processing...")
