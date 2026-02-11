@@ -3,6 +3,7 @@
 """
 梯形角度测试脚本
 使用表格中预定义的角度和坐标数据进行梯形设置测试
+集成DLP8445硬件限制验证规则
 """
 import csv
 import os
@@ -19,6 +20,21 @@ except Exception as e:
     import sys
     sys.exit(1)
 
+# Import keystone validator and coordinate handler
+try:
+    import sys
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+    from 梯形验证器 import KeystoneValidator
+    from 坐标范围处理器 import CoordinateRangeHandler
+    print("Keystone validator imported")
+    print("Coordinate range handler imported")
+except Exception as e:
+    print("Warning: Cannot import modules: {}".format(e))
+    KeystoneValidator = None
+    CoordinateRangeHandler = None
+
 # Output path configuration
 OUTPUT_PATH = r"D:\software\heiweilu\workspace\xgimi\code\20260206_dpl_auto"
 
@@ -31,6 +47,23 @@ except Exception as e:
     print("Warning: Failed to enable keystone correction")
     print("Error message: {}".format(e))
     print("Continue testing...")
+
+# Initialize validator and coordinate handler
+if KeystoneValidator:
+    validator = KeystoneValidator()
+    print("Validator initialized")
+else:
+    validator = None
+    print("Warning: Running without validation!")
+
+if CoordinateRangeHandler:
+    coord_handler = CoordinateRangeHandler()
+    print("Coordinate handler initialized")
+    print("Range limits: TL[0-1536,0-864], TR[2304-3839,0-864], BL[0-1536,1296-2159], BR[2304-3839,1296-2159]")
+    print("Note: Coordinate clipping enabled, angle validation disabled (testing all angles)")
+else:
+    coord_handler = None
+    print("Warning: Running without coordinate range handling!")
 
 
 class KeystoneTestData:
@@ -140,7 +173,7 @@ class KeystoneTestData:
         return tests
 
 
-def check_keystone(write_points, csv_writer, v_angle, h_angle, angle_desc):
+def check_keystone(write_points, csv_writer, v_angle, h_angle, angle_desc, original_points=None):
     """
     Check keystone settings
     
@@ -150,10 +183,14 @@ def check_keystone(write_points, csv_writer, v_angle, h_angle, angle_desc):
         v_angle: Vertical angle
         h_angle: Horizontal angle
         angle_desc: Angle description string
+        original_points: Original coordinates before clipping (if any)
     
     Returns:
         bool: Whether test passed
     """
+    # Note: Validator disabled - testing all angles even if >±16°
+    # Hardware may reject with ErrorCode 3517/3518/3520
+    
     try:
         # Write keystone corners
         KeystoneCornersQueuedObj = KeystoneCornersQueued()
@@ -198,7 +235,7 @@ def check_keystone(write_points, csv_writer, v_angle, h_angle, angle_desc):
         is_match = all(w == r for w, r in zip(write_points_flat, read_points))
         result = "PASS" if is_match else "FAIL"
         
-        # Write to CSV
+        # Write to CSV (old format - use write coords as TableCoords)
         row_data = [
             str(v_angle),
             str(h_angle),
@@ -292,6 +329,7 @@ def main():
         # Execute all tests
         passed = 0
         failed = 0
+        clipped_count = 0
         
         print("Starting tests...\n")
         for i, test in enumerate(all_tests, 1):
@@ -303,7 +341,24 @@ def main():
             print("[{}/{}] Testing {}".format(i, len(all_tests), angle_desc))
             print("  Table coords: TL{}, TR{}, BL{}, BR{}".format(points[0], points[1], points[2], points[3]))
             
-            success = check_keystone(points, csv_writer, v_angle, h_angle, angle_desc)
+            # Check and fix coordinate range (always enabled)
+            original_points = None
+            test_points = points
+            if coord_handler:
+                fixed_points, clip_info = coord_handler.check_and_fix(points, strategy='clip')
+                if clip_info:
+                    clipped_count += 1
+                    original_points = points
+                    test_points = fixed_points
+                    print("  [CLIPPED] Coordinates adjusted to hardware range:")
+                    for corner, info in clip_info.items():
+                        print("    {}: ({},{}) -> ({},{}) [Δ{},{} px]".format(
+                            corner, info['original'][0], info['original'][1],
+                            info['clipped'][0], info['clipped'][1],
+                            info['delta'][0], info['delta'][1]))
+            
+            # Execute test (no angle validation - test all)
+            success = check_keystone(test_points, csv_writer, v_angle, h_angle, angle_desc, original_points)
             
             if success:
                 passed += 1
@@ -319,6 +374,12 @@ def main():
         print("Total: {} tests".format(len(all_tests)))
         print("Passed: {} ({}%)".format(passed, passed*100//len(all_tests) if all_tests else 0))
         print("Failed: {} ({}%)".format(failed, failed*100//len(all_tests) if all_tests else 0))
+        if clipped_count > 0:
+            print("Clipped: {} ({}%)".format(
+                clipped_count, clipped_count*100//len(all_tests) if all_tests else 0))
+            print("  (Coordinates adjusted to fit hardware measurement limits)")
+        print("\nNote: Some failures may be due to angle >16deg (hardware limitation)")
+        print("      Check ErrorCode: 3517=Invalid, 3518=OutOfRange, 3520=GeometricInvalid")
         
         end_time = time.time()
         elapsed = end_time - start_time

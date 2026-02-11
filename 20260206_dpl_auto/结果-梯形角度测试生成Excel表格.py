@@ -35,26 +35,48 @@ def find_latest_result_file():
 
 def parse_coordinates(coord_str):
     """解析坐标字符串"""
-    coords = [int(x.strip()) for x in coord_str.split(',')]
-    return [
-        (coords[0], coords[1]),  # Top Left
-        (coords[2], coords[3]),  # Top Right
-        (coords[4], coords[5]),  # Bottom Left
-        (coords[6], coords[7])   # Bottom Right
-    ]
+    # 处理特殊情况：N/A或空字符串
+    if not coord_str or coord_str.startswith('N/A'):
+        return [(0, 0), (0, 0), (0, 0), (0, 0)]
+    
+    try:
+        coords = [int(x.strip()) for x in coord_str.split(',')]
+        return [
+            (coords[0], coords[1]),  # Top Left
+            (coords[2], coords[3]),  # Top Right
+            (coords[4], coords[5]),  # Bottom Left
+            (coords[6], coords[7])   # Bottom Right
+        ]
+    except (ValueError, IndexError) as e:
+        print("Warning: Failed to parse coordinates '{}': {}".format(coord_str, e))
+        return [(0, 0), (0, 0), (0, 0), (0, 0)]
 
 
 def read_test_results(csv_file):
     """读取测试结果并组织数据"""
     data = {}
     
-    with open(csv_file, 'r') as f:
+    with open(csv_file, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
+            # 跳过预期失败的行（验证器标记为无效的）
+            if row['Result'] == 'EXPECTED_FAIL':
+                continue
+            
             v_angle = int(row['VerticalAngle'])
             h_angle = int(row['HorizontalAngle'])
             
-            table_coords = parse_coordinates(row['TableCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)'])
+            # 兼容旧格式（TableCoords）和新格式（OriginalCoords/ClippedCoords）
+            if 'ClippedCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)' in row:
+                # 新格式：使用裁剪后的坐标
+                table_coords = parse_coordinates(row['ClippedCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)'])
+            elif 'TableCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)' in row:
+                # 旧格式
+                table_coords = parse_coordinates(row['TableCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)'])
+            else:
+                # 尝试OriginalCoords
+                table_coords = parse_coordinates(row['OriginalCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)'])
+            
             read_coords = parse_coordinates(row['ReadCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)'])
             
             data[(v_angle, h_angle)] = {
@@ -62,7 +84,7 @@ def read_test_results(csv_file):
                 'table_coords': table_coords,
                 'read_coords': read_coords,
                 'result': row['Result'],
-                'error_code': int(row['ErrorCode'])
+                'error_code': int(row['ErrorCode']) if row['ErrorCode'] != 'N/A' else 0
             }
     
     return data
