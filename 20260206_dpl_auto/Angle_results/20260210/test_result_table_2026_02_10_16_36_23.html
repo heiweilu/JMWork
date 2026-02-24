@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>梯形角度测试结果表格</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .info {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .legend {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .legend-item {
+            display: inline-block;
+            margin: 0 15px;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .legend-pass {
+            background-color: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+        
+        .legend-fail {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+        
+        .legend-warning {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 2px solid #bee5eb;
+        }
+        
+        .container {
+            overflow-x: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        table {
+            border-collapse: collapse;
+            margin: 0 auto;
+            background: white;
+            font-size: 11px;
+        }
+        
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+            min-width: 100px;
+        }
+        
+        th {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        th.v-angle {
+            background-color: #2196F3;
+        }
+        
+        td.angle-header {
+            background-color: #e3f2fd;
+            font-weight: bold;
+            color: #1976D2;
+        }
+        
+        .cell-content {
+            line-height: 1.6;
+        }
+        
+        .coords {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 10px;
+            margin: 2px 0;
+        }
+        
+        .angle-label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 11px;
+        }
+        
+        .pass-cell {
+            background-color: #d4edda;
+        }
+        
+        .fail-cell {
+            background-color: #f8d7da;
+        }
+        
+        .warning-cell {
+            background-color: #d1ecf1;
+        }
+        
+        .error-code {
+            font-size: 10px;
+            color: #666;
+            margin-top: 3px;
+            font-style: italic;
+        }
+        
+        .error-code.error {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+        
+        .coord-label {
+            display: inline-block;
+            width: 25px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .coord-diff {
+            color: #d32f2f;
+            font-weight: bold;
+            font-size: 9px;
+            margin-left: 5px;
+        }
+        
+        .summary {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+        }
+        
+        .summary h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <h1>📊 梯形角度测试结果可视化表格</h1>
+    <div class="info">
+        生成时间: 2026-02-10 16:36:23<br>
+        测试总数: 61 组角度组合
+    </div>
+    
+    <div class="legend">
+        <span class="legend-item legend-pass">✓ PASS - 测试通过</span>
+        <span class="legend-item legend-warning">⚠ FAIL(EC=1) - 坐标不匹配但硬件执行成功</span>
+        <span class="legend-item legend-fail">✗ FAIL - 硬件执行失败</span>
+    </div>
+    
+    <div class="container">
+        <table>
+            <thead>
+                <tr>
+                    <th class="v-angle">垂直角度 ↓<br>水平角度 →</th>
+                    <th>0°</th>
+                    <th>上投10°</th>
+                    <th>上投20°</th>
+                    <th>上投30°</th>
+                    <th>下投10°</th>
+                    <th>下投20°</th>
+                    <th>下投30°</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="angle-header">0°</td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(76,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,56)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(106,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3826,2138)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="warning-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(109,2)<span class="coord-diff">Δ1</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(3719,92)<span class="coord-diff">Δ2</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,2052)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3832,2067)<span class="coord-diff">Δ2</span></div>
+                            <div class="error-code ">✗ EC:1</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(240,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3610,52)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,1780)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,1806)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(348,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3516,28)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,1470)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,1494)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,6)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,46)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(172,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3680,2128)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,66)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,74)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(300,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3582,2036)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,246)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,174)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(398,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3494,1998)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="angle-header">左投10°</td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,180)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3620,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(28,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3612,2152)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="warning-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(102,254)<span class="coord-diff">Δ12</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(3624,0)<span class="coord-diff">Δ8</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,2158)<span class="coord-diff">Δ13</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(3736,2080)</div>
+                            <div class="error-code ">✗ EC:1</div>
+                        </div>
+                    </td>
+                    <td class="warning-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(228,388)<span class="coord-diff">Δ48</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(3588,0)<span class="coord-diff">Δ28</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,2124)<span class="coord-diff">Δ57</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,1906)</div>
+                            <div class="error-code ">✗ EC:1</div>
+                        </div>
+                    </td>
+                    <td class="warning-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(334,446)<span class="coord-diff">Δ94</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(3492,0)<span class="coord-diff">Δ46</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,1940)<span class="coord-diff">Δ123</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,1586)<span class="coord-diff">Δ1</span></div>
+                            <div class="error-code ">✗ EC:1</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,104)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3676,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(158,2066)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3528,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,86)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,68)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(280,2054)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3566,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,180)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,236)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(378,2006)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3476,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="angle-header">左投20°</td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,390)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3216,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(24,2146)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3212,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(88,500)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3132,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3212,2000)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(206,628)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3114,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3276,1798)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(288,840)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(2900,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3100,1488)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,222)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3228,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(140,1964)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3118,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,50)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3558,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(260,1874)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3322,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3590,150)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(354,1742)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3264,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="angle-header">左投30°</td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,556)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(2690,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(20,2136)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(2694,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(80,688)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(2582,20)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(2626,1928)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(178,840)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(2460,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(2522,1648)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="fail-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(268,930)<span class="coord-diff">Δ90</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(2592,0)<span class="coord-diff">Δ132</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(2718,1408)<span class="coord-diff">Δ240</span></div>
+                            <div class="error-code error">✗ EC:3517</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,302)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(2748,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(128,1896)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(2678,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,74)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3030,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(236,1732)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(2876,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3590,150)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(354,1742)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3264,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="angle-header">左投40°</td>
+                    <td class="fail-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,692)<span class="coord-diff">Δ318</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(1992,0)<span class="coord-diff">Δ190</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(18,2128)<span class="coord-diff">Δ280</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(2002,2158)<span class="coord-diff">Δ168</span></div>
+                            <div class="error-code error">✗ EC:3517</div>
+                        </div>
+                    </td>
+                    <td class="fail-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(72,818)<span class="coord-diff">Δ444</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(2050,0)<span class="coord-diff">Δ132</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,2158)<span class="coord-diff">Δ310</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(2118,1594)<span class="coord-diff">Δ564</span></div>
+                            <div class="error-code error">✗ EC:3517</div>
+                        </div>
+                    </td>
+                    <td class="fail-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(176,924)<span class="coord-diff">Δ550</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(2118,0)<span class="coord-diff">Δ64</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,2158)<span class="coord-diff">Δ310</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(2118,1594)<span class="coord-diff">Δ564</span></div>
+                            <div class="error-code error">✗ EC:3517</div>
+                        </div>
+                    </td>
+                    <td style="background-color: #f0f0f0;">-</td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,374)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(2182,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(122,1848)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(2170,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,242)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(2200,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(164,1728)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(2176,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(0,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(2376,20)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(244,1528)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(2312,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="angle-header">右投10°</td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(388,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,282)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(408,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3824,2134)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="warning-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(336,0)<span class="coord-diff">Δ9</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(3738,342)<span class="coord-diff">Δ15</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(236,2070)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,2158)<span class="coord-diff">Δ17</span></div>
+                            <div class="error-code ">✗ EC:1</div>
+                        </div>
+                    </td>
+                    <td class="warning-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(270,0)<span class="coord-diff">Δ34</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(3622,440)<span class="coord-diff">Δ58</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,1914)<span class="coord-diff">Δ1</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,2158)<span class="coord-diff">Δ70</span></div>
+                            <div class="error-code ">✗ EC:1</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(378,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3530,528)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(0,1608)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,2022)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(374,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,176)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(518,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3700,2004)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(248,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,44)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(516,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3600,1866)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(254,168)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(614,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3520,1730)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="angle-header">右投20°</td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(854,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,470)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(868,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3826,2122)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(864,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3752,574)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(798,1988)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(928,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3658,708)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(774,1740)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(990,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3576,858)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(772,1474)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(714,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,254)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(826,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3710,1942)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(790,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,64)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(976,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3622,1714)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(960,252)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,0)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(1124,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3552,1548)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="angle-header">右投30°</td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(1374,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,606)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(1380,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3824,2116)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(1420,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3762,742)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(1388,1920)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,2158)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="fail-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(1566,0)<span class="coord-diff">Δ146</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(3682,898)<span class="coord-diff">Δ156</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(1506,1596)<span class="coord-diff">Δ324</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,2158)</div>
+                            <div class="error-code error">✗ EC:3518</div>
+                        </div>
+                    </td>
+                    <td class="fail-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(1202,0)<span class="coord-diff">Δ218</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(3588,920)<span class="coord-diff">Δ178</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(1034,1416)<span class="coord-diff">Δ504</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,2158)</div>
+                            <div class="error-code error">✗ EC:3518</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(1202,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,326)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(1274,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3720,1878)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(1370,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,78)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(1468,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3636,1608)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="fail-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(1442,64)<span class="coord-diff">Δ210</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,0)<span class="coord-diff">Δ376</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(1538,2158)<span class="coord-diff">Δ144</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(3606,1508)<span class="coord-diff">Δ330</span></div>
+                            <div class="error-code error">✗ EC:3520</div>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="angle-header">右投40°</td>
+                    <td class="fail-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(1904,0)<span class="coord-diff">Δ252</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,700)<span class="coord-diff">Δ324</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(1904,2158)<span class="coord-diff">Δ222</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(3824,2112)<span class="coord-diff">Δ274</span></div>
+                            <div class="error-code error">✗ EC:3518</div>
+                        </div>
+                    </td>
+                    <td class="fail-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(1778,0)<span class="coord-diff">Δ126</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(3766,822)<span class="coord-diff">Δ446</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(1764,1882)<span class="coord-diff">Δ276</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,2158)<span class="coord-diff">Δ320</span></div>
+                            <div class="error-code error">✗ EC:3518</div>
+                        </div>
+                    </td>
+                    <td class="fail-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(1714,0)<span class="coord-diff">Δ62</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(3686,934)<span class="coord-diff">Δ558</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(1672,1568)<span class="coord-diff">Δ590</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(3838,2158)<span class="coord-diff">Δ320</span></div>
+                            <div class="error-code error">✗ EC:3518</div>
+                        </div>
+                    </td>
+                    <td style="background-color: #f0f0f0;">-</td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(1652,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,376)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(1682,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3726,1838)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="pass-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(1604,0)</div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,86)</div>
+                            <div class="coords"><span class="coord-label">BL</span>(1666,2158)</div>
+                            <div class="coords"><span class="coord-label">BR</span>(3642,1578)</div>
+                            <div class="error-code ">✓</div>
+                        </div>
+                    </td>
+                    <td class="fail-cell">
+                        <div class="cell-content">
+                            <div class="coords"><span class="coord-label">TL</span>(1538,32)<span class="coord-diff">Δ1360</span></div>
+                            <div class="coords"><span class="coord-label">TR</span>(3838,0)<span class="coord-diff">Δ1382</span></div>
+                            <div class="coords"><span class="coord-label">BL</span>(1618,2158)<span class="coord-diff">Δ1618</span></div>
+                            <div class="coords"><span class="coord-label">BR</span>(3612,1502)<span class="coord-diff">Δ1090</span></div>
+                            <div class="error-code error">✗ EC:3520</div>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="summary">
+        <h3>📌 说明</h3>
+        <ul>
+            <li><strong>绿色单元格</strong>: 测试通过 (PASS) - 坐标完全匹配</li>
+            <li><strong>蓝色单元格</strong>: 测试失败但ErrorCode=1 (FAIL) - 硬件执行成功但读回坐标存在偏差</li>
+            <li><strong>红色单元格</strong>: 测试失败且ErrorCode≠1 (FAIL) - 硬件执行失败（参数超范围/几何无效等）</li>
+            <li><strong>TL/TR/BL/BR</strong>: 左上/右上/左下/右下角点坐标 (x,y)</li>
+            <li><strong>Δ数值</strong>: 读取坐标与写入坐标的最大差异（像素）</li>
+            <li><strong>EC</strong>: ErrorCode (1=成功, 3517=参数超范围, 3518=坐标超范围, 3520=几何无效, 3535=硬件错误)</li>
+        </ul>
+    </div>
+    
+</body>
+</html>
