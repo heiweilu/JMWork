@@ -43,7 +43,7 @@ except Exception as e:
 #    - 象限4(右下): CSV_quadrant_data\quadrant_4_right_bottom.csv
 
 # 【当前配置】修改为对应象限的CSV文件
-CSV_FILE_PATH = r"D:\software\heiweilu\workspace\xgimi\code\20260206_dpl_auto\CSV_quadrant_data\quadrant_1_left_top.csv"
+CSV_FILE_PATH = r"D:\software\heiweilu\workspace\xgimi\code\20260206_dpl_auto\CSV_quadrant_data\quadrant_2_right_top.csv"
 # 推荐改为（象限1示例）:
 # CSV_FILE_PATH = r"D:\software\heiweilu\workspace\xgimi\code\20260206_dpl_auto\CSV_quadrant_data\quadrant_1_left_top.csv"
 
@@ -71,12 +71,12 @@ TEST_CONFIG = {
 }
 # =============================================================
 # 【推荐工作流程】
-# 1. 运行 "CSV预处理-拆分象限.py"
+# 1. 运行 "CSV预处理-拆分象限.py"（仅需1次，约30分钟）
 # 2. 修改上面的 CSV_FILE_PATH 指向对应象限文件
 # 3. 将所有 sub_xxx 设为 None
-# 4. 运行测试
+# 4. 运行测试（加载仅需15秒，而非50分钟！）
 #
-# 【传统工作流程】
+# 【传统工作流程】（不推荐，每次加载50分钟）
 # - 使用完整CSV文件
 # - 手动配置 sub_yaw_min/max, sub_pitch_min/max 范围
 # =============================================================
@@ -434,7 +434,7 @@ def main():
     start_time = time.time()
     
     # Create output CSV file
-    csv_path = os.path.join(OUTPUT_PATH, '角度测试脚本结果', time.strftime("%Y%m%d"),
+    csv_path = os.path.join(OUTPUT_PATH, 'Angle_results', time.strftime("%Y%m%d"),
                            'angle_test_result_{}.csv'.format(time.strftime("%Y_%m_%d_%H_%M_%S")))
     
     print("=" * 80)
@@ -484,11 +484,32 @@ def main():
     tested_angles = set()
     file_mode = 'w'  # 默认写模式
     
-    if TEST_CONFIG.get('resume_from_previous') and os.path.exists(csv_path):
-        tested_angles = load_tested_angles(csv_path)
-        if tested_angles:
-            file_mode = 'a'  # 追加模式
-            print("使用追加模式，将跳过已测试的 {} 个角度\n".format(len(tested_angles)))
+    if TEST_CONFIG.get('resume_from_previous'):
+        # 在整个 Angle_results 目录下查找最新的结果文件（不限日期）
+        angle_results_root = os.path.join(OUTPUT_PATH, 'Angle_results')
+        latest_csv = None
+        latest_mtime = 0
+        if os.path.exists(angle_results_root):
+            for date_dir in os.listdir(angle_results_root):
+                date_path = os.path.join(angle_results_root, date_dir)
+                if not os.path.isdir(date_path):
+                    continue
+                for fname in os.listdir(date_path):
+                    if fname.startswith('angle_test_result_') and fname.endswith('.csv'):
+                        fpath = os.path.join(date_path, fname)
+                        mtime = os.path.getmtime(fpath)
+                        if mtime > latest_mtime:
+                            latest_mtime = mtime
+                            latest_csv = fpath
+        
+        if latest_csv:
+            print("断点续传：找到最新结果文件: {}".format(latest_csv))
+            tested_angles = load_tested_angles(latest_csv)
+            if tested_angles:
+                file_mode = 'w'  # 新文件，但跳过已测试角度
+                print("将跳过已测试的 {} 个角度\n".format(len(tested_angles)))
+        else:
+            print("断点续传：未找到已有结果文件，从头开始\n")
     
     # Create CSV file and write header
     print("Creating CSV file...")

@@ -60,31 +60,38 @@ def read_test_results(csv_file):
         reader = csv.DictReader(f)
         for row in reader:
             # 跳过预期失败的行（验证器标记为无效的）
-            if row['Result'] == 'EXPECTED_FAIL':
+            if row.get('Result') == 'EXPECTED_FAIL':
                 continue
             
-            v_angle = int(row['VerticalAngle'])
-            h_angle = int(row['HorizontalAngle'])
+            # 兼容旧列名（VerticalAngle）和新列名（VerticalAngle(Yaw)）
+            v_angle_raw = row.get('VerticalAngle') or row.get('VerticalAngle(Yaw)', '0')
+            h_angle_raw = row.get('HorizontalAngle') or row.get('HorizontalAngle(Pitch)', '0')
+            v_angle = round(float(v_angle_raw), 1)
+            h_angle = round(float(h_angle_raw), 1)
             
-            # 兼容旧格式（TableCoords）和新格式（OriginalCoords/ClippedCoords）
+            # 兼容多种坐标列名格式
             if 'ClippedCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)' in row:
-                # 新格式：使用裁剪后的坐标
                 table_coords = parse_coordinates(row['ClippedCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)'])
+            elif 'WriteCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)' in row:
+                table_coords = parse_coordinates(row['WriteCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)'])
             elif 'TableCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)' in row:
-                # 旧格式
                 table_coords = parse_coordinates(row['TableCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)'])
-            else:
-                # 尝试OriginalCoords
+            elif 'OriginalCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)' in row:
                 table_coords = parse_coordinates(row['OriginalCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)'])
+            else:
+                table_coords = [(0, 0), (0, 0), (0, 0), (0, 0)]
             
-            read_coords = parse_coordinates(row['ReadCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)'])
+            read_coords = parse_coordinates(row.get('ReadCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)', ''))
+            
+            error_code_raw = row.get('ErrorCode', '0')
+            error_code = int(float(error_code_raw)) if error_code_raw not in ('N/A', '', None) else 0
             
             data[(v_angle, h_angle)] = {
-                'angle_desc': row['AngleDesc'],
+                'angle_desc': row.get('AngleDesc', ''),
                 'table_coords': table_coords,
                 'read_coords': read_coords,
-                'result': row['Result'],
-                'error_code': int(row['ErrorCode']) if row['ErrorCode'] != 'N/A' else 0
+                'result': row.get('Result', 'FAIL'),
+                'error_code': error_code
             }
     
     return data
@@ -93,18 +100,18 @@ def read_test_results(csv_file):
 def generate_excel_table(data, output_file):
     """生成Excel表格"""
     
-    # 自定义垂直角度排序：0, 10, 20, 30, 40, -10, -20, -30, -40
+    # 自定义垂直角度排序：0, 0.1, 0.2, ..., 正值升序, 负值降序（绝对值升序）
     v_angles_set = set(k[0] for k in data.keys())
     positive_v = sorted([a for a in v_angles_set if a > 0])
     negative_v = sorted([a for a in v_angles_set if a < 0], reverse=True)
-    zero_v = [0] if 0 in v_angles_set else []
+    zero_v = [0.0] if 0.0 in v_angles_set else []
     v_angles = zero_v + positive_v + negative_v
     
-    # 自定义水平角度排序：0, 10, 20, 30, -10, -20, -30
+    # 自定义水平角度排序：0, 正值升序, 负值降序（绝对值升序）
     h_angles_set = set(k[1] for k in data.keys())
     positive_angles = sorted([a for a in h_angles_set if a > 0])
     negative_angles = sorted([a for a in h_angles_set if a < 0], reverse=True)
-    zero_angle = [0] if 0 in h_angles_set else []
+    zero_angle = [0.0] if 0.0 in h_angles_set else []
     h_angles = zero_angle + positive_angles + negative_angles
     
     # 创建工作簿
@@ -152,6 +159,8 @@ def generate_excel_table(data, output_file):
             h_label = "上投{}°".format(h_angle)
         else:
             h_label = "下投{}°".format(abs(h_angle))
+        # 去掉多余的 .0（如 10.0° → 10°）
+        h_label = h_label.replace('.0°', '°')
         
         ws.merge_cells(start_row=1, start_column=col_idx, end_row=2, end_column=col_idx)
         cell = ws.cell(row=1, column=col_idx)
@@ -171,6 +180,8 @@ def generate_excel_table(data, output_file):
             v_label = "左投{}°".format(v_angle)
         else:
             v_label = "右投{}°".format(abs(v_angle))
+        # 去掉多余的 .0（如 10.0° → 10°）
+        v_label = v_label.replace('.0°', '°')
         
         cell = ws.cell(row=current_row, column=1)
         cell.value = v_label
