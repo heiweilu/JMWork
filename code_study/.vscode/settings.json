@@ -1,0 +1,10 @@
+{
+    "code-runner.executorMap": {
+        "c": "cd $dir && C:/msys64/ucrt64/bin/gcc.exe $fileName -o $fileNameWithoutExt.exe && $dir$fileNameWithoutExt.exe",
+        "cpp": "cd $dir && C:/msys64/ucrt64/bin/g++.exe $fileName -o $fileNameWithoutExt.exe && $dir$fileNameWithoutExt.exe"
+    },
+    "code-runner.runInTerminal": true,
+    "terminal.integrated.env.windows": {
+        "PATH": "C:\\msys64\\ucrt64\\bin;${env:PATH}"
+    }
+}
