@@ -33,7 +33,7 @@ PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__f
 #   quadrant_2_right_top.csv    (象限2 右上)
 #   quadrant_3_left_bottom.csv  (象限3 左下)
 #   quadrant_4_right_bottom.csv (象限4 右下)
-CSV_QUADRANT_FILE = 'quadrant_2_right_top.csv'
+CSV_QUADRANT_FILE = 'quadrant_3_left_bottom.csv'
 # ==============================================================================
 
 # 路径自动拼接（无需手动修改）

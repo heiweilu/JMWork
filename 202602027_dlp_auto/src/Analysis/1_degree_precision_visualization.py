@@ -149,7 +149,7 @@ def visualize_angle_test_results(csv_path):
     # Yaw  正 = 右投（画面右移），负 = 左投（画面左移）  → 作为 X 轴更直观
     # Pitch 正 = 下投（画面下移），负 = 上投（画面上移）  → 作为 Y 轴更直观
     ax.set_xlabel('Yaw / VerticalAngle    负(-) ← 左投  |  右投 → 正(+)', fontsize=12)
-    ax.set_ylabel('Pitch / HorizontalAngle    负(-) ← 上投  |  下投 → 正(+)', fontsize=12)
+    ax.set_ylabel('Pitch / HorizontalAngle    上投(-) ↑  |  ↓ 下投(+)', fontsize=12)
     ax.set_title(
         f"梯形角度测试结果可视化（1° 步进精度）\n"
         f"文件: {os.path.basename(csv_path)}    "
@@ -162,20 +162,21 @@ def visualize_angle_test_results(csv_path):
 
     if total > 0:
         ax.set_xlim(df[yaw_col].min()   - 5, df[yaw_col].max()   + 5)
-        ax.set_ylim(df[pitch_col].min() - 5, df[pitch_col].max() + 5)
+        # Y 轴反转：负 Pitch（上投）显示在图上方，正 Pitch（下投）显示在图下方，与直觉一致
+        ax.set_ylim(df[pitch_col].max() + 5, df[pitch_col].min() - 5)
 
     # ── 四象限方向标注 ────────────────────────────────────────
     xlim = ax.get_xlim()
-    ylim = ax.get_ylim()
+    ylim = ax.get_ylim()   # Y 轴已反转：ylim[0]=正值(图下方), ylim[1]=负值(图上方)
     quad_kw = dict(fontsize=10, color='#555555', alpha=0.6,
                    ha='center', va='center',
                    bbox=dict(boxstyle='round,pad=0.3', fc='white', alpha=0.5, ec='none'))
     cx, cy = (xlim[0]+xlim[1])/2, (ylim[0]+ylim[1])/2
-    # X=Yaw(左-/右+)，Y=Pitch(上-/下+)：正Pitch在上方（Y轴正方向），负Pitch在下方
-    ax.text(xlim[0]*0.6, ylim[1]*0.7, '下投 + 左投\n(Pitch>0, Yaw<0)', **quad_kw)
-    ax.text(xlim[1]*0.6, ylim[1]*0.7, '下投 + 右投\n(Pitch>0, Yaw>0)', **quad_kw)
-    ax.text(xlim[0]*0.6, ylim[0]*0.7, '上投 + 左投\n(Pitch<0, Yaw<0)', **quad_kw)
-    ax.text(xlim[1]*0.6, ylim[0]*0.7, '上投 + 右投\n(Pitch<0, Yaw>0)', **quad_kw)
+    # Y 轴已反转：负 Pitch 在图上方（上投），正 Pitch 在图下方（下投）
+    ax.text(xlim[0]*0.6, ylim[1]*0.7, '上投 + 左投\n(Pitch<0, Yaw<0)', **quad_kw)
+    ax.text(xlim[1]*0.6, ylim[1]*0.7, '上投 + 右投\n(Pitch<0, Yaw>0)', **quad_kw)
+    ax.text(xlim[0]*0.6, ylim[0]*0.7, '下投 + 左投\n(Pitch>0, Yaw<0)', **quad_kw)
+    ax.text(xlim[1]*0.6, ylim[0]*0.7, '下投 + 右投\n(Pitch>0, Yaw>0)', **quad_kw)
 
     # ── 图内分析结论文本框 ────────────────────────────────────
     conclusions = [
