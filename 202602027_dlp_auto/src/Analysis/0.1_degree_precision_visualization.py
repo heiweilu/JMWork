@@ -34,6 +34,11 @@ import numpy as np
 import os
 from datetime import datetime
 
+# ── 工程根目录（本脚本在 src/Analysis/，向上两层，任何电脑均自动适配）──────── #
+PROJECT_ROOT = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
+)
+
 # ==============================================================================
 # 【手动配置区】
 # ── 各象限输入文件（未完成的象限填 None）────────────────────────────────────── #
@@ -42,11 +47,12 @@ from datetime import datetime
 #     TR = Top-Right   右上  (Yaw>=0, Pitch<0)
 #     BL = Bottom-Left 左下  (Yaw<0,  Pitch>=0)
 #     BR = Bottom-Right右下  (Yaw>=0, Pitch>=0)
+#   路径基于工程根目录自动生成，无需关心执行位置
 # ---------------------------------------------------------------------------- #
 QUADRANT_FILES = {
-    'TL': os.path.join('reports', 'Angle_test_results', '0.1_degress', '20260226',
+    'TL': os.path.join(PROJECT_ROOT, 'reports', 'Angle_test_results', '0.1_degress', '20260226',
                        'TL_angle_test_result_2026_02_24_14_57_24.csv'),
-    'TR': os.path.join('reports', 'Angle_test_results', '0.1_degress', '20260226',
+    'TR': os.path.join(PROJECT_ROOT, 'reports', 'Angle_test_results', '0.1_degress', '20260226',
                        'TR_angle_test_result_2026_02_26_16_53_45.csv'),
     'BL': None,   # 尚未跑完，设为 None
     'BR': None,   # 尚未跑完，设为 None
@@ -57,12 +63,6 @@ QUADRANT_FILES = {
 AXIS_YAW_RANGE   = (-42, 42)    # X 轴（Yaw / 左右）全范围
 AXIS_PITCH_RANGE = (-42, 42)    # Y 轴（Pitch / 上下）全范围
 # ==============================================================================
-
-
-# ── 工程根目录（本脚本在 src/Analysis/，向上两层）────────────────────────────── #
-PROJECT_ROOT = os.path.normpath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
-)
 
 # 设置中文字体 (Windows)
 plt.rcParams['font.sans-serif'] = ['SimHei']

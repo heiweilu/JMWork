@@ -39,17 +39,17 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# ==============================================================================
-# 【手动配置区】
-# 输入文件：指定要分析的角度测试结果 CSV（相对于工程根目录）
-INPUT_CSV = os.path.join('reports', 'Angle_test_results', '1_degress', '20260213',
-                         'angle_test_result_2026_02_13_17_10_41.csv')
-# ==============================================================================
-
-# 工程根目录（本脚本在 src/Analysis/，向上两层即工程根）
+# 工程根目录（本脚本在 src/Analysis/，向上两层即工程根，任何电脑均自动适配）
 PROJECT_ROOT = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
 )
+
+# ==============================================================================
+# 【手动配置区】
+# 输入文件：指定要分析的角度测试结果 CSV（基于工程根目录的绝对路径，无需关心执行位置）
+INPUT_CSV = os.path.join(PROJECT_ROOT, 'reports', 'Angle_test_results', '1_degress', '20260213',
+                         'angle_test_result_2026_02_13_17_10_41.csv')
+# ==============================================================================
 
 YAW   = 'VerticalAngle(Yaw)'
 PITCH = 'HorizontalAngle(Pitch)'
@@ -276,5 +276,4 @@ def analyze_boundaries(csv_path):
 
 # ──────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    target_csv = os.path.join(PROJECT_ROOT, INPUT_CSV)
-    analyze_boundaries(target_csv)
+    analyze_boundaries(INPUT_CSV)

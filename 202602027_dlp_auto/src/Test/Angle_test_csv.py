@@ -19,26 +19,76 @@
 ============================================================
 """
 import csv
+import io
 import os
 import time
 import traceback
+
+
+class _Tee(object):
+    """
+    将 sys.stdout 同时写入控制台和日志文件。
+    日志文件每行自动添加 [HH:MM:SS] 时间戳前缀。
+    """
+    def __init__(self, log_path):
+        import sys as _sys
+        self._console = _sys.stdout
+        log_dir = os.path.dirname(log_path)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        self._logfile = io.open(log_path, 'w', encoding='utf-8')
+        self._buf = ''
+
+    def write(self, msg):
+        self._console.write(msg)
+        self._buf += msg
+        while '\n' in self._buf:
+            line, self._buf = self._buf.split('\n', 1)
+            self._logfile.write('[{}] {}\n'.format(time.strftime('%H:%M:%S'), line))
+
+    def flush(self):
+        self._console.flush()
+        self._logfile.flush()
+
+    def close(self):
+        if self._buf:
+            self._logfile.write('[{}] {}\n'.format(time.strftime('%H:%M:%S'), self._buf))
+            self._buf = ''
+        self._logfile.close()
+
 
 # 工程根目录（本脚本在 src/Test/，向上两层即工程根）
 PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
 # ==============================================================================
-# 【手动配置区】每次测试前只需在这里修改对应象限的文件名
-# 可选：
-#   quadrant_1_left_top.csv     (象限1 左上)
-#   quadrant_2_right_top.csv    (象限2 右上)
-#   quadrant_3_left_bottom.csv  (象限3 左下)
-#   quadrant_4_right_bottom.csv (象限4 右下)
+# 【手动配置区】每次测试前修改此处选择数据源
+#
+# DATA_MODE 可选值：
+#   'quadrant'  - 使用预处理后的分象限CSV
+#   'raw_1deg'  - 使用原始1度完整数据文件
+#   'raw_01deg' - 使用原始0.1度完整数据文件
+#
+DATA_MODE = 'quadrant'
+
+# 当 DATA_MODE = 'quadrant' 时，选择要测试的象限文件：
+#   'quadrant_1_left_top.csv'     (象限1 左上)
+#   'quadrant_2_right_top.csv'    (象限2 右上)
+#   'quadrant_3_left_bottom.csv'  (象限3 左下)
+#   'quadrant_4_right_bottom.csv' (象限4 右下)
 CSV_QUADRANT_FILE = 'quadrant_3_left_bottom.csv'
 # ==============================================================================
 
 # 路径自动拼接（无需手动修改）
-CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'CSV_quadrant_data', CSV_QUADRANT_FILE)
-OUTPUT_PATH    = os.path.join(PROJECT_ROOT, 'reports')
+if DATA_MODE == 'quadrant':
+    CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'CSV_quadrant_data', CSV_QUADRANT_FILE)
+elif DATA_MODE == 'raw_1deg':
+    CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'Raw_interface_output_data', 'ak_scan_yaw_pitch_step1_20260204_100304.csv')
+elif DATA_MODE == 'raw_01deg':
+    CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'Raw_interface_output_data', 'ak_scan_yaw_pitch_step0.10_20260204_143212.csv')
+else:
+    raise ValueError("DATA_MODE 配置错误，可选值: 'quadrant' / 'raw_1deg' / 'raw_01deg'")
+
+OUTPUT_PATH = os.path.join(PROJECT_ROOT, 'reports')
 
 print("Importing libraries...")
 try:
@@ -63,10 +113,8 @@ except Exception as e:
     KeystoneValidator = None
 
 # ==================== Configuration Area ====================
-# CSV file path
-# 【重要优化】强烈建议使用预处理后的分象限CSV文件！
-# 1. 先运行 CSV_Preprocessing_Split_quadarant.py 生成4个小文件（仅需运行1次）
-# 2. 修改脚本顶部【手动配置区】的 CSV_QUADRANT_FILE 即可切换象限
+# 步长根据 DATA_MODE 自动设置（无需手动修改）
+_AUTO_STEP = 1.0 if DATA_MODE == 'raw_1deg' else 0.1
 
 # Test range configuration
 TEST_CONFIG = {
@@ -74,7 +122,7 @@ TEST_CONFIG = {
     'yaw_max': 40,       # yaw maximum
     'pitch_min': -40,    # pitch minimum (down-/up+)
     'pitch_max': 40,     # pitch maximum
-    'step': 0.1,         # step size (degrees), default 0.1 degree
+    'step': _AUTO_STEP,  # 自动适配：raw_1deg=1.0度，其他=0.1度
     
     # ===== 分段测试配置 (可选) =====
     # 【使用分象限CSV文件后，这些配置可以全部设为None】
@@ -87,14 +135,17 @@ TEST_CONFIG = {
     # ===== 断点续传配置 =====
     'resume_from_previous': True,  # 是否启用断点续传（跳过已测试的角度）
 }
+
+# 进度日志输出间隔：每 LOG_INTERVAL 个有效测试输出一次进度（含 PASS/FAIL + 时间统计）
+LOG_INTERVAL = 200
 # =============================================================
 # 【推荐工作流程】
-# 1. 运行 "CSV预处理-拆分象限.py"（仅需1次，约30分钟）
+# 1. 运行 "CSV预处理-拆分象限.py"
 # 2. 修改上面的 CSV_FILE_PATH 指向对应象限文件
 # 3. 将所有 sub_xxx 设为 None
-# 4. 运行测试（加载仅需15秒，而非50分钟！）
+# 4. 运行测试
 #
-# 【传统工作流程】（不推荐，每次加载50分钟）
+# 【传统工作流程】
 # - 使用完整CSV文件
 # - 手动配置 sub_yaw_min/max, sub_pitch_min/max 范围
 # =============================================================
@@ -448,9 +499,18 @@ def load_tested_angles(csv_path):
 
 def main():
     """Main function"""
-    print("\nEntering main function...")
     start_time = time.time()
-    
+
+    # ── 日志文件（PROJECT_ROOT/logs/，文件名含时间戳）──────────────────────── #
+    import sys as _sys
+    log_path = os.path.join(PROJECT_ROOT, 'logs',
+                            'angle_test_{}.log'.format(time.strftime("%Y%m%d_%H%M%S")))
+    tee = _Tee(log_path)
+    _sys.stdout = tee
+
+    print("\nEntering main function...")
+    print("Log file: {}".format(log_path))
+
     # Create output CSV file
     csv_path = os.path.join(OUTPUT_PATH, 'Angle_test_results', time.strftime("%Y%m%d"),
                            'angle_test_result_{}.csv'.format(time.strftime("%Y_%m_%d_%H_%M_%S")))
@@ -572,22 +632,22 @@ def main():
             
             angle_desc = format_angle_name(v_angle, h_angle)
             
-            # Print progress summary every 1000 tests or 10 minutes
+            # 每 LOG_INTERVAL 个有效测试（或每 5 分钟）输出一次进度
+            # 无论 PASS 还是 FAIL 都统一显示，附带耗时 / 速率 / 预计剩余时间
+            executed = passed + failed
             current_time = time.time()
-            if i == 1 or i % 1000 == 0 or (current_time - last_progress_time) >= 600:
+            if i == 1 or (executed > 0 and executed % LOG_INTERVAL == 0) or \
+               (current_time - last_progress_time) >= 300:
                 elapsed = current_time - test_start_time
-                executed = passed + failed
-                if executed > 0:
-                    avg_time = elapsed / executed
-                    remaining = (len(all_tests) - i - skipped) * avg_time
-                    eta_hours = remaining / 3600
-                    print("\n[Progress] {}/{} tests | Passed:{} Failed:{} | Elapsed:{:.1f}h | ETA:{:.1f}h".format(
-                        i, len(all_tests), passed, failed, elapsed/3600, eta_hours))
+                avg_time = elapsed / executed if executed > 0 else 0
+                remaining_tests = max(len(all_tests) - i - skipped, 0)
+                eta_min = remaining_tests * avg_time / 60 if avg_time > 0 else 0
+                pass_rate = passed * 100 // executed if executed > 0 else 0
+                print("[{}/{}] PASS:{} FAIL:{} ({}%) | "
+                      "Elapsed:{:.1f}min({:.2f}h) | Rate:{:.3f}s/test | ETA:{:.1f}min".format(
+                      i, len(all_tests), passed, failed, pass_rate,
+                      elapsed / 60, elapsed / 3600, avg_time, eta_min))
                 last_progress_time = current_time
-            
-            # Only print detail for first 10 tests, then every 100th
-            if i <= 10 or i % 100 == 0:
-                print("[{}/{}] Testing {}".format(i, len(all_tests), angle_desc))
             
             # Use original CSV coordinates directly (no range clipping)
             test_points = points
@@ -622,6 +682,10 @@ def main():
         print("Average: {:.3f} sec/test".format(elapsed/len(all_tests)))
         print("\nResults saved to: {}".format(csv_path))
         print("=" * 80)
+
+    # 关闭日志文件，恢复 stdout
+    _sys.stdout = tee._console
+    tee.close()
 
 
 print("DEBUG: Script loaded, checking if running as main...")

@@ -17,10 +17,45 @@
 ============================================================
 """
 import csv
+import io
 import os
 import copy
 import time
 import traceback
+
+
+class _Tee(object):
+    """
+    将 sys.stdout 同时写入控制台和日志文件。
+    日志文件每行自动添加 [HH:MM:SS] 时间戳前缀。
+    """
+    def __init__(self, log_path):
+        import sys as _sys
+        self._console = _sys.stdout
+        log_dir = os.path.dirname(log_path)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        self._logfile = io.open(log_path, 'w', encoding='utf-8')
+        self._buf = ''
+
+    def write(self, msg):
+        self._console.write(msg)
+        self._buf += msg
+        while '\n' in self._buf:
+            line, self._buf = self._buf.split('\n', 1)
+            self._logfile.write('[{}] {}\n'.format(time.strftime('%H:%M:%S'), line))
+
+    def flush(self):
+        self._console.flush()
+        self._logfile.flush()
+
+    def close(self):
+        if self._buf:
+            self._logfile.write('[{}] {}\n'.format(time.strftime('%H:%M:%S'), self._buf))
+            self._buf = ''
+        self._logfile.close()
+
+
 from dlpc843x.commands import *
 
 WIDTH = 3839
@@ -131,6 +166,14 @@ def check(write_points, csv_writer):
 def main():
     start_time = time.time()
 
+    # ── 日志文件（PROJECT_ROOT/logs/，文件名含时间戳）──────────────────────── #
+    import sys as _sys
+    log_path = os.path.join(PROJECT_ROOT, 'logs',
+                            'trapezoid_test_{}.log'.format(time.strftime("%Y%m%d_%H%M%S")))
+    tee = _Tee(log_path)
+    _sys.stdout = tee
+    print("Log file: {}".format(log_path))
+
     res_root_path = OUTPUT_PATH
 
     # Create output CSV file
@@ -176,6 +219,8 @@ def main():
         for current_y in range(y_start, y_end + y_step, y_step):
             row_start_time = time.time()  # Start time
             test_count = 0
+            row_passed = 0
+            row_failed = 0
             
             print("\n[Y={}] Starting tests for this row...".format(current_y))
             
@@ -184,7 +229,11 @@ def main():
                 result.insert(index, [current_x, current_y])
                 res = check(result, csv_writer)
                 test_count += 1
-                
+                if res:
+                    row_passed += 1
+                else:
+                    row_failed += 1
+
                 if not res:
                     if y_step > 0:
                         new_y_start = max(current_y - Y_STEP, 0)
@@ -221,9 +270,14 @@ def main():
             row_end_time = time.time()
             row_elapsed = row_end_time - row_start_time
             row_count += 1
-            
-            print("[Y={}] Completed! Tested {} points, time taken: {:.2f} seconds ({:.3f} seconds/point)".format(
-                current_y, test_count, row_elapsed, row_elapsed / test_count if test_count > 0 else 0))
+            total_elapsed_so_far = row_end_time - start_time
+            pass_rate = row_passed * 100 // test_count if test_count > 0 else 0
+
+            print("[Y={}] Done: {} points — PASS:{} FAIL:{} ({}%) — "
+                  "Row:{:.2f}s | Avg:{:.3f}s/pt | Total:{:.1f}min".format(
+                  current_y, test_count, row_passed, row_failed, pass_rate,
+                  row_elapsed, row_elapsed / test_count if test_count > 0 else 0,
+                  total_elapsed_so_far / 60))
             
             # Record time for the first row
             if row_count == 1:
@@ -275,6 +329,10 @@ def main():
         end_time = time.time()
         total_elapsed = end_time - start_time
         print("\nTotal program runtime: {:.2f} seconds ({:.2f} minutes)".format(total_elapsed, total_elapsed / 60))
+
+    # 关闭日志文件，恢复 stdout
+    _sys.stdout = tee._console
+    tee.close()
 
 
 print("Starting processing...")
