@@ -553,7 +553,7 @@ def main():
     except Exception as e:
         print("\nError: Failed to load test data")
         print(str(e))
-        traceback.print_exc()
+        traceback.print_exc(file=_sys.stdout)
         return
     
     print("Total {} test cases\n".format(len(all_tests)))
@@ -639,9 +639,9 @@ def main():
             if i == 1 or (executed > 0 and executed % LOG_INTERVAL == 0) or \
                (current_time - last_progress_time) >= 300:
                 elapsed = current_time - test_start_time
-                avg_time = elapsed / executed if executed > 0 else 0
+                avg_time = elapsed / executed if executed > 0 else 0.0
                 remaining_tests = max(len(all_tests) - i - skipped, 0)
-                eta_min = remaining_tests * avg_time / 60 if avg_time > 0 else 0
+                eta_min = remaining_tests * avg_time / 60 if avg_time > 0 else 0.0
                 pass_rate = passed * 100 // executed if executed > 0 else 0
                 print("[{}/{}] PASS:{} FAIL:{} ({}%) | "
                       "Elapsed:{:.1f}min({:.2f}h) | Rate:{:.3f}s/test | ETA:{:.1f}min".format(
@@ -704,8 +704,18 @@ if __name__ == "__main__" or str(__name__) == "<module>":
         print("\n\nError occurred:")
         print(str(e))
         print("\nDetailed error info:")
-        traceback.print_exc()
+        import sys as _sys_outer
+        traceback.print_exc(file=_sys_outer.stdout)
     finally:
+        # 如果 main() 异常退出导致 stdout 未恢复，在此处完成清理
+        import sys as _sys_outer
+        stdout_obj = _sys_outer.stdout
+        if hasattr(stdout_obj, '_console'):
+            _sys_outer.stdout = stdout_obj._console
+            try:
+                stdout_obj.close()
+            except Exception:
+                pass
         print("\nProgram ended")
 else:
     print("DEBUG: Skipped main execution because __name__ = {}".format(__name__))
