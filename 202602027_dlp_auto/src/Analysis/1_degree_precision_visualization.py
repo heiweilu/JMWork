@@ -148,8 +148,8 @@ def visualize_angle_test_results(csv_path):
     # ── 坐标轴 ───────────────────────────────────────────────
     # Yaw  正 = 右投（画面右移），负 = 左投（画面左移）  → 作为 X 轴更直观
     # Pitch 正 = 下投（画面下移），负 = 上投（画面上移）  → 作为 Y 轴更直观
-    ax.set_xlabel('Yaw / VerticalAngle    负(-) ← 左投  |  右投 → 正(+)', fontsize=12)
-    ax.set_ylabel('Pitch / HorizontalAngle    上投(-) ↑  |  ↓ 下投(+)', fontsize=12)
+    ax.set_xlabel('Yaw / HorizontalAngle    负(-) ← 左投  |  右投 → 正(+)', fontsize=12)
+    ax.set_ylabel('Pitch / VerticalAngle    上投(-) ↑  |  ↓ 下投(+)', fontsize=12)
     ax.set_title(
         f"梯形角度测试结果可视化（1° 步进精度）\n"
         f"文件: {os.path.basename(csv_path)}    "

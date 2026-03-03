@@ -226,8 +226,8 @@ def visualize_0_1_degree(quadrant_files: dict, project_root: str,
     # Y 轴反转：负 Pitch（上投）显示在图上方，正 Pitch（下投）显示在图下方，与直觉一致
     ax.set_ylim(pitch_range[1], pitch_range[0])
 
-    ax.set_xlabel('Yaw / VerticalAngle    负(-) ← 左投  |  右投 → 正(+)', fontsize=12)
-    ax.set_ylabel('Pitch / HorizontalAngle    上投(-) ↑  |  ↓ 下投(+)', fontsize=12)
+    ax.set_xlabel('Yaw / HorizontalAngle    负(-) ← 左投  |  右投 → 正(+)', fontsize=12)
+    ax.set_ylabel('Pitch / VerticalAngle    上投(-) ↑  |  ↓ 下投(+)', fontsize=12)
 
     loaded_cn = '、'.join([QUADRANT_NAMES[n] for n in loaded_names])
     missing_names = [QUADRANT_NAMES[n] for n in ('TL', 'TR', 'BL', 'BR') if n not in loaded_names]
