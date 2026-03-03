@@ -243,6 +243,8 @@ def visualize_0_1_degree(quadrant_files: dict, project_root: str,
     ax.axhline(0, color='gray', linewidth=0.8, linestyle='--', alpha=0.5)
     ax.axvline(0, color='gray', linewidth=0.8, linestyle='--', alpha=0.5)
     ax.grid(True, linestyle='--', alpha=0.2)
+    # 上边和右边也绘制坐标轴刻度线与刻度值
+    ax.tick_params(which='both', top=True, right=True, labeltop=True, labelright=True)
 
     # ── 9. 未覆盖象限 → 灰色半透明底色提示 ────────────────────
     missing_quads = [n for n in ('TL', 'TR', 'BL', 'BR') if n not in loaded_names]

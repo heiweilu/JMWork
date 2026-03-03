@@ -159,6 +159,8 @@ def visualize_angle_test_results(csv_path):
     ax.axhline(0, color='gray', linewidth=0.8, linestyle='--', alpha=0.5)
     ax.axvline(0, color='gray', linewidth=0.8, linestyle='--', alpha=0.5)
     ax.grid(True, linestyle='--', alpha=0.25)
+    # 上边和右边也绘制坐标轴刻度线与刻度值
+    ax.tick_params(which='both', top=True, right=True, labeltop=True, labelright=True)
 
     if total > 0:
         ax.set_xlim(df[yaw_col].min()   - 5, df[yaw_col].max()   + 5)
