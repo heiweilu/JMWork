@@ -13,9 +13,18 @@
 输入依赖:
     data/CSV_quadrant_data/ 下的象限 CSV（需先运行 CSV_Preprocessing_Split_quadarant.py 生成）
 前置步骤:
-    1. 将原始接口数据放入 data/Raw_interface_output_data/
+    1. 将原始接口数据放入 data/Angle_Raw_interface_output_data/（与脚本同级）
     2. 运行 CSV_Preprocessing_Split_quadarant.py 拆分象限（仅需一次）
     3. 修改下方【手动配置区】选择测试象限，然后运行本脚本
+
+目录结构（脚本所在文件夹）:
+    Angle_test_csv.py
+    data/
+        Angle_Raw_interface_output_data/   <- 原始接口输出数据
+        CSV_quadrant_data/                 <- 拆分后的象限CSV
+    reports/
+        Angle_test_results/                <- 测试结果输出
+    logs/                                  <- 运行日志
 ============================================================
 """
 import csv
@@ -57,8 +66,8 @@ class _Tee(object):
         self._logfile.close()
 
 
-# 工程根目录（本脚本在 src/Test/，向上两层即工程根）
-PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+# 工程根目录（脚本所在目录即根目录，data/ reports/ logs/ 等文件夹均与脚本同级）
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # ==============================================================================
 # 【手动配置区】每次测试前修改此处选择数据源

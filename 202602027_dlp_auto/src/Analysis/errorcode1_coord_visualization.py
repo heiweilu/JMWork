@@ -31,10 +31,8 @@ import numpy as np
 import os
 from datetime import datetime
 
-# 工程根目录（本脚本在 src/Analysis/，向上两层即工程根）
-PROJECT_ROOT = os.path.normpath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
-)
+# 工程根目录（脚本所在目录即根目录，data/ reports/ 等文件夹均与脚本同级）
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # ==============================================================================
 # 【手动配置区】

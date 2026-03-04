@@ -66,8 +66,8 @@ Y_STEP = 3
 # True=only test the first row, False=full test
 TEST_SINGLE_ROW = False
 
-# 工程根目录（本脚本在 src/Test/，向上两层即工程根）
-PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+# 工程根目录（脚本所在目录即根目录，data/ reports/ logs/ 等文件夹均与脚本同级）
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # output path（自动拼接，无需手动修改）
 OUTPUT_PATH = os.path.join(PROJECT_ROOT, 'reports')

@@ -32,8 +32,8 @@ except ImportError:
     import sys
     sys.exit(1)
 
-# 工程根目录（本脚本在 src/Analysis/，向上两层即工程根）
-PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+# 工程根目录（脚本所在目录即根目录，reports/ 等文件夹与脚本同级）
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # 自动拼接路径（无需手动修改）
 ANGLE_RESULTS_BASE = os.path.join(PROJECT_ROOT, 'reports', 'Angle_test_results')

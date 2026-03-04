@@ -30,11 +30,9 @@ import pandas as pd
 import numpy as np
 
 # ============================================================
-# 项目根路径（自动计算，无需手动修改）
+# 项目根路径（脚本所在目录即根目录，无需手动修改）
 # ============================================================
-PROJECT_ROOT = os.path.normpath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
-)
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # ============================================================
 # ===== 手动配置区 =====
