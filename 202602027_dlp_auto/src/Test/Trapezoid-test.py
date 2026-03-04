@@ -73,6 +73,18 @@ TEST_SINGLE_ROW = False
 # 是否在遇到失败时启用精细化扫描模式
 ENABLE_FINE_SCAN = False
 
+# 进度日志打印间隔（每隔 N 个测试点打印一次，设为 1 则每点都打印）
+LOG_INTERVAL = 200
+
+# 多组测试任务：每项为 (index, [[x_start, y_start], [x_end, y_end]])
+# index: 0=左上, 1=右上, 2=左下, 3=右下
+# 仅运行列表中的任务，按顺序依次执行
+TEST_TASKS = [
+    (1, [[2304, 0],    [2004, 864]]),    # 右上
+    (2, [[1536, 2159], [1836, 1296]]),   # 左下
+    (3, [[2304, 2159], [2004, 1296]]),   # 右下
+]
+
 # 工程根目录（手动指定绝对路径，按实际部署位置修改）
 DATA_ROOT = r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto'
 
@@ -84,7 +96,7 @@ Summary = WriteKeystoneEnableQueued(True)
 
 
 class CSVWriterWithCounter:
-    def __init__(self, filename, target_rows=1000):
+    def __init__(self, filename, target_rows=100):
         self.filename = filename
         self.target_rows = target_rows
         self.current_rows = 0
@@ -193,63 +205,73 @@ def main():
     total_failed = 0
 
     try:
-        # Process all combinations sequentially
-        points = [
-            [[0, 0], [1536, 864]],          # Top Left: (0,0) -> (1536,864)
-            [[3839, 0], [2304, 864]],       # Top Right: (3839,0) -> (2304,864)
-            [[0, 2159], [1536, 1296]],      # Bottom Left: (0,2159) -> (1536,1296)
-            [[3839, 2159], [2304, 1296]]    # Bottom Right: (3839,2159) -> (2304,1296)
+        # 四个角点的基准坐标（非扫描角点时固定在此位置）
+        BASE_CORNERS = [
+            [0,    0],     # Top Left
+            [2304, 0],     # Top Right
+            [1536, 2159],  # Bottom Left
+            [2304, 2159],  # Bottom Right
         ]
+        CORNER_NAMES = ["Top Left", "Top Right", "Bottom Left", "Bottom Right"]
 
-        index = 0
+        # 预先计算所有任务的总测试点数（用于全局 ETA）
+        grand_total_tests = 0
+        for _idx, _rng in TEST_TASKS:
+            _xs = X_STEP if _rng[1][0] >= _rng[0][0] else -X_STEP
+            _ys = Y_STEP if _rng[1][1] >= _rng[0][1] else -Y_STEP
+            grand_total_tests += ((abs(_rng[1][0] - _rng[0][0]) // abs(_xs)) + 1) * \
+                                  ((abs(_rng[1][1] - _rng[0][1]) // abs(_ys)) + 1)
 
-        x_start, x_end = points[index][0][0], points[index][1][0]
-        y_start, y_end = points[index][0][1], points[index][1][1]
-        x_step = X_STEP if x_end >= x_start else -X_STEP
-        y_step = Y_STEP if y_end >= y_start else -Y_STEP
+        print("Total tasks: {}  Grand total test points: {}".format(len(TEST_TASKS), grand_total_tests))
 
-        fixed_points = [point[0] for i, point in enumerate(points) if i != index]
+        for task_no, (index, sweep_range) in enumerate(TEST_TASKS, 1):
+            x_start, x_end = sweep_range[0][0], sweep_range[1][0]
+            y_start, y_end = sweep_range[0][1], sweep_range[1][1]
+            x_step = X_STEP if x_end >= x_start else -X_STEP
+            y_step = Y_STEP if y_end >= y_start else -Y_STEP
 
-        # calculate  total  steps
-        total_x_steps = (abs(x_end - x_start) // abs(x_step)) + 1
-        total_y_steps = (abs(y_end - y_start) // abs(y_step)) + 1
-        
-        print("=" * 60)
-        print("testing point:")
-        print("  Corner: {} (index={})".format(
-            ["Top Left", "Top Right", "Bottom Left", "Bottom Right"][index], index))
-        print("  X range: {} -> {} (step={}, total steps={})".format(x_start, x_end, x_step, total_x_steps))
-        print("  Y range: {} -> {} (step={}, total rows={})".format(y_start, y_end, y_step, total_y_steps))
-        print("  Test mode: {}".format("Single row test" if TEST_SINGLE_ROW else "Full test"))
-        print("=" * 60)
-        
-        row_count = 0
-        single_row_time = 0
-        
-        for current_y in range(y_start, y_end + y_step, y_step):
-            row_start_time = time.time()  # Start time
-            test_count = 0
-            row_passed = 0
-            row_failed = 0
-            
-            print("\n[Y={}] Starting tests for this row...".format(current_y))
-            
-            for current_x in range(x_start, x_end + x_step, x_step):
-                print("Testing coordinate: ({}, {})".format(current_x, current_y))  # 打印当前测试的坐标点
-                result = copy.deepcopy(fixed_points)
-                result.insert(index, [current_x, current_y])
-                res = check(result, csv_writer)
-                test_count += 1
-                total_tests += 1  # 更新总测试数
-                if res:
-                    row_passed += 1
-                    total_passed += 1  # 更新总通过数
-                else:
-                    row_failed += 1
-                    total_failed += 1  # 更新总失败数
+            fixed_points = [BASE_CORNERS[i] for i in range(4) if i != index]
 
-                if not res:
-                    if ENABLE_FINE_SCAN:
+            total_x_steps = (abs(x_end - x_start) // abs(x_step)) + 1
+            total_y_steps = (abs(y_end - y_start) // abs(y_step)) + 1
+            task_total = total_x_steps * total_y_steps
+
+            print("\n" + "=" * 60)
+            print("[Task {}/{}] {}".format(task_no, len(TEST_TASKS), CORNER_NAMES[index]))
+            print("  X range: {} -> {} (step={}, steps={})".format(x_start, x_end, x_step, total_x_steps))
+            print("  Y range: {} -> {} (step={}, rows={})".format(y_start, y_end, y_step, total_y_steps))
+            print("  Task total: {}  Grand total: {}".format(task_total, grand_total_tests))
+            print("  Test mode: {}".format("Single row" if TEST_SINGLE_ROW else "Full"))
+            print("=" * 60)
+
+            row_count = 0
+            for current_y in range(y_start, y_end + y_step, y_step):
+                for current_x in range(x_start, x_end + x_step, x_step):
+                    result = copy.deepcopy(fixed_points)
+                    result.insert(index, [current_x, current_y])
+                    res = check(result, csv_writer)
+                    total_tests += 1
+                    if res:
+                        total_passed += 1
+                    else:
+                        total_failed += 1
+
+                    # 按间隔打印进度日志（最后一个点强制打印）
+                    if total_tests % LOG_INTERVAL == 0 or total_tests == grand_total_tests:
+                        _elapsed = time.time() - start_time
+                        _rate = _elapsed / total_tests
+                        _eta_min = (grand_total_tests - total_tests) * _rate / 60
+                        _pct = int(total_passed * 100 / total_tests)
+                        print("[{}] [{}/{}] ({},{}) PASS:{} FAIL:{} ({}%) | "
+                              "Elapsed:{:.1f}min({:.2f}h) | Rate:{:.3f}s/test | ETA:{:.1f}min".format(
+                              time.strftime('%H:%M:%S'),
+                              total_tests, grand_total_tests,
+                              current_x, current_y,
+                              total_passed, total_failed, _pct,
+                              _elapsed / 60, _elapsed / 3600,
+                              _rate, max(0.0, _eta_min)))
+
+                    if not res and ENABLE_FINE_SCAN:
                         print("  -> Found failure at ({}, {}), starting fine-grained scan...".format(current_x, current_y))
                         if y_step > 0:
                             new_y_start = max(current_y - Y_STEP, 0)
@@ -263,7 +285,7 @@ def main():
                         else:
                             new_x_start = current_x + X_STEP
                             new_x_step = -1
-                        
+
                         if new_y_start != current_y:
                             for new_y in range(new_y_start, current_y, new_y_step):
                                 if new_x_start != current_x:
@@ -271,99 +293,38 @@ def main():
                                         new_result = copy.deepcopy(fixed_points)
                                         new_result.insert(index, [new_x, new_y])
                                         new_res = check(new_result, csv_writer)
-                                        total_tests += 1  # 更新总测试数
-                                        # 统计精细化扫描的结果
+                                        total_tests += 1
                                         if new_res:
-                                            row_passed += 1
-                                            total_passed += 1  # 更新总通过数
+                                            total_passed += 1
                                         else:
-                                            row_failed += 1
-                                            total_failed += 1  # 更新总失败数
+                                            total_failed += 1
                                 else:
-                                    print("  -> Fine scan testing: ({}, {})".format(new_x_start, new_y))  # 打印精细化扫描坐标
                                     new_result = copy.deepcopy(fixed_points)
                                     new_result.insert(index, [new_x_start, new_y])
                                     new_res = check(new_result, csv_writer)
-                                    total_tests += 1  # 更新总测试数
-                                    # 统计精细化扫描的结果
+                                    total_tests += 1
                                     if new_res:
-                                        row_passed += 1
-                                        total_passed += 1  # 更新总通过数
+                                        total_passed += 1
                                     else:
-                                        row_failed += 1
-                                        total_failed += 1  # 更新总失败数
+                                        total_failed += 1
                         else:
-                           for new_x in range(new_x_start, current_x, new_x_step):
-                                print("  -> Fine scan testing: ({}, {})".format(new_x, new_y_start))  # 打印精细化扫描坐标
+                            for new_x in range(new_x_start, current_x, new_x_step):
                                 new_result = copy.deepcopy(fixed_points)
                                 new_result.insert(index, [new_x, new_y_start])
                                 new_res = check(new_result, csv_writer)
-                                total_tests += 1  # 更新总测试数
-                                # 统计精细化扫描的结果
+                                total_tests += 1
                                 if new_res:
-                                    row_passed += 1
-                                    total_passed += 1  # 更新总通过数
+                                    total_passed += 1
                                 else:
-                                    row_failed += 1
-                                    total_failed += 1  # 更新总失败数
-                        print("stop this inner circle")
+                                    total_failed += 1
+                        print("[{}] Fine scan done at ({},{})".format(
+                            time.strftime('%H:%M:%S'), current_x, current_y))
                         break
-            
-            # End timing for this row
-            row_end_time = time.time()
-            row_elapsed = row_end_time - row_start_time
-            row_count += 1
-            total_elapsed_so_far = row_end_time - start_time
-            pass_rate = row_passed * 100 // test_count if test_count > 0 else 0
 
-            print("[Y={}] Done: {} points — PASS:{} FAIL:{} ({}%) — "
-                  "Row:{:.2f}s | Avg:{:.3f}s/pt | Total:{:.1f}min".format(
-                  current_y, test_count, row_passed, row_failed, pass_rate,
-                  row_elapsed, row_elapsed / test_count if test_count > 0 else 0,
-                  total_elapsed_so_far / 60))
-            
-            # Record time for the first row
-            if row_count == 1:
-                single_row_time = row_elapsed
-                
-                print("\n" + "=" * 60)
-                print("[Single Row Test Completed - Time Estimation]")
-                print("=" * 60)
-                print("Time for single row: {:.2f} seconds ({:.2f} minutes)".format(single_row_time, single_row_time / 60))
-                print("Average time per point: {:.3f} seconds".format(single_row_time / test_count if test_count > 0 else 0))
-                print("")
-                
-                # Estimate time for each corner based on points array
-                corner_names = ["Top Left", "Top Right", "Bottom Left", "Bottom Right"]
-                total_estimated_time = 0
-                
-                for i, corner_points in enumerate(points):
-                    corner_x_start = corner_points[0][0]
-                    corner_x_end = corner_points[1][0]
-                    corner_y_start = corner_points[0][1]
-                    corner_y_end = corner_points[1][1]
-                    
-                    corner_x_steps = (abs(corner_x_end - corner_x_start) // abs(x_step)) + 1
-                    corner_y_steps = (abs(corner_y_end - corner_y_start) // abs(y_step)) + 1
-                    
-                    estimated_time = single_row_time * corner_y_steps
-                    total_estimated_time += estimated_time
-                    
-                    print("{}: ({},{}) -> ({},{}), {} rows x {:.2f} sec/row = {:.2f} sec ({:.2f} min, {:.2f} hours)".format(
-                        corner_names[i], corner_x_start, corner_y_start, corner_x_end, corner_y_end,
-                        corner_y_steps, single_row_time, estimated_time, 
-                        estimated_time / 60, estimated_time / 3600))
-                
-                print("")
-                print("Total Estimated Time: {:.2f} seconds = {:.2f} minutes = {:.2f} hours = {:.2f} days".format(
-                    total_estimated_time, total_estimated_time / 60, total_estimated_time / 3600, total_estimated_time / 86400))
-                print("=" * 60)
-            
-            # If in single row test mode, exit after testing the first row
-            if TEST_SINGLE_ROW:
-                print("\nSingle row test mode completed, exiting loop.")
-                print("To perform a full test, set TEST_SINGLE_ROW to False")
-                break
+                row_count += 1
+                if TEST_SINGLE_ROW:
+                    print("\nSingle row test completed for this task.")
+                    break
                 
     except Exception as e:
         print("Error occurred:", traceback.format_exc())

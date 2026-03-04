@@ -150,6 +150,10 @@ TEST_CONFIG = {
 
 # 进度日志输出间隔：每 LOG_INTERVAL 个有效测试输出一次进度（含 PASS/FAIL + 时间统计）
 LOG_INTERVAL = 500
+
+# CSV 刷盘间隔：每写入 FLUSH_INTERVAL 行数据后才执行一次 flush 落盘
+# 值越大写入越快，但意外中断时丢失的数据行数越多；设为 1 则每行都 flush
+FLUSH_INTERVAL = 100
 # =============================================================
 # 【推荐工作流程】
 # 1. 运行 "CSV预处理-拆分象限.py"
@@ -395,7 +399,6 @@ def check_keystone(write_points, csv_writer, csvfile, v_angle, h_angle, angle_de
                 '',
                 'FAIL', '-1', '0'
             ])
-            csvfile.flush()
             return False
 
         # Write keystone corners
@@ -457,8 +460,7 @@ def check_keystone(write_points, csv_writer, csvfile, v_angle, h_angle, angle_de
             str(max_diff)
         ]
         csv_writer.writerow(row_data)
-        csvfile.flush()  # 立即刷新到磁盘，防止数据丢失
-        
+
         return is_match and int(ErrorCode) == 1
         
     except Exception as e:
@@ -475,7 +477,6 @@ def check_keystone(write_points, csv_writer, csvfile, v_angle, h_angle, angle_de
                 '',
                 'FAIL', '-1', '0'
             ])
-            csvfile.flush()
         except Exception:
             pass
         return False
@@ -696,10 +697,18 @@ def main():
                 passed += 1
             else:
                 failed += 1
-            
+
+            # 按间隔刷盘
+            executed = passed + failed
+            if executed % FLUSH_INTERVAL == 0:
+                csvfile.flush()
+
             # Short delay to avoid device overload
             time.sleep(0.1)
         
+        # 循环结束后强制 flush，确保最后不足 FLUSH_INTERVAL 的行也落盘
+        csvfile.flush()
+
         print("\n" + "=" * 80)
         print("Test Complete")
         print("=" * 80)
