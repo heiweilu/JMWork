@@ -1,0 +1,60 @@
+[13:54:48] 
+[13:54:48] Entering main function...
+[13:54:48] Log file: C:\Users\heiweilu.li\test\20260304\logs\angle_test_20260304_135448.log
+[13:54:48] ================================================================================
+[13:54:48] Keystone Angle Test - CSV Data Version
+[13:54:48] ================================================================================
+[13:54:48] CSV Data Source: C:\Users\heiweilu.li\test\20260304\ak_scan_yaw_pitch_step1_20260204_100304.csv
+[13:54:48] Test Configuration:
+[13:54:48]   Full Yaw Range: -40deg to 40deg
+[13:54:48]   Full Pitch Range: -40deg to 40deg
+[13:54:48]   Step Size: 1.0deg
+[13:54:48]   Resume Mode: Enabled
+[13:54:48] Output File: C:\Users\heiweilu.li\test\20260304\reports\Angle_test_results\20260304\angle_test_result_2026_03_04_13_54_48.csv
+[13:54:48] 
+[13:54:48] Ensuring output directory exists...
+[13:54:48] 
+[13:54:48] Loading CSV file: C:\Users\heiweilu.li\test\20260304\ak_scan_yaw_pitch_step1_20260204_100304.csv
+[13:54:48] (This may take 30-90 seconds for large files...)
+[13:55:18]   [30s] Progress: 3607 rows processed, 3606 loaded...
+[13:55:42] Load complete: 6561 records match test range (from 6567 total rows)
+[13:55:42]   Load time: 54.3 seconds
+[13:55:48] Total 6561 test cases
+[13:55:48] 
+[13:55:48] 断点续传：未找到已有结果文件，从头开始
+[13:55:48] 
+[13:55:48] Creating CSV file...
+[13:55:48] CSV header written
+[13:55:48] 
+[13:55:48] Starting tests...
+[13:55:48] 
+[13:55:48] [1/6561] PASS:0 FAIL:0 (0%) | Elapsed:0.0min(0.00h) | Rate:0.000s/test | ETA:0.0min
+[13:59:39] [501/6561] PASS:40 FAIL:460 (8%) | Elapsed:3.9min(0.06h) | Rate:0.462s/test | ETA:46.7min
+[14:03:33] [1001/6561] PASS:289 FAIL:711 (28%) | Elapsed:7.8min(0.13h) | Rate:0.466s/test | ETA:43.1min
+[14:07:31] [1501/6561] PASS:649 FAIL:851 (43%) | Elapsed:11.7min(0.20h) | Rate:0.469s/test | ETA:39.6min
+[14:11:23] [2001/6561] PASS:1049 FAIL:951 (52%) | Elapsed:15.6min(0.26h) | Rate:0.467s/test | ETA:35.5min
+[14:15:14] [2501/6561] PASS:1406 FAIL:1094 (56%) | Elapsed:19.4min(0.32h) | Rate:0.466s/test | ETA:31.6min
+[14:19:06] [3001/6561] PASS:1765 FAIL:1235 (58%) | Elapsed:23.3min(0.39h) | Rate:0.466s/test | ETA:27.7min
+[14:22:58] [3501/6561] PASS:2178 FAIL:1322 (62%) | Elapsed:27.2min(0.45h) | Rate:0.466s/test | ETA:23.8min
+[14:26:50] [4001/6561] PASS:2553 FAIL:1447 (63%) | Elapsed:31.0min(0.52h) | Rate:0.465s/test | ETA:19.9min
+[14:30:42] [4501/6561] PASS:2906 FAIL:1594 (64%) | Elapsed:34.9min(0.58h) | Rate:0.465s/test | ETA:16.0min
+[14:34:34] [5001/6561] PASS:3317 FAIL:1683 (66%) | Elapsed:38.8min(0.65h) | Rate:0.465s/test | ETA:12.1min
+[14:38:25] [5501/6561] PASS:3680 FAIL:1820 (66%) | Elapsed:42.6min(0.71h) | Rate:0.465s/test | ETA:8.2min
+[14:42:18] [6001/6561] PASS:3935 FAIL:2065 (65%) | Elapsed:46.5min(0.77h) | Rate:0.465s/test | ETA:4.3min
+[14:46:08] [6501/6561] PASS:3995 FAIL:2505 (61%) | Elapsed:50.3min(0.84h) | Rate:0.465s/test | ETA:0.5min
+[14:46:36] 
+[14:46:36] ================================================================================
+[14:46:36] Test Complete
+[14:46:36] ================================================================================
+[14:46:36] Total: 6561 tests
+[14:46:36] Passed: 3995 (60%)
+[14:46:36] Failed: 2566 (39%)
+[14:46:36] 
+[14:46:36] Note: Some failures may be due to angle >16deg (hardware limitation)
+[14:46:36]       Check ErrorCode: 3517=Invalid, 3518=OutOfRange, 3520=GeometricInvalid
+[14:46:36] 
+[14:46:36] Total time: 3108.47 sec (51.81 min)
+[14:46:36] Average: 0.474 sec/test
+[14:46:36] 
+[14:46:36] Results saved to: C:\Users\heiweilu.li\test\20260304\reports\Angle_test_results\20260304\angle_test_result_2026_03_04_13_54_48.csv
+[14:46:36] ================================================================================

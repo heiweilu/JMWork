@@ -1,0 +1,1267 @@
+[15:43:57] Log file: D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\logs\trapezoid_test_20260304_154357.log
+[15:43:57] ('Creating CSV file:', 'D:\\software\\heiweilu\\workspace\\xgimi\\code\\202602027_dlp_auto\\reports\\Trapezoidal_coordinate_test_results\\20260304\\result_2026_03_04_15_43_57.csv')
+[15:43:57] ============================================================
+[15:43:57] testing point:
+[15:43:57]   Corner: Top Left (index=0)
+[15:43:57]   X range: 1536 -> 1636 (step=10, total steps=11)
+[15:43:57]   Y range: 0 -> 864 (step=10, total rows=87)
+[15:43:57]   Test mode: Full test
+[15:43:57] ============================================================
+[15:43:57] 
+[15:43:57] [Y=0] Starting tests for this row...
+[15:43:57] Testing coordinate: (1536, 0)
+[15:43:57] Testing coordinate: (1546, 0)
+[15:43:58] Testing coordinate: (1556, 0)
+[15:43:58] Testing coordinate: (1566, 0)
+[15:43:58] Testing coordinate: (1576, 0)
+[15:43:59] Testing coordinate: (1586, 0)
+[15:43:59] Testing coordinate: (1596, 0)
+[15:43:59] Testing coordinate: (1606, 0)
+[15:44:00] Testing coordinate: (1616, 0)
+[15:44:00] Testing coordinate: (1626, 0)
+[15:44:00] Testing coordinate: (1636, 0)
+[15:44:01] [Y=0] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.96s | Avg:0.360s/pt | Total:0.1min
+[15:44:01] 
+[15:44:01] ============================================================
+[15:44:01] [Single Row Test Completed - Time Estimation]
+[15:44:01] ============================================================
+[15:44:01] Time for single row: 3.96 seconds (0.07 minutes)
+[15:44:01] Average time per point: 0.360 seconds
+[15:44:01] 
+[15:44:01] Top Left: (1536,0) -> (1636,864), 87 rows x 3.96 sec/row = 344.69 sec (5.74 min, 0.10 hours)
+[15:44:01] Top Right: (3839,0) -> (2304,864), 87 rows x 3.96 sec/row = 344.69 sec (5.74 min, 0.10 hours)
+[15:44:01] Bottom Left: (0,2159) -> (1536,1296), 87 rows x 3.96 sec/row = 344.69 sec (5.74 min, 0.10 hours)
+[15:44:01] Bottom Right: (3839,2159) -> (2304,1296), 87 rows x 3.96 sec/row = 344.69 sec (5.74 min, 0.10 hours)
+[15:44:01] 
+[15:44:01] Total Estimated Time: 1378.75 seconds = 22.98 minutes = 0.38 hours = 0.02 days
+[15:44:01] ============================================================
+[15:44:01] 
+[15:44:01] [Y=10] Starting tests for this row...
+[15:44:01] Testing coordinate: (1536, 10)
+[15:44:01] Testing coordinate: (1546, 10)
+[15:44:02] Testing coordinate: (1556, 10)
+[15:44:02] Testing coordinate: (1566, 10)
+[15:44:02] Testing coordinate: (1576, 10)
+[15:44:03] Testing coordinate: (1586, 10)
+[15:44:03] Testing coordinate: (1596, 10)
+[15:44:04] Testing coordinate: (1606, 10)
+[15:44:04] Testing coordinate: (1616, 10)
+[15:44:04] Testing coordinate: (1626, 10)
+[15:44:05] Testing coordinate: (1636, 10)
+[15:44:05] [Y=10] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.94s | Avg:0.358s/pt | Total:0.1min
+[15:44:05] 
+[15:44:05] [Y=20] Starting tests for this row...
+[15:44:05] Testing coordinate: (1536, 20)
+[15:44:05] Testing coordinate: (1546, 20)
+[15:44:06] Testing coordinate: (1556, 20)
+[15:44:06] Testing coordinate: (1566, 20)
+[15:44:06] Testing coordinate: (1576, 20)
+[15:44:07] Testing coordinate: (1586, 20)
+[15:44:07] Testing coordinate: (1596, 20)
+[15:44:08] Testing coordinate: (1606, 20)
+[15:44:08] Testing coordinate: (1616, 20)
+[15:44:08] Testing coordinate: (1626, 20)
+[15:44:09] Testing coordinate: (1636, 20)
+[15:44:09] [Y=20] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.98s | Avg:0.362s/pt | Total:0.2min
+[15:44:09] 
+[15:44:09] [Y=30] Starting tests for this row...
+[15:44:09] Testing coordinate: (1536, 30)
+[15:44:09] Testing coordinate: (1546, 30)
+[15:44:10] Testing coordinate: (1556, 30)
+[15:44:10] Testing coordinate: (1566, 30)
+[15:44:10] Testing coordinate: (1576, 30)
+[15:44:11] Testing coordinate: (1586, 30)
+[15:44:11] Testing coordinate: (1596, 30)
+[15:44:12] Testing coordinate: (1606, 30)
+[15:44:12] Testing coordinate: (1616, 30)
+[15:44:12] Testing coordinate: (1626, 30)
+[15:44:13] Testing coordinate: (1636, 30)
+[15:44:13] [Y=30] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.92s | Avg:0.357s/pt | Total:0.3min
+[15:44:13] 
+[15:44:13] [Y=40] Starting tests for this row...
+[15:44:13] Testing coordinate: (1536, 40)
+[15:44:13] Testing coordinate: (1546, 40)
+[15:44:14] Testing coordinate: (1556, 40)
+[15:44:14] Testing coordinate: (1566, 40)
+[15:44:14] Testing coordinate: (1576, 40)
+[15:44:15] Testing coordinate: (1586, 40)
+[15:44:15] Testing coordinate: (1596, 40)
+[15:44:16] Testing coordinate: (1606, 40)
+[15:44:16] Testing coordinate: (1616, 40)
+[15:44:16] Testing coordinate: (1626, 40)
+[15:44:17] Testing coordinate: (1636, 40)
+[15:44:17] [Y=40] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.01s | Avg:0.365s/pt | Total:0.3min
+[15:44:17] 
+[15:44:17] [Y=50] Starting tests for this row...
+[15:44:17] Testing coordinate: (1536, 50)
+[15:44:17] Testing coordinate: (1546, 50)
+[15:44:18] Testing coordinate: (1556, 50)
+[15:44:18] Testing coordinate: (1566, 50)
+[15:44:18] Testing coordinate: (1576, 50)
+[15:44:19] Testing coordinate: (1586, 50)
+[15:44:19] Testing coordinate: (1596, 50)
+[15:44:20] Testing coordinate: (1606, 50)
+[15:44:20] Testing coordinate: (1616, 50)
+[15:44:20] Testing coordinate: (1626, 50)
+[15:44:21] Testing coordinate: (1636, 50)
+[15:44:21] [Y=50] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.97s | Avg:0.361s/pt | Total:0.4min
+[15:44:21] 
+[15:44:21] [Y=60] Starting tests for this row...
+[15:44:21] Testing coordinate: (1536, 60)
+[15:44:21] Testing coordinate: (1546, 60)
+[15:44:22] Testing coordinate: (1556, 60)
+[15:44:22] Testing coordinate: (1566, 60)
+[15:44:22] Testing coordinate: (1576, 60)
+[15:44:23] Testing coordinate: (1586, 60)
+[15:44:23] Testing coordinate: (1596, 60)
+[15:44:24] Testing coordinate: (1606, 60)
+[15:44:24] Testing coordinate: (1616, 60)
+[15:44:24] Testing coordinate: (1626, 60)
+[15:44:25] Testing coordinate: (1636, 60)
+[15:44:25] [Y=60] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.00s | Avg:0.364s/pt | Total:0.5min
+[15:44:25] 
+[15:44:25] [Y=70] Starting tests for this row...
+[15:44:25] Testing coordinate: (1536, 70)
+[15:44:25] Testing coordinate: (1546, 70)
+[15:44:26] Testing coordinate: (1556, 70)
+[15:44:26] Testing coordinate: (1566, 70)
+[15:44:26] Testing coordinate: (1576, 70)
+[15:44:27] Testing coordinate: (1586, 70)
+[15:44:27] Testing coordinate: (1596, 70)
+[15:44:28] Testing coordinate: (1606, 70)
+[15:44:28] Testing coordinate: (1616, 70)
+[15:44:28] Testing coordinate: (1626, 70)
+[15:44:29] Testing coordinate: (1636, 70)
+[15:44:29] [Y=70] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.11s | Avg:0.373s/pt | Total:0.5min
+[15:44:29] 
+[15:44:29] [Y=80] Starting tests for this row...
+[15:44:29] Testing coordinate: (1536, 80)
+[15:44:30] Testing coordinate: (1546, 80)
+[15:44:30] Testing coordinate: (1556, 80)
+[15:44:30] Testing coordinate: (1566, 80)
+[15:44:31] Testing coordinate: (1576, 80)
+[15:44:31] Testing coordinate: (1586, 80)
+[15:44:31] Testing coordinate: (1596, 80)
+[15:44:32] Testing coordinate: (1606, 80)
+[15:44:32] Testing coordinate: (1616, 80)
+[15:44:32] Testing coordinate: (1626, 80)
+[15:44:33] Testing coordinate: (1636, 80)
+[15:44:33] [Y=80] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.90s | Avg:0.355s/pt | Total:0.6min
+[15:44:33] 
+[15:44:33] [Y=90] Starting tests for this row...
+[15:44:33] Testing coordinate: (1536, 90)
+[15:44:33] Testing coordinate: (1546, 90)
+[15:44:34] Testing coordinate: (1556, 90)
+[15:44:34] Testing coordinate: (1566, 90)
+[15:44:35] Testing coordinate: (1576, 90)
+[15:44:35] Testing coordinate: (1586, 90)
+[15:44:35] Testing coordinate: (1596, 90)
+[15:44:36] Testing coordinate: (1606, 90)
+[15:44:36] Testing coordinate: (1616, 90)
+[15:44:36] Testing coordinate: (1626, 90)
+[15:44:37] Testing coordinate: (1636, 90)
+[15:44:37] [Y=90] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.01s | Avg:0.365s/pt | Total:0.7min
+[15:44:37] 
+[15:44:37] [Y=100] Starting tests for this row...
+[15:44:37] Testing coordinate: (1536, 100)
+[15:44:37] Testing coordinate: (1546, 100)
+[15:44:38] Testing coordinate: (1556, 100)
+[15:44:38] Testing coordinate: (1566, 100)
+[15:44:39] Testing coordinate: (1576, 100)
+[15:44:39] Testing coordinate: (1586, 100)
+[15:44:39] Testing coordinate: (1596, 100)
+[15:44:40] Testing coordinate: (1606, 100)
+[15:44:40] Testing coordinate: (1616, 100)
+[15:44:40] Testing coordinate: (1626, 100)
+[15:44:41] Testing coordinate: (1636, 100)
+[15:44:41] [Y=100] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.91s | Avg:0.356s/pt | Total:0.7min
+[15:44:41] 
+[15:44:41] [Y=110] Starting tests for this row...
+[15:44:41] Testing coordinate: (1536, 110)
+[15:44:41] Testing coordinate: (1546, 110)
+[15:44:42] Testing coordinate: (1556, 110)
+[15:44:42] Testing coordinate: (1566, 110)
+[15:44:42] Testing coordinate: (1576, 110)
+[15:44:43] Testing coordinate: (1586, 110)
+[15:44:43] Testing coordinate: (1596, 110)
+[15:44:44] Testing coordinate: (1606, 110)
+[15:44:44] Testing coordinate: (1616, 110)
+[15:44:44] Testing coordinate: (1626, 110)
+[15:44:45] Testing coordinate: (1636, 110)
+[15:44:45] [Y=110] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.95s | Avg:0.359s/pt | Total:0.8min
+[15:44:45] 
+[15:44:45] [Y=120] Starting tests for this row...
+[15:44:45] Testing coordinate: (1536, 120)
+[15:44:45] Testing coordinate: (1546, 120)
+[15:44:46] Testing coordinate: (1556, 120)
+[15:44:46] Testing coordinate: (1566, 120)
+[15:44:46] Testing coordinate: (1576, 120)
+[15:44:47] Testing coordinate: (1586, 120)
+[15:44:47] Testing coordinate: (1596, 120)
+[15:44:48] Testing coordinate: (1606, 120)
+[15:44:48] Testing coordinate: (1616, 120)
+[15:44:48] Testing coordinate: (1626, 120)
+[15:44:49] Testing coordinate: (1636, 120)
+[15:44:49] [Y=120] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.00s | Avg:0.363s/pt | Total:0.9min
+[15:44:49] 
+[15:44:49] [Y=130] Starting tests for this row...
+[15:44:49] Testing coordinate: (1536, 130)
+[15:44:49] Testing coordinate: (1546, 130)
+[15:44:50] Testing coordinate: (1556, 130)
+[15:44:50] Testing coordinate: (1566, 130)
+[15:44:50] Testing coordinate: (1576, 130)
+[15:44:51] Testing coordinate: (1586, 130)
+[15:44:51] Testing coordinate: (1596, 130)
+[15:44:52] Testing coordinate: (1606, 130)
+[15:44:52] Testing coordinate: (1616, 130)
+[15:44:52] Testing coordinate: (1626, 130)
+[15:44:53] Testing coordinate: (1636, 130)
+[15:44:53] [Y=130] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.94s | Avg:0.358s/pt | Total:0.9min
+[15:44:53] 
+[15:44:53] [Y=140] Starting tests for this row...
+[15:44:53] Testing coordinate: (1536, 140)
+[15:44:53] Testing coordinate: (1546, 140)
+[15:44:54] Testing coordinate: (1556, 140)
+[15:44:54] Testing coordinate: (1566, 140)
+[15:44:54] Testing coordinate: (1576, 140)
+[15:44:55] Testing coordinate: (1586, 140)
+[15:44:55] Testing coordinate: (1596, 140)
+[15:44:55] Testing coordinate: (1606, 140)
+[15:44:56] Testing coordinate: (1616, 140)
+[15:44:56] Testing coordinate: (1626, 140)
+[15:44:57] Testing coordinate: (1636, 140)
+[15:44:57] [Y=140] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.88s | Avg:0.353s/pt | Total:1.0min
+[15:44:57] 
+[15:44:57] [Y=150] Starting tests for this row...
+[15:44:57] Testing coordinate: (1536, 150)
+[15:44:57] Testing coordinate: (1546, 150)
+[15:44:58] Testing coordinate: (1556, 150)
+[15:44:58] Testing coordinate: (1566, 150)
+[15:44:58] Testing coordinate: (1576, 150)
+[15:44:59] Testing coordinate: (1586, 150)
+[15:44:59] Testing coordinate: (1596, 150)
+[15:44:59] Testing coordinate: (1606, 150)
+[15:45:00] Testing coordinate: (1616, 150)
+[15:45:00] Testing coordinate: (1626, 150)
+[15:45:01] Testing coordinate: (1636, 150)
+[15:45:01] [Y=150] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.00s | Avg:0.364s/pt | Total:1.1min
+[15:45:01] 
+[15:45:01] [Y=160] Starting tests for this row...
+[15:45:01] Testing coordinate: (1536, 160)
+[15:45:01] Testing coordinate: (1546, 160)
+[15:45:02] Testing coordinate: (1556, 160)
+[15:45:02] Testing coordinate: (1566, 160)
+[15:45:02] Testing coordinate: (1576, 160)
+[15:45:03] Testing coordinate: (1586, 160)
+[15:45:03] Testing coordinate: (1596, 160)
+[15:45:03] Testing coordinate: (1606, 160)
+[15:45:04] Testing coordinate: (1616, 160)
+[15:45:04] Testing coordinate: (1626, 160)
+[15:45:05] Testing coordinate: (1636, 160)
+[15:45:05] [Y=160] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.02s | Avg:0.365s/pt | Total:1.1min
+[15:45:05] 
+[15:45:05] [Y=170] Starting tests for this row...
+[15:45:05] Testing coordinate: (1536, 170)
+[15:45:05] Testing coordinate: (1546, 170)
+[15:45:06] Testing coordinate: (1556, 170)
+[15:45:06] Testing coordinate: (1566, 170)
+[15:45:06] Testing coordinate: (1576, 170)
+[15:45:07] Testing coordinate: (1586, 170)
+[15:45:07] Testing coordinate: (1596, 170)
+[15:45:07] Testing coordinate: (1606, 170)
+[15:45:08] Testing coordinate: (1616, 170)
+[15:45:08] Testing coordinate: (1626, 170)
+[15:45:09] Testing coordinate: (1636, 170)
+[15:45:09] [Y=170] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.98s | Avg:0.362s/pt | Total:1.2min
+[15:45:09] 
+[15:45:09] [Y=180] Starting tests for this row...
+[15:45:09] Testing coordinate: (1536, 180)
+[15:45:09] Testing coordinate: (1546, 180)
+[15:45:10] Testing coordinate: (1556, 180)
+[15:45:10] Testing coordinate: (1566, 180)
+[15:45:10] Testing coordinate: (1576, 180)
+[15:45:11] Testing coordinate: (1586, 180)
+[15:45:11] Testing coordinate: (1596, 180)
+[15:45:12] Testing coordinate: (1606, 180)
+[15:45:12] Testing coordinate: (1616, 180)
+[15:45:12] Testing coordinate: (1626, 180)
+[15:45:13] Testing coordinate: (1636, 180)
+[15:45:13] [Y=180] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.05s | Avg:0.368s/pt | Total:1.3min
+[15:45:13] 
+[15:45:13] [Y=190] Starting tests for this row...
+[15:45:13] Testing coordinate: (1536, 190)
+[15:45:13] Testing coordinate: (1546, 190)
+[15:45:14] Testing coordinate: (1556, 190)
+[15:45:14] Testing coordinate: (1566, 190)
+[15:45:15] Testing coordinate: (1576, 190)
+[15:45:15] Testing coordinate: (1586, 190)
+[15:45:15] Testing coordinate: (1596, 190)
+[15:45:16] Testing coordinate: (1606, 190)
+[15:45:16] Testing coordinate: (1616, 190)
+[15:45:16] Testing coordinate: (1626, 190)
+[15:45:17] Testing coordinate: (1636, 190)
+[15:45:17] [Y=190] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.12s | Avg:0.375s/pt | Total:1.3min
+[15:45:17] 
+[15:45:17] [Y=200] Starting tests for this row...
+[15:45:17] Testing coordinate: (1536, 200)
+[15:45:18] Testing coordinate: (1546, 200)
+[15:45:18] Testing coordinate: (1556, 200)
+[15:45:18] Testing coordinate: (1566, 200)
+[15:45:19] Testing coordinate: (1576, 200)
+[15:45:19] Testing coordinate: (1586, 200)
+[15:45:19] Testing coordinate: (1596, 200)
+[15:45:20] Testing coordinate: (1606, 200)
+[15:45:20] Testing coordinate: (1616, 200)
+[15:45:20] Testing coordinate: (1626, 200)
+[15:45:21] Testing coordinate: (1636, 200)
+[15:45:21] [Y=200] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.99s | Avg:0.363s/pt | Total:1.4min
+[15:45:21] 
+[15:45:21] [Y=210] Starting tests for this row...
+[15:45:21] Testing coordinate: (1536, 210)
+[15:45:22] Testing coordinate: (1546, 210)
+[15:45:22] Testing coordinate: (1556, 210)
+[15:45:22] Testing coordinate: (1566, 210)
+[15:45:23] Testing coordinate: (1576, 210)
+[15:45:23] Testing coordinate: (1586, 210)
+[15:45:23] Testing coordinate: (1596, 210)
+[15:45:24] Testing coordinate: (1606, 210)
+[15:45:24] Testing coordinate: (1616, 210)
+[15:45:24] Testing coordinate: (1626, 210)
+[15:45:25] Testing coordinate: (1636, 210)
+[15:45:25] [Y=210] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.92s | Avg:0.357s/pt | Total:1.5min
+[15:45:25] 
+[15:45:25] [Y=220] Starting tests for this row...
+[15:45:25] Testing coordinate: (1536, 220)
+[15:45:26] Testing coordinate: (1546, 220)
+[15:45:26] Testing coordinate: (1556, 220)
+[15:45:26] Testing coordinate: (1566, 220)
+[15:45:27] Testing coordinate: (1576, 220)
+[15:45:27] Testing coordinate: (1586, 220)
+[15:45:27] Testing coordinate: (1596, 220)
+[15:45:28] Testing coordinate: (1606, 220)
+[15:45:28] Testing coordinate: (1616, 220)
+[15:45:28] Testing coordinate: (1626, 220)
+[15:45:29] Testing coordinate: (1636, 220)
+[15:45:29] [Y=220] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.96s | Avg:0.360s/pt | Total:1.5min
+[15:45:29] 
+[15:45:29] [Y=230] Starting tests for this row...
+[15:45:29] Testing coordinate: (1536, 230)
+[15:45:30] Testing coordinate: (1546, 230)
+[15:45:30] Testing coordinate: (1556, 230)
+[15:45:30] Testing coordinate: (1566, 230)
+[15:45:31] Testing coordinate: (1576, 230)
+[15:45:31] Testing coordinate: (1586, 230)
+[15:45:31] Testing coordinate: (1596, 230)
+[15:45:32] Testing coordinate: (1606, 230)
+[15:45:32] Testing coordinate: (1616, 230)
+[15:45:32] Testing coordinate: (1626, 230)
+[15:45:33] Testing coordinate: (1636, 230)
+[15:45:33] [Y=230] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.98s | Avg:0.361s/pt | Total:1.6min
+[15:45:33] 
+[15:45:33] [Y=240] Starting tests for this row...
+[15:45:33] Testing coordinate: (1536, 240)
+[15:45:34] Testing coordinate: (1546, 240)
+[15:45:34] Testing coordinate: (1556, 240)
+[15:45:34] Testing coordinate: (1566, 240)
+[15:45:35] Testing coordinate: (1576, 240)
+[15:45:35] Testing coordinate: (1586, 240)
+[15:45:35] Testing coordinate: (1596, 240)
+[15:45:36] Testing coordinate: (1606, 240)
+[15:45:36] Testing coordinate: (1616, 240)
+[15:45:36] Testing coordinate: (1626, 240)
+[15:45:37] Testing coordinate: (1636, 240)
+[15:45:37] [Y=240] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.91s | Avg:0.356s/pt | Total:1.7min
+[15:45:37] 
+[15:45:37] [Y=250] Starting tests for this row...
+[15:45:37] Testing coordinate: (1536, 250)
+[15:45:37] Testing coordinate: (1546, 250)
+[15:45:38] Testing coordinate: (1556, 250)
+[15:45:38] Testing coordinate: (1566, 250)
+[15:45:39] Testing coordinate: (1576, 250)
+[15:45:39] Testing coordinate: (1586, 250)
+[15:45:39] Testing coordinate: (1596, 250)
+[15:45:40] Testing coordinate: (1606, 250)
+[15:45:40] Testing coordinate: (1616, 250)
+[15:45:40] Testing coordinate: (1626, 250)
+[15:45:41] Testing coordinate: (1636, 250)
+[15:45:41] [Y=250] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.93s | Avg:0.357s/pt | Total:1.7min
+[15:45:41] 
+[15:45:41] [Y=260] Starting tests for this row...
+[15:45:41] Testing coordinate: (1536, 260)
+[15:45:41] Testing coordinate: (1546, 260)
+[15:45:42] Testing coordinate: (1556, 260)
+[15:45:42] Testing coordinate: (1566, 260)
+[15:45:43] Testing coordinate: (1576, 260)
+[15:45:43] Testing coordinate: (1586, 260)
+[15:45:43] Testing coordinate: (1596, 260)
+[15:45:44] Testing coordinate: (1606, 260)
+[15:45:44] Testing coordinate: (1616, 260)
+[15:45:44] Testing coordinate: (1626, 260)
+[15:45:45] Testing coordinate: (1636, 260)
+[15:45:45] [Y=260] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.94s | Avg:0.359s/pt | Total:1.8min
+[15:45:45] 
+[15:45:45] [Y=270] Starting tests for this row...
+[15:45:45] Testing coordinate: (1536, 270)
+[15:45:45] Testing coordinate: (1546, 270)
+[15:45:46] Testing coordinate: (1556, 270)
+[15:45:46] Testing coordinate: (1566, 270)
+[15:45:46] Testing coordinate: (1576, 270)
+[15:45:47] Testing coordinate: (1586, 270)
+[15:45:47] Testing coordinate: (1596, 270)
+[15:45:48] Testing coordinate: (1606, 270)
+[15:45:48] Testing coordinate: (1616, 270)
+[15:45:48] Testing coordinate: (1626, 270)
+[15:45:49] Testing coordinate: (1636, 270)
+[15:45:49] [Y=270] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.98s | Avg:0.362s/pt | Total:1.9min
+[15:45:49] 
+[15:45:49] [Y=280] Starting tests for this row...
+[15:45:49] Testing coordinate: (1536, 280)
+[15:45:49] Testing coordinate: (1546, 280)
+[15:45:50] Testing coordinate: (1556, 280)
+[15:45:50] Testing coordinate: (1566, 280)
+[15:45:50] Testing coordinate: (1576, 280)
+[15:45:51] Testing coordinate: (1586, 280)
+[15:45:51] Testing coordinate: (1596, 280)
+[15:45:52] Testing coordinate: (1606, 280)
+[15:45:52] Testing coordinate: (1616, 280)
+[15:45:52] Testing coordinate: (1626, 280)
+[15:45:53] Testing coordinate: (1636, 280)
+[15:45:53] [Y=280] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.02s | Avg:0.365s/pt | Total:1.9min
+[15:45:53] 
+[15:45:53] [Y=290] Starting tests for this row...
+[15:45:53] Testing coordinate: (1536, 290)
+[15:45:53] Testing coordinate: (1546, 290)
+[15:45:54] Testing coordinate: (1556, 290)
+[15:45:54] Testing coordinate: (1566, 290)
+[15:45:55] Testing coordinate: (1576, 290)
+[15:45:55] Testing coordinate: (1586, 290)
+[15:45:55] Testing coordinate: (1596, 290)
+[15:45:56] Testing coordinate: (1606, 290)
+[15:45:56] Testing coordinate: (1616, 290)
+[15:45:56] Testing coordinate: (1626, 290)
+[15:45:57] Testing coordinate: (1636, 290)
+[15:45:57] [Y=290] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.95s | Avg:0.359s/pt | Total:2.0min
+[15:45:57] 
+[15:45:57] [Y=300] Starting tests for this row...
+[15:45:57] Testing coordinate: (1536, 300)
+[15:45:57] Testing coordinate: (1546, 300)
+[15:45:58] Testing coordinate: (1556, 300)
+[15:45:58] Testing coordinate: (1566, 300)
+[15:45:58] Testing coordinate: (1576, 300)
+[15:45:59] Testing coordinate: (1586, 300)
+[15:45:59] Testing coordinate: (1596, 300)
+[15:46:00] Testing coordinate: (1606, 300)
+[15:46:00] Testing coordinate: (1616, 300)
+[15:46:00] Testing coordinate: (1626, 300)
+[15:46:01] Testing coordinate: (1636, 300)
+[15:46:01] [Y=300] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.98s | Avg:0.362s/pt | Total:2.1min
+[15:46:01] 
+[15:46:01] [Y=310] Starting tests for this row...
+[15:46:01] Testing coordinate: (1536, 310)
+[15:46:01] Testing coordinate: (1546, 310)
+[15:46:02] Testing coordinate: (1556, 310)
+[15:46:02] Testing coordinate: (1566, 310)
+[15:46:02] Testing coordinate: (1576, 310)
+[15:46:03] Testing coordinate: (1586, 310)
+[15:46:03] Testing coordinate: (1596, 310)
+[15:46:04] Testing coordinate: (1606, 310)
+[15:46:04] Testing coordinate: (1616, 310)
+[15:46:04] Testing coordinate: (1626, 310)
+[15:46:05] Testing coordinate: (1636, 310)
+[15:46:05] [Y=310] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.00s | Avg:0.364s/pt | Total:2.1min
+[15:46:05] 
+[15:46:05] [Y=320] Starting tests for this row...
+[15:46:05] Testing coordinate: (1536, 320)
+[15:46:05] Testing coordinate: (1546, 320)
+[15:46:06] Testing coordinate: (1556, 320)
+[15:46:06] Testing coordinate: (1566, 320)
+[15:46:07] Testing coordinate: (1576, 320)
+[15:46:07] Testing coordinate: (1586, 320)
+[15:46:07] Testing coordinate: (1596, 320)
+[15:46:08] Testing coordinate: (1606, 320)
+[15:46:08] Testing coordinate: (1616, 320)
+[15:46:08] Testing coordinate: (1626, 320)
+[15:46:09] Testing coordinate: (1636, 320)
+[15:46:09] [Y=320] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.00s | Avg:0.363s/pt | Total:2.2min
+[15:46:09] 
+[15:46:09] [Y=330] Starting tests for this row...
+[15:46:09] Testing coordinate: (1536, 330)
+[15:46:09] Testing coordinate: (1546, 330)
+[15:46:10] Testing coordinate: (1556, 330)
+[15:46:10] Testing coordinate: (1566, 330)
+[15:46:11] Testing coordinate: (1576, 330)
+[15:46:11] Testing coordinate: (1586, 330)
+[15:46:11] Testing coordinate: (1596, 330)
+[15:46:12] Testing coordinate: (1606, 330)
+[15:46:12] Testing coordinate: (1616, 330)
+[15:46:12] Testing coordinate: (1626, 330)
+[15:46:13] Testing coordinate: (1636, 330)
+[15:46:13] [Y=330] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.98s | Avg:0.362s/pt | Total:2.3min
+[15:46:13] 
+[15:46:13] [Y=340] Starting tests for this row...
+[15:46:13] Testing coordinate: (1536, 340)
+[15:46:14] Testing coordinate: (1546, 340)
+[15:46:14] Testing coordinate: (1556, 340)
+[15:46:14] Testing coordinate: (1566, 340)
+[15:46:15] Testing coordinate: (1576, 340)
+[15:46:15] Testing coordinate: (1586, 340)
+[15:46:15] Testing coordinate: (1596, 340)
+[15:46:16] Testing coordinate: (1606, 340)
+[15:46:16] Testing coordinate: (1616, 340)
+[15:46:16] Testing coordinate: (1626, 340)
+[15:46:17] Testing coordinate: (1636, 340)
+[15:46:17] [Y=340] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.95s | Avg:0.359s/pt | Total:2.3min
+[15:46:17] 
+[15:46:17] [Y=350] Starting tests for this row...
+[15:46:17] Testing coordinate: (1536, 350)
+[15:46:17] Testing coordinate: (1546, 350)
+[15:46:18] Testing coordinate: (1556, 350)
+[15:46:18] Testing coordinate: (1566, 350)
+[15:46:19] Testing coordinate: (1576, 350)
+[15:46:19] Testing coordinate: (1586, 350)
+[15:46:19] Testing coordinate: (1596, 350)
+[15:46:20] Testing coordinate: (1606, 350)
+[15:46:20] Testing coordinate: (1616, 350)
+[15:46:20] Testing coordinate: (1626, 350)
+[15:46:21] Testing coordinate: (1636, 350)
+[15:46:21] [Y=350] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.97s | Avg:0.361s/pt | Total:2.4min
+[15:46:21] 
+[15:46:21] [Y=360] Starting tests for this row...
+[15:46:21] Testing coordinate: (1536, 360)
+[15:46:21] Testing coordinate: (1546, 360)
+[15:46:22] Testing coordinate: (1556, 360)
+[15:46:22] Testing coordinate: (1566, 360)
+[15:46:23] Testing coordinate: (1576, 360)
+[15:46:23] Testing coordinate: (1586, 360)
+[15:46:23] Testing coordinate: (1596, 360)
+[15:46:24] Testing coordinate: (1606, 360)
+[15:46:24] Testing coordinate: (1616, 360)
+[15:46:24] Testing coordinate: (1626, 360)
+[15:46:25] Testing coordinate: (1636, 360)
+[15:46:25] [Y=360] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.95s | Avg:0.359s/pt | Total:2.5min
+[15:46:25] 
+[15:46:25] [Y=370] Starting tests for this row...
+[15:46:25] Testing coordinate: (1536, 370)
+[15:46:25] Testing coordinate: (1546, 370)
+[15:46:26] Testing coordinate: (1556, 370)
+[15:46:26] Testing coordinate: (1566, 370)
+[15:46:27] Testing coordinate: (1576, 370)
+[15:46:27] Testing coordinate: (1586, 370)
+[15:46:27] Testing coordinate: (1596, 370)
+[15:46:28] Testing coordinate: (1606, 370)
+[15:46:28] Testing coordinate: (1616, 370)
+[15:46:28] Testing coordinate: (1626, 370)
+[15:46:29] Testing coordinate: (1636, 370)
+[15:46:29] [Y=370] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.98s | Avg:0.362s/pt | Total:2.5min
+[15:46:29] 
+[15:46:29] [Y=380] Starting tests for this row...
+[15:46:29] Testing coordinate: (1536, 380)
+[15:46:29] Testing coordinate: (1546, 380)
+[15:46:30] Testing coordinate: (1556, 380)
+[15:46:30] Testing coordinate: (1566, 380)
+[15:46:31] Testing coordinate: (1576, 380)
+[15:46:31] Testing coordinate: (1586, 380)
+[15:46:31] Testing coordinate: (1596, 380)
+[15:46:32] Testing coordinate: (1606, 380)
+[15:46:32] Testing coordinate: (1616, 380)
+[15:46:32] Testing coordinate: (1626, 380)
+[15:46:33] Testing coordinate: (1636, 380)
+[15:46:33] [Y=380] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.96s | Avg:0.360s/pt | Total:2.6min
+[15:46:33] 
+[15:46:33] [Y=390] Starting tests for this row...
+[15:46:33] Testing coordinate: (1536, 390)
+[15:46:33] Testing coordinate: (1546, 390)
+[15:46:34] Testing coordinate: (1556, 390)
+[15:46:34] Testing coordinate: (1566, 390)
+[15:46:34] Testing coordinate: (1576, 390)
+[15:46:35] Testing coordinate: (1586, 390)
+[15:46:35] Testing coordinate: (1596, 390)
+[15:46:36] Testing coordinate: (1606, 390)
+[15:46:36] Testing coordinate: (1616, 390)
+[15:46:36] Testing coordinate: (1626, 390)
+[15:46:37] Testing coordinate: (1636, 390)
+[15:46:37] [Y=390] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.98s | Avg:0.362s/pt | Total:2.7min
+[15:46:37] 
+[15:46:37] [Y=400] Starting tests for this row...
+[15:46:37] Testing coordinate: (1536, 400)
+[15:46:37] Testing coordinate: (1546, 400)
+[15:46:38] Testing coordinate: (1556, 400)
+[15:46:38] Testing coordinate: (1566, 400)
+[15:46:39] Testing coordinate: (1576, 400)
+[15:46:39] Testing coordinate: (1586, 400)
+[15:46:39] Testing coordinate: (1596, 400)
+[15:46:40] Testing coordinate: (1606, 400)
+[15:46:40] Testing coordinate: (1616, 400)
+[15:46:40] Testing coordinate: (1626, 400)
+[15:46:41] Testing coordinate: (1636, 400)
+[15:46:41] [Y=400] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.98s | Avg:0.362s/pt | Total:2.7min
+[15:46:41] 
+[15:46:41] [Y=410] Starting tests for this row...
+[15:46:41] Testing coordinate: (1536, 410)
+[15:46:41] Testing coordinate: (1546, 410)
+[15:46:42] Testing coordinate: (1556, 410)
+[15:46:42] Testing coordinate: (1566, 410)
+[15:46:43] Testing coordinate: (1576, 410)
+[15:46:43] Testing coordinate: (1586, 410)
+[15:46:43] Testing coordinate: (1596, 410)
+[15:46:44] Testing coordinate: (1606, 410)
+[15:46:44] Testing coordinate: (1616, 410)
+[15:46:44] Testing coordinate: (1626, 410)
+[15:46:45] Testing coordinate: (1636, 410)
+[15:46:45] [Y=410] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.01s | Avg:0.364s/pt | Total:2.8min
+[15:46:45] 
+[15:46:45] [Y=420] Starting tests for this row...
+[15:46:45] Testing coordinate: (1536, 420)
+[15:46:46] Testing coordinate: (1546, 420)
+[15:46:46] Testing coordinate: (1556, 420)
+[15:46:46] Testing coordinate: (1566, 420)
+[15:46:47] Testing coordinate: (1576, 420)
+[15:46:47] Testing coordinate: (1586, 420)
+[15:46:47] Testing coordinate: (1596, 420)
+[15:46:48] Testing coordinate: (1606, 420)
+[15:46:48] Testing coordinate: (1616, 420)
+[15:46:48] Testing coordinate: (1626, 420)
+[15:46:49] Testing coordinate: (1636, 420)
+[15:46:49] [Y=420] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.94s | Avg:0.358s/pt | Total:2.9min
+[15:46:49] 
+[15:46:49] [Y=430] Starting tests for this row...
+[15:46:49] Testing coordinate: (1536, 430)
+[15:46:50] Testing coordinate: (1546, 430)
+[15:46:50] Testing coordinate: (1556, 430)
+[15:46:50] Testing coordinate: (1566, 430)
+[15:46:51] Testing coordinate: (1576, 430)
+[15:46:51] Testing coordinate: (1586, 430)
+[15:46:51] Testing coordinate: (1596, 430)
+[15:46:52] Testing coordinate: (1606, 430)
+[15:46:52] Testing coordinate: (1616, 430)
+[15:46:52] Testing coordinate: (1626, 430)
+[15:46:53] Testing coordinate: (1636, 430)
+[15:46:53] [Y=430] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.99s | Avg:0.363s/pt | Total:2.9min
+[15:46:53] 
+[15:46:53] [Y=440] Starting tests for this row...
+[15:46:53] Testing coordinate: (1536, 440)
+[15:46:54] Testing coordinate: (1546, 440)
+[15:46:54] Testing coordinate: (1556, 440)
+[15:46:54] Testing coordinate: (1566, 440)
+[15:46:55] Testing coordinate: (1576, 440)
+[15:46:55] Testing coordinate: (1586, 440)
+[15:46:55] Testing coordinate: (1596, 440)
+[15:46:56] Testing coordinate: (1606, 440)
+[15:46:56] Testing coordinate: (1616, 440)
+[15:46:56] Testing coordinate: (1626, 440)
+[15:46:57] Testing coordinate: (1636, 440)
+[15:46:57] [Y=440] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.04s | Avg:0.368s/pt | Total:3.0min
+[15:46:57] 
+[15:46:57] [Y=450] Starting tests for this row...
+[15:46:57] Testing coordinate: (1536, 450)
+[15:46:58] Testing coordinate: (1546, 450)
+[15:46:58] Testing coordinate: (1556, 450)
+[15:46:58] Testing coordinate: (1566, 450)
+[15:46:59] Testing coordinate: (1576, 450)
+[15:46:59] Testing coordinate: (1586, 450)
+[15:46:59] Testing coordinate: (1596, 450)
+[15:47:00] Testing coordinate: (1606, 450)
+[15:47:00] Testing coordinate: (1616, 450)
+[15:47:01] Testing coordinate: (1626, 450)
+[15:47:01] Testing coordinate: (1636, 450)
+[15:47:01] [Y=450] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.04s | Avg:0.367s/pt | Total:3.1min
+[15:47:01] 
+[15:47:01] [Y=460] Starting tests for this row...
+[15:47:01] Testing coordinate: (1536, 460)
+[15:47:02] Testing coordinate: (1546, 460)
+[15:47:02] Testing coordinate: (1556, 460)
+[15:47:02] Testing coordinate: (1566, 460)
+[15:47:03] Testing coordinate: (1576, 460)
+[15:47:03] Testing coordinate: (1586, 460)
+[15:47:04] Testing coordinate: (1596, 460)
+[15:47:04] Testing coordinate: (1606, 460)
+[15:47:04] Testing coordinate: (1616, 460)
+[15:47:05] Testing coordinate: (1626, 460)
+[15:47:05] Testing coordinate: (1636, 460)
+[15:47:05] [Y=460] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.13s | Avg:0.375s/pt | Total:3.1min
+[15:47:05] 
+[15:47:05] [Y=470] Starting tests for this row...
+[15:47:05] Testing coordinate: (1536, 470)
+[15:47:06] Testing coordinate: (1546, 470)
+[15:47:06] Testing coordinate: (1556, 470)
+[15:47:07] Testing coordinate: (1566, 470)
+[15:47:07] Testing coordinate: (1576, 470)
+[15:47:07] Testing coordinate: (1586, 470)
+[15:47:08] Testing coordinate: (1596, 470)
+[15:47:08] Testing coordinate: (1606, 470)
+[15:47:08] Testing coordinate: (1616, 470)
+[15:47:09] Testing coordinate: (1626, 470)
+[15:47:09] Testing coordinate: (1636, 470)
+[15:47:09] [Y=470] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.03s | Avg:0.367s/pt | Total:3.2min
+[15:47:09] 
+[15:47:09] [Y=480] Starting tests for this row...
+[15:47:10] Testing coordinate: (1536, 480)
+[15:47:10] Testing coordinate: (1546, 480)
+[15:47:10] Testing coordinate: (1556, 480)
+[15:47:11] Testing coordinate: (1566, 480)
+[15:47:11] Testing coordinate: (1576, 480)
+[15:47:11] Testing coordinate: (1586, 480)
+[15:47:12] Testing coordinate: (1596, 480)
+[15:47:12] Testing coordinate: (1606, 480)
+[15:47:12] Testing coordinate: (1616, 480)
+[15:47:13] Testing coordinate: (1626, 480)
+[15:47:13] Testing coordinate: (1636, 480)
+[15:47:14] [Y=480] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.05s | Avg:0.368s/pt | Total:3.3min
+[15:47:14] 
+[15:47:14] [Y=490] Starting tests for this row...
+[15:47:14] Testing coordinate: (1536, 490)
+[15:47:14] Testing coordinate: (1546, 490)
+[15:47:14] Testing coordinate: (1556, 490)
+[15:47:15] Testing coordinate: (1566, 490)
+[15:47:15] Testing coordinate: (1576, 490)
+[15:47:15] Testing coordinate: (1586, 490)
+[15:47:16] Testing coordinate: (1596, 490)
+[15:47:16] Testing coordinate: (1606, 490)
+[15:47:17] Testing coordinate: (1616, 490)
+[15:47:17] Testing coordinate: (1626, 490)
+[15:47:17] Testing coordinate: (1636, 490)
+[15:47:18] [Y=490] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.06s | Avg:0.369s/pt | Total:3.4min
+[15:47:18] 
+[15:47:18] [Y=500] Starting tests for this row...
+[15:47:18] Testing coordinate: (1536, 500)
+[15:47:18] Testing coordinate: (1546, 500)
+[15:47:18] Testing coordinate: (1556, 500)
+[15:47:19] Testing coordinate: (1566, 500)
+[15:47:19] Testing coordinate: (1576, 500)
+[15:47:20] Testing coordinate: (1586, 500)
+[15:47:20] Testing coordinate: (1596, 500)
+[15:47:20] Testing coordinate: (1606, 500)
+[15:47:21] Testing coordinate: (1616, 500)
+[15:47:21] Testing coordinate: (1626, 500)
+[15:47:21] Testing coordinate: (1636, 500)
+[15:47:22] [Y=500] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.00s | Avg:0.364s/pt | Total:3.4min
+[15:47:22] 
+[15:47:22] [Y=510] Starting tests for this row...
+[15:47:22] Testing coordinate: (1536, 510)
+[15:47:22] Testing coordinate: (1546, 510)
+[15:47:22] Testing coordinate: (1556, 510)
+[15:47:23] Testing coordinate: (1566, 510)
+[15:47:23] Testing coordinate: (1576, 510)
+[15:47:24] Testing coordinate: (1586, 510)
+[15:47:24] Testing coordinate: (1596, 510)
+[15:47:24] Testing coordinate: (1606, 510)
+[15:47:25] Testing coordinate: (1616, 510)
+[15:47:25] Testing coordinate: (1626, 510)
+[15:47:25] Testing coordinate: (1636, 510)
+[15:47:26] [Y=510] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.03s | Avg:0.366s/pt | Total:3.5min
+[15:47:26] 
+[15:47:26] [Y=520] Starting tests for this row...
+[15:47:26] Testing coordinate: (1536, 520)
+[15:47:26] Testing coordinate: (1546, 520)
+[15:47:27] Testing coordinate: (1556, 520)
+[15:47:27] Testing coordinate: (1566, 520)
+[15:47:27] Testing coordinate: (1576, 520)
+[15:47:28] Testing coordinate: (1586, 520)
+[15:47:28] Testing coordinate: (1596, 520)
+[15:47:28] Testing coordinate: (1606, 520)
+[15:47:29] Testing coordinate: (1616, 520)
+[15:47:29] Testing coordinate: (1626, 520)
+[15:47:30] Testing coordinate: (1636, 520)
+[15:47:30] [Y=520] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.11s | Avg:0.374s/pt | Total:3.6min
+[15:47:30] 
+[15:47:30] [Y=530] Starting tests for this row...
+[15:47:30] Testing coordinate: (1536, 530)
+[15:47:30] Testing coordinate: (1546, 530)
+[15:47:31] Testing coordinate: (1556, 530)
+[15:47:31] Testing coordinate: (1566, 530)
+[15:47:31] Testing coordinate: (1576, 530)
+[15:47:32] Testing coordinate: (1586, 530)
+[15:47:32] Testing coordinate: (1596, 530)
+[15:47:32] Testing coordinate: (1606, 530)
+[15:47:33] Testing coordinate: (1616, 530)
+[15:47:33] Testing coordinate: (1626, 530)
+[15:47:34] Testing coordinate: (1636, 530)
+[15:47:34] [Y=530] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.01s | Avg:0.364s/pt | Total:3.6min
+[15:47:34] 
+[15:47:34] [Y=540] Starting tests for this row...
+[15:47:34] Testing coordinate: (1536, 540)
+[15:47:34] Testing coordinate: (1546, 540)
+[15:47:35] Testing coordinate: (1556, 540)
+[15:47:35] Testing coordinate: (1566, 540)
+[15:47:35] Testing coordinate: (1576, 540)
+[15:47:36] Testing coordinate: (1586, 540)
+[15:47:36] Testing coordinate: (1596, 540)
+[15:47:37] Testing coordinate: (1606, 540)
+[15:47:37] Testing coordinate: (1616, 540)
+[15:47:37] Testing coordinate: (1626, 540)
+[15:47:38] Testing coordinate: (1636, 540)
+[15:47:38] [Y=540] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.04s | Avg:0.367s/pt | Total:3.7min
+[15:47:38] 
+[15:47:38] [Y=550] Starting tests for this row...
+[15:47:38] Testing coordinate: (1536, 550)
+[15:47:38] Testing coordinate: (1546, 550)
+[15:47:39] Testing coordinate: (1556, 550)
+[15:47:39] Testing coordinate: (1566, 550)
+[15:47:40] Testing coordinate: (1576, 550)
+[15:47:40] Testing coordinate: (1586, 550)
+[15:47:40] Testing coordinate: (1596, 550)
+[15:47:41] Testing coordinate: (1606, 550)
+[15:47:41] Testing coordinate: (1616, 550)
+[15:47:41] Testing coordinate: (1626, 550)
+[15:47:42] Testing coordinate: (1636, 550)
+[15:47:42] [Y=550] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.99s | Avg:0.362s/pt | Total:3.8min
+[15:47:42] 
+[15:47:42] [Y=560] Starting tests for this row...
+[15:47:42] Testing coordinate: (1536, 560)
+[15:47:42] Testing coordinate: (1546, 560)
+[15:47:43] Testing coordinate: (1556, 560)
+[15:47:43] Testing coordinate: (1566, 560)
+[15:47:44] Testing coordinate: (1576, 560)
+[15:47:44] Testing coordinate: (1586, 560)
+[15:47:44] Testing coordinate: (1596, 560)
+[15:47:45] Testing coordinate: (1606, 560)
+[15:47:45] Testing coordinate: (1616, 560)
+[15:47:45] Testing coordinate: (1626, 560)
+[15:47:46] Testing coordinate: (1636, 560)
+[15:47:46] [Y=560] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.99s | Avg:0.362s/pt | Total:3.8min
+[15:47:46] 
+[15:47:46] [Y=570] Starting tests for this row...
+[15:47:46] Testing coordinate: (1536, 570)
+[15:47:47] Testing coordinate: (1546, 570)
+[15:47:47] Testing coordinate: (1556, 570)
+[15:47:47] Testing coordinate: (1566, 570)
+[15:47:48] Testing coordinate: (1576, 570)
+[15:47:48] Testing coordinate: (1586, 570)
+[15:47:48] Testing coordinate: (1596, 570)
+[15:47:49] Testing coordinate: (1606, 570)
+[15:47:49] Testing coordinate: (1616, 570)
+[15:47:50] Testing coordinate: (1626, 570)
+[15:47:50] Testing coordinate: (1636, 570)
+[15:47:50] [Y=570] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.20s | Avg:0.382s/pt | Total:3.9min
+[15:47:50] 
+[15:47:50] [Y=580] Starting tests for this row...
+[15:47:50] Testing coordinate: (1536, 580)
+[15:47:51] Testing coordinate: (1546, 580)
+[15:47:51] Testing coordinate: (1556, 580)
+[15:47:51] Testing coordinate: (1566, 580)
+[15:47:52] Testing coordinate: (1576, 580)
+[15:47:52] Testing coordinate: (1586, 580)
+[15:47:52] Testing coordinate: (1596, 580)
+[15:47:53] Testing coordinate: (1606, 580)
+[15:47:53] Testing coordinate: (1616, 580)
+[15:47:54] Testing coordinate: (1626, 580)
+[15:47:54] Testing coordinate: (1636, 580)
+[15:47:54] [Y=580] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.00s | Avg:0.363s/pt | Total:4.0min
+[15:47:54] 
+[15:47:54] [Y=590] Starting tests for this row...
+[15:47:54] Testing coordinate: (1536, 590)
+[15:47:55] Testing coordinate: (1546, 590)
+[15:47:55] Testing coordinate: (1556, 590)
+[15:47:55] Testing coordinate: (1566, 590)
+[15:47:56] Testing coordinate: (1576, 590)
+[15:47:56] Testing coordinate: (1586, 590)
+[15:47:56] Testing coordinate: (1596, 590)
+[15:47:57] Testing coordinate: (1606, 590)
+[15:47:57] Testing coordinate: (1616, 590)
+[15:47:58] Testing coordinate: (1626, 590)
+[15:47:58] Testing coordinate: (1636, 590)
+[15:47:58] [Y=590] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.91s | Avg:0.356s/pt | Total:4.0min
+[15:47:58] 
+[15:47:58] [Y=600] Starting tests for this row...
+[15:47:58] Testing coordinate: (1536, 600)
+[15:47:59] Testing coordinate: (1546, 600)
+[15:47:59] Testing coordinate: (1556, 600)
+[15:47:59] Testing coordinate: (1566, 600)
+[15:48:00] Testing coordinate: (1576, 600)
+[15:48:00] Testing coordinate: (1586, 600)
+[15:48:00] Testing coordinate: (1596, 600)
+[15:48:01] Testing coordinate: (1606, 600)
+[15:48:01] Testing coordinate: (1616, 600)
+[15:48:01] Testing coordinate: (1626, 600)
+[15:48:02] Testing coordinate: (1636, 600)
+[15:48:02] [Y=600] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.95s | Avg:0.359s/pt | Total:4.1min
+[15:48:02] 
+[15:48:02] [Y=610] Starting tests for this row...
+[15:48:02] Testing coordinate: (1536, 610)
+[15:48:03] Testing coordinate: (1546, 610)
+[15:48:03] Testing coordinate: (1556, 610)
+[15:48:03] Testing coordinate: (1566, 610)
+[15:48:04] Testing coordinate: (1576, 610)
+[15:48:04] Testing coordinate: (1586, 610)
+[15:48:04] Testing coordinate: (1596, 610)
+[15:48:05] Testing coordinate: (1606, 610)
+[15:48:05] Testing coordinate: (1616, 610)
+[15:48:06] Testing coordinate: (1626, 610)
+[15:48:06] Testing coordinate: (1636, 610)
+[15:48:06] [Y=610] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.06s | Avg:0.370s/pt | Total:4.2min
+[15:48:06] 
+[15:48:06] [Y=620] Starting tests for this row...
+[15:48:06] Testing coordinate: (1536, 620)
+[15:48:07] Testing coordinate: (1546, 620)
+[15:48:07] Testing coordinate: (1556, 620)
+[15:48:07] Testing coordinate: (1566, 620)
+[15:48:08] Testing coordinate: (1576, 620)
+[15:48:08] Testing coordinate: (1586, 620)
+[15:48:08] Testing coordinate: (1596, 620)
+[15:48:09] Testing coordinate: (1606, 620)
+[15:48:09] Testing coordinate: (1616, 620)
+[15:48:10] Testing coordinate: (1626, 620)
+[15:48:10] Testing coordinate: (1636, 620)
+[15:48:10] [Y=620] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.00s | Avg:0.364s/pt | Total:4.2min
+[15:48:10] 
+[15:48:10] [Y=630] Starting tests for this row...
+[15:48:10] Testing coordinate: (1536, 630)
+[15:48:11] Testing coordinate: (1546, 630)
+[15:48:11] Testing coordinate: (1556, 630)
+[15:48:11] Testing coordinate: (1566, 630)
+[15:48:12] Testing coordinate: (1576, 630)
+[15:48:12] Testing coordinate: (1586, 630)
+[15:48:12] Testing coordinate: (1596, 630)
+[15:48:13] Testing coordinate: (1606, 630)
+[15:48:13] Testing coordinate: (1616, 630)
+[15:48:14] Testing coordinate: (1626, 630)
+[15:48:14] Testing coordinate: (1636, 630)
+[15:48:14] [Y=630] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.02s | Avg:0.366s/pt | Total:4.3min
+[15:48:14] 
+[15:48:14] [Y=640] Starting tests for this row...
+[15:48:14] Testing coordinate: (1536, 640)
+[15:48:15] Testing coordinate: (1546, 640)
+[15:48:15] Testing coordinate: (1556, 640)
+[15:48:15] Testing coordinate: (1566, 640)
+[15:48:16] Testing coordinate: (1576, 640)
+[15:48:16] Testing coordinate: (1586, 640)
+[15:48:17] Testing coordinate: (1596, 640)
+[15:48:17] Testing coordinate: (1606, 640)
+[15:48:17] Testing coordinate: (1616, 640)
+[15:48:18] Testing coordinate: (1626, 640)
+[15:48:18] Testing coordinate: (1636, 640)
+[15:48:18] [Y=640] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.96s | Avg:0.360s/pt | Total:4.4min
+[15:48:18] 
+[15:48:18] [Y=650] Starting tests for this row...
+[15:48:18] Testing coordinate: (1536, 650)
+[15:48:19] Testing coordinate: (1546, 650)
+[15:48:19] Testing coordinate: (1556, 650)
+[15:48:19] Testing coordinate: (1566, 650)
+[15:48:20] Testing coordinate: (1576, 650)
+[15:48:20] Testing coordinate: (1586, 650)
+[15:48:21] Testing coordinate: (1596, 650)
+[15:48:21] Testing coordinate: (1606, 650)
+[15:48:21] Testing coordinate: (1616, 650)
+[15:48:22] Testing coordinate: (1626, 650)
+[15:48:22] Testing coordinate: (1636, 650)
+[15:48:22] [Y=650] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.02s | Avg:0.366s/pt | Total:4.4min
+[15:48:22] 
+[15:48:22] [Y=660] Starting tests for this row...
+[15:48:22] Testing coordinate: (1536, 660)
+[15:48:23] Testing coordinate: (1546, 660)
+[15:48:23] Testing coordinate: (1556, 660)
+[15:48:23] Testing coordinate: (1566, 660)
+[15:48:24] Testing coordinate: (1576, 660)
+[15:48:24] Testing coordinate: (1586, 660)
+[15:48:25] Testing coordinate: (1596, 660)
+[15:48:25] Testing coordinate: (1606, 660)
+[15:48:25] Testing coordinate: (1616, 660)
+[15:48:26] Testing coordinate: (1626, 660)
+[15:48:26] Testing coordinate: (1636, 660)
+[15:48:26] [Y=660] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.93s | Avg:0.357s/pt | Total:4.5min
+[15:48:26] 
+[15:48:26] [Y=670] Starting tests for this row...
+[15:48:26] Testing coordinate: (1536, 670)
+[15:48:27] Testing coordinate: (1546, 670)
+[15:48:27] Testing coordinate: (1556, 670)
+[15:48:27] Testing coordinate: (1566, 670)
+[15:48:28] Testing coordinate: (1576, 670)
+[15:48:28] Testing coordinate: (1586, 670)
+[15:48:29] Testing coordinate: (1596, 670)
+[15:48:29] Testing coordinate: (1606, 670)
+[15:48:29] Testing coordinate: (1616, 670)
+[15:48:30] Testing coordinate: (1626, 670)
+[15:48:30] Testing coordinate: (1636, 670)
+[15:48:30] [Y=670] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.01s | Avg:0.364s/pt | Total:4.6min
+[15:48:30] 
+[15:48:30] [Y=680] Starting tests for this row...
+[15:48:30] Testing coordinate: (1536, 680)
+[15:48:31] Testing coordinate: (1546, 680)
+[15:48:31] Testing coordinate: (1556, 680)
+[15:48:32] Testing coordinate: (1566, 680)
+[15:48:32] Testing coordinate: (1576, 680)
+[15:48:32] Testing coordinate: (1586, 680)
+[15:48:33] Testing coordinate: (1596, 680)
+[15:48:33] Testing coordinate: (1606, 680)
+[15:48:33] Testing coordinate: (1616, 680)
+[15:48:34] Testing coordinate: (1626, 680)
+[15:48:34] Testing coordinate: (1636, 680)
+[15:48:34] [Y=680] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.04s | Avg:0.367s/pt | Total:4.6min
+[15:48:34] 
+[15:48:34] [Y=690] Starting tests for this row...
+[15:48:35] Testing coordinate: (1536, 690)
+[15:48:35] Testing coordinate: (1546, 690)
+[15:48:35] Testing coordinate: (1556, 690)
+[15:48:36] Testing coordinate: (1566, 690)
+[15:48:36] Testing coordinate: (1576, 690)
+[15:48:36] Testing coordinate: (1586, 690)
+[15:48:37] Testing coordinate: (1596, 690)
+[15:48:37] Testing coordinate: (1606, 690)
+[15:48:37] Testing coordinate: (1616, 690)
+[15:48:38] Testing coordinate: (1626, 690)
+[15:48:38] Testing coordinate: (1636, 690)
+[15:48:38] [Y=690] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.98s | Avg:0.362s/pt | Total:4.7min
+[15:48:38] 
+[15:48:38] [Y=700] Starting tests for this row...
+[15:48:39] Testing coordinate: (1536, 700)
+[15:48:39] Testing coordinate: (1546, 700)
+[15:48:39] Testing coordinate: (1556, 700)
+[15:48:40] Testing coordinate: (1566, 700)
+[15:48:40] Testing coordinate: (1576, 700)
+[15:48:40] Testing coordinate: (1586, 700)
+[15:48:41] Testing coordinate: (1596, 700)
+[15:48:41] Testing coordinate: (1606, 700)
+[15:48:41] Testing coordinate: (1616, 700)
+[15:48:42] Testing coordinate: (1626, 700)
+[15:48:42] Testing coordinate: (1636, 700)
+[15:48:42] [Y=700] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.98s | Avg:0.361s/pt | Total:4.8min
+[15:48:42] 
+[15:48:42] [Y=710] Starting tests for this row...
+[15:48:43] Testing coordinate: (1536, 710)
+[15:48:43] Testing coordinate: (1546, 710)
+[15:48:43] Testing coordinate: (1556, 710)
+[15:48:44] Testing coordinate: (1566, 710)
+[15:48:44] Testing coordinate: (1576, 710)
+[15:48:44] Testing coordinate: (1586, 710)
+[15:48:45] Testing coordinate: (1596, 710)
+[15:48:45] Testing coordinate: (1606, 710)
+[15:48:45] Testing coordinate: (1616, 710)
+[15:48:46] Testing coordinate: (1626, 710)
+[15:48:46] Testing coordinate: (1636, 710)
+[15:48:47] [Y=710] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.04s | Avg:0.367s/pt | Total:4.8min
+[15:48:47] 
+[15:48:47] [Y=720] Starting tests for this row...
+[15:48:47] Testing coordinate: (1536, 720)
+[15:48:47] Testing coordinate: (1546, 720)
+[15:48:47] Testing coordinate: (1556, 720)
+[15:48:48] Testing coordinate: (1566, 720)
+[15:48:48] Testing coordinate: (1576, 720)
+[15:48:48] Testing coordinate: (1586, 720)
+[15:48:49] Testing coordinate: (1596, 720)
+[15:48:49] Testing coordinate: (1606, 720)
+[15:48:49] Testing coordinate: (1616, 720)
+[15:48:50] Testing coordinate: (1626, 720)
+[15:48:50] Testing coordinate: (1636, 720)
+[15:48:51] [Y=720] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.02s | Avg:0.365s/pt | Total:4.9min
+[15:48:51] 
+[15:48:51] [Y=730] Starting tests for this row...
+[15:48:51] Testing coordinate: (1536, 730)
+[15:48:51] Testing coordinate: (1546, 730)
+[15:48:51] Testing coordinate: (1556, 730)
+[15:48:52] Testing coordinate: (1566, 730)
+[15:48:52] Testing coordinate: (1576, 730)
+[15:48:52] Testing coordinate: (1586, 730)
+[15:48:53] Testing coordinate: (1596, 730)
+[15:48:53] Testing coordinate: (1606, 730)
+[15:48:54] Testing coordinate: (1616, 730)
+[15:48:54] Testing coordinate: (1626, 730)
+[15:48:54] Testing coordinate: (1636, 730)
+[15:48:55] [Y=730] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.12s | Avg:0.375s/pt | Total:5.0min
+[15:48:55] 
+[15:48:55] [Y=740] Starting tests for this row...
+[15:48:55] Testing coordinate: (1536, 740)
+[15:48:55] Testing coordinate: (1546, 740)
+[15:48:56] Testing coordinate: (1556, 740)
+[15:48:56] Testing coordinate: (1566, 740)
+[15:48:56] Testing coordinate: (1576, 740)
+[15:48:57] Testing coordinate: (1586, 740)
+[15:48:57] Testing coordinate: (1596, 740)
+[15:48:57] Testing coordinate: (1606, 740)
+[15:48:58] Testing coordinate: (1616, 740)
+[15:48:58] Testing coordinate: (1626, 740)
+[15:48:58] Testing coordinate: (1636, 740)
+[15:48:59] [Y=740] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.02s | Avg:0.366s/pt | Total:5.0min
+[15:48:59] 
+[15:48:59] [Y=750] Starting tests for this row...
+[15:48:59] Testing coordinate: (1536, 750)
+[15:48:59] Testing coordinate: (1546, 750)
+[15:49:00] Testing coordinate: (1556, 750)
+[15:49:00] Testing coordinate: (1566, 750)
+[15:49:00] Testing coordinate: (1576, 750)
+[15:49:01] Testing coordinate: (1586, 750)
+[15:49:01] Testing coordinate: (1596, 750)
+[15:49:01] Testing coordinate: (1606, 750)
+[15:49:02] Testing coordinate: (1616, 750)
+[15:49:02] Testing coordinate: (1626, 750)
+[15:49:02] Testing coordinate: (1636, 750)
+[15:49:03] [Y=750] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.04s | Avg:0.367s/pt | Total:5.1min
+[15:49:03] 
+[15:49:03] [Y=760] Starting tests for this row...
+[15:49:03] Testing coordinate: (1536, 760)
+[15:49:03] Testing coordinate: (1546, 760)
+[15:49:04] Testing coordinate: (1556, 760)
+[15:49:04] Testing coordinate: (1566, 760)
+[15:49:04] Testing coordinate: (1576, 760)
+[15:49:05] Testing coordinate: (1586, 760)
+[15:49:05] Testing coordinate: (1596, 760)
+[15:49:06] Testing coordinate: (1606, 760)
+[15:49:06] Testing coordinate: (1616, 760)
+[15:49:06] Testing coordinate: (1626, 760)
+[15:49:07] Testing coordinate: (1636, 760)
+[15:49:07] [Y=760] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.05s | Avg:0.368s/pt | Total:5.2min
+[15:49:07] 
+[15:49:07] [Y=770] Starting tests for this row...
+[15:49:07] Testing coordinate: (1536, 770)
+[15:49:07] Testing coordinate: (1546, 770)
+[15:49:08] Testing coordinate: (1556, 770)
+[15:49:08] Testing coordinate: (1566, 770)
+[15:49:08] Testing coordinate: (1576, 770)
+[15:49:09] Testing coordinate: (1586, 770)
+[15:49:09] Testing coordinate: (1596, 770)
+[15:49:09] Testing coordinate: (1606, 770)
+[15:49:10] Testing coordinate: (1616, 770)
+[15:49:10] Testing coordinate: (1626, 770)
+[15:49:11] Testing coordinate: (1636, 770)
+[15:49:11] [Y=770] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.01s | Avg:0.364s/pt | Total:5.2min
+[15:49:11] 
+[15:49:11] [Y=780] Starting tests for this row...
+[15:49:11] Testing coordinate: (1536, 780)
+[15:49:11] Testing coordinate: (1546, 780)
+[15:49:12] Testing coordinate: (1556, 780)
+[15:49:12] Testing coordinate: (1566, 780)
+[15:49:12] Testing coordinate: (1576, 780)
+[15:49:13] Testing coordinate: (1586, 780)
+[15:49:13] Testing coordinate: (1596, 780)
+[15:49:14] Testing coordinate: (1606, 780)
+[15:49:14] Testing coordinate: (1616, 780)
+[15:49:14] Testing coordinate: (1626, 780)
+[15:49:15] Testing coordinate: (1636, 780)
+[15:49:15] [Y=780] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.05s | Avg:0.369s/pt | Total:5.3min
+[15:49:15] 
+[15:49:15] [Y=790] Starting tests for this row...
+[15:49:15] Testing coordinate: (1536, 790)
+[15:49:16] Testing coordinate: (1546, 790)
+[15:49:16] Testing coordinate: (1556, 790)
+[15:49:16] Testing coordinate: (1566, 790)
+[15:49:17] Testing coordinate: (1576, 790)
+[15:49:17] Testing coordinate: (1586, 790)
+[15:49:17] Testing coordinate: (1596, 790)
+[15:49:18] Testing coordinate: (1606, 790)
+[15:49:18] Testing coordinate: (1616, 790)
+[15:49:18] Testing coordinate: (1626, 790)
+[15:49:19] Testing coordinate: (1636, 790)
+[15:49:19] [Y=790] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.12s | Avg:0.374s/pt | Total:5.4min
+[15:49:19] 
+[15:49:19] [Y=800] Starting tests for this row...
+[15:49:19] Testing coordinate: (1536, 800)
+[15:49:20] Testing coordinate: (1546, 800)
+[15:49:20] Testing coordinate: (1556, 800)
+[15:49:20] Testing coordinate: (1566, 800)
+[15:49:21] Testing coordinate: (1576, 800)
+[15:49:21] Testing coordinate: (1586, 800)
+[15:49:21] Testing coordinate: (1596, 800)
+[15:49:22] Testing coordinate: (1606, 800)
+[15:49:22] Testing coordinate: (1616, 800)
+[15:49:22] Testing coordinate: (1626, 800)
+[15:49:23] Testing coordinate: (1636, 800)
+[15:49:23] [Y=800] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.98s | Avg:0.362s/pt | Total:5.4min
+[15:49:23] 
+[15:49:23] [Y=810] Starting tests for this row...
+[15:49:23] Testing coordinate: (1536, 810)
+[15:49:24] Testing coordinate: (1546, 810)
+[15:49:24] Testing coordinate: (1556, 810)
+[15:49:24] Testing coordinate: (1566, 810)
+[15:49:25] Testing coordinate: (1576, 810)
+[15:49:25] Testing coordinate: (1586, 810)
+[15:49:25] Testing coordinate: (1596, 810)
+[15:49:26] Testing coordinate: (1606, 810)
+[15:49:26] Testing coordinate: (1616, 810)
+[15:49:27] Testing coordinate: (1626, 810)
+[15:49:27] Testing coordinate: (1636, 810)
+[15:49:27] [Y=810] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.14s | Avg:0.377s/pt | Total:5.5min
+[15:49:27] 
+[15:49:27] [Y=820] Starting tests for this row...
+[15:49:27] Testing coordinate: (1536, 820)
+[15:49:28] Testing coordinate: (1546, 820)
+[15:49:28] Testing coordinate: (1556, 820)
+[15:49:29] Testing coordinate: (1566, 820)
+[15:49:29] Testing coordinate: (1576, 820)
+[15:49:29] Testing coordinate: (1586, 820)
+[15:49:30] Testing coordinate: (1596, 820)
+[15:49:30] Testing coordinate: (1606, 820)
+[15:49:30] Testing coordinate: (1616, 820)
+[15:49:31] Testing coordinate: (1626, 820)
+[15:49:31] Testing coordinate: (1636, 820)
+[15:49:31] [Y=820] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.03s | Avg:0.367s/pt | Total:5.6min
+[15:49:31] 
+[15:49:31] [Y=830] Starting tests for this row...
+[15:49:31] Testing coordinate: (1536, 830)
+[15:49:32] Testing coordinate: (1546, 830)
+[15:49:32] Testing coordinate: (1556, 830)
+[15:49:33] Testing coordinate: (1566, 830)
+[15:49:33] Testing coordinate: (1576, 830)
+[15:49:33] Testing coordinate: (1586, 830)
+[15:49:34] Testing coordinate: (1596, 830)
+[15:49:34] Testing coordinate: (1606, 830)
+[15:49:34] Testing coordinate: (1616, 830)
+[15:49:35] Testing coordinate: (1626, 830)
+[15:49:35] Testing coordinate: (1636, 830)
+[15:49:36] [Y=830] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.97s | Avg:0.361s/pt | Total:5.6min
+[15:49:36] 
+[15:49:36] [Y=840] Starting tests for this row...
+[15:49:36] Testing coordinate: (1536, 840)
+[15:49:36] Testing coordinate: (1546, 840)
+[15:49:36] Testing coordinate: (1556, 840)
+[15:49:37] Testing coordinate: (1566, 840)
+[15:49:37] Testing coordinate: (1576, 840)
+[15:49:37] Testing coordinate: (1586, 840)
+[15:49:38] Testing coordinate: (1596, 840)
+[15:49:38] Testing coordinate: (1606, 840)
+[15:49:38] Testing coordinate: (1616, 840)
+[15:49:39] Testing coordinate: (1626, 840)
+[15:49:39] Testing coordinate: (1636, 840)
+[15:49:40] [Y=840] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.98s | Avg:0.362s/pt | Total:5.7min
+[15:49:40] 
+[15:49:40] [Y=850] Starting tests for this row...
+[15:49:40] Testing coordinate: (1536, 850)
+[15:49:40] Testing coordinate: (1546, 850)
+[15:49:40] Testing coordinate: (1556, 850)
+[15:49:41] Testing coordinate: (1566, 850)
+[15:49:41] Testing coordinate: (1576, 850)
+[15:49:41] Testing coordinate: (1586, 850)
+[15:49:42] Testing coordinate: (1596, 850)
+[15:49:42] Testing coordinate: (1606, 850)
+[15:49:42] Testing coordinate: (1616, 850)
+[15:49:43] Testing coordinate: (1626, 850)
+[15:49:43] Testing coordinate: (1636, 850)
+[15:49:44] [Y=850] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:4.11s | Avg:0.373s/pt | Total:5.8min
+[15:49:44] 
+[15:49:44] [Y=860] Starting tests for this row...
+[15:49:44] Testing coordinate: (1536, 860)
+[15:49:44] Testing coordinate: (1546, 860)
+[15:49:44] Testing coordinate: (1556, 860)
+[15:49:45] Testing coordinate: (1566, 860)
+[15:49:45] Testing coordinate: (1576, 860)
+[15:49:45] Testing coordinate: (1586, 860)
+[15:49:46] Testing coordinate: (1596, 860)
+[15:49:46] Testing coordinate: (1606, 860)
+[15:49:47] Testing coordinate: (1616, 860)
+[15:49:47] Testing coordinate: (1626, 860)
+[15:49:47] Testing coordinate: (1636, 860)
+[15:49:48] [Y=860] Done: 11 points — PASS:1 FAIL:10 (9%) — Row:3.94s | Avg:0.359s/pt | Total:5.8min
+[15:49:48] 
+[15:49:48] [Y=870] Starting tests for this row...
+[15:49:48] Testing coordinate: (1536, 870)
+[15:49:48] Testing coordinate: (1546, 870)
+[15:49:48] Testing coordinate: (1556, 870)
+[15:49:49] Testing coordinate: (1566, 870)
+[15:49:49] Testing coordinate: (1576, 870)
+[15:49:49] Testing coordinate: (1586, 870)
+[15:49:50] Testing coordinate: (1596, 870)
+[15:49:50] Testing coordinate: (1606, 870)
+[15:49:51] Testing coordinate: (1616, 870)
+[15:49:51] Testing coordinate: (1626, 870)
+[15:49:51] Testing coordinate: (1636, 870)
+[15:49:52] [Y=870] Done: 11 points — PASS:0 FAIL:11 (0%) — Row:4.02s | Avg:0.365s/pt | Total:5.9min
+[15:49:52] Final save 968 lines to D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Trapezoidal_coordinate_test_results\20260304\result_2026_03_04_15_43_57.csv
+[15:49:52] 
+[15:49:52] Total program runtime: 355.08 seconds (5.92 minutes)
+[15:49:52] 
+[15:49:52] ============================================================
+[15:49:52] FINAL STATISTICS:
+[15:49:52] ============================================================
+[15:49:52] Total Tests Run: 968
+[15:49:52] Total Passed: 87
+[15:49:52] Total Failed: 881
+[15:49:52] Overall Pass Rate: 8.99%
+[15:49:52] ============================================================

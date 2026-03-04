@@ -13,6 +13,8 @@
 使用方式:
     按需调整 index（0~3 对应四个角点）、X_STEP/Y_STEP 步长，
     设置 TEST_SINGLE_ROW=True 可仅测试第一行快速验证，
+    设置 DEGREE_STEP > 0（如 20）可按角度间隔扫描，
+      此时 X_STEP/Y_STEP 将被根据 PIXELS_PER_DEGREE_X/Y 自动换算覆盖，
     然后直接运行即可
 ============================================================
 """
@@ -60,11 +62,16 @@ from dlpc843x.commands import *
 
 WIDTH = 3839
 HEIGHT = 2159
-X_STEP = 6
-Y_STEP = 3
+# 坐标点步进间隔（单位：像素坐标点）
+# 例如 X_STEP=20 表示每隔 20 个坐标点测一次，值越大扫描越稀疏、速度越快
+X_STEP = 10
+Y_STEP = 10
 
 # True=only test the first row, False=full test
 TEST_SINGLE_ROW = False
+
+# 是否在遇到失败时启用精细化扫描模式
+ENABLE_FINE_SCAN = False
 
 # 工程根目录（手动指定绝对路径，按实际部署位置修改）
 DATA_ROOT = r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto'
@@ -156,8 +163,6 @@ def check(write_points, csv_writer):
 
     csv_writer.write_row(input_row)
     if int(ErrorCode) != 1:
-        print("go wrong: {}".format(ErrorCode))
-        print(int(ErrorCode))
         return False
     return True
    
@@ -182,6 +187,11 @@ def main():
     print("Creating CSV file:", csv_path)
     csv_writer = CSVWriterWithCounter(csv_path, target_rows=1000)
 
+    # 初始化总体统计变量（放在 try 之外，确保 finally 中始终可访问）
+    total_tests = 0
+    total_passed = 0
+    total_failed = 0
+
     try:
         # Process all combinations sequentially
         points = [
@@ -191,7 +201,7 @@ def main():
             [[3839, 2159], [2304, 1296]]    # Bottom Right: (3839,2159) -> (2304,1296)
         ]
 
-        index = 1
+        index = 0
 
         x_start, x_end = points[index][0][0], points[index][1][0]
         y_start, y_end = points[index][0][1], points[index][1][1]
@@ -225,46 +235,79 @@ def main():
             print("\n[Y={}] Starting tests for this row...".format(current_y))
             
             for current_x in range(x_start, x_end + x_step, x_step):
+                print("Testing coordinate: ({}, {})".format(current_x, current_y))  # 打印当前测试的坐标点
                 result = copy.deepcopy(fixed_points)
                 result.insert(index, [current_x, current_y])
                 res = check(result, csv_writer)
                 test_count += 1
+                total_tests += 1  # 更新总测试数
                 if res:
                     row_passed += 1
+                    total_passed += 1  # 更新总通过数
                 else:
                     row_failed += 1
+                    total_failed += 1  # 更新总失败数
 
                 if not res:
-                    if y_step > 0:
-                        new_y_start = max(current_y - Y_STEP, 0)
-                        new_y_step = 1  # Fine-grained scan step length (optimized)
-                    else:
-                        new_y_start = current_y + Y_STEP
-                        new_y_step = -1
-                    if x_step > 0:
-                        new_x_start = max(current_x - X_STEP, 0)
-                        new_x_step = 1  # Fine-grained scan step length (optimized)
-                    else:
-                        new_x_start = current_x + X_STEP
-                        new_x_step = -1
-                    if new_y_start != current_y:
-                        for new_y in range(new_y_start, current_y, new_y_step):
-                            if new_x_start != current_x:
-                                for new_x in range(new_x_start, current_x, new_x_step):
+                    if ENABLE_FINE_SCAN:
+                        print("  -> Found failure at ({}, {}), starting fine-grained scan...".format(current_x, current_y))
+                        if y_step > 0:
+                            new_y_start = max(current_y - Y_STEP, 0)
+                            new_y_step = 1
+                        else:
+                            new_y_start = current_y + Y_STEP
+                            new_y_step = -1
+                        if x_step > 0:
+                            new_x_start = max(current_x - X_STEP, 0)
+                            new_x_step = 1
+                        else:
+                            new_x_start = current_x + X_STEP
+                            new_x_step = -1
+                        
+                        if new_y_start != current_y:
+                            for new_y in range(new_y_start, current_y, new_y_step):
+                                if new_x_start != current_x:
+                                    for new_x in range(new_x_start, current_x, new_x_step):
+                                        new_result = copy.deepcopy(fixed_points)
+                                        new_result.insert(index, [new_x, new_y])
+                                        new_res = check(new_result, csv_writer)
+                                        total_tests += 1  # 更新总测试数
+                                        # 统计精细化扫描的结果
+                                        if new_res:
+                                            row_passed += 1
+                                            total_passed += 1  # 更新总通过数
+                                        else:
+                                            row_failed += 1
+                                            total_failed += 1  # 更新总失败数
+                                else:
+                                    print("  -> Fine scan testing: ({}, {})".format(new_x_start, new_y))  # 打印精细化扫描坐标
                                     new_result = copy.deepcopy(fixed_points)
-                                    new_result.insert(index, [new_x, new_y])
+                                    new_result.insert(index, [new_x_start, new_y])
                                     new_res = check(new_result, csv_writer)
-                            else:
+                                    total_tests += 1  # 更新总测试数
+                                    # 统计精细化扫描的结果
+                                    if new_res:
+                                        row_passed += 1
+                                        total_passed += 1  # 更新总通过数
+                                    else:
+                                        row_failed += 1
+                                        total_failed += 1  # 更新总失败数
+                        else:
+                           for new_x in range(new_x_start, current_x, new_x_step):
+                                print("  -> Fine scan testing: ({}, {})".format(new_x, new_y_start))  # 打印精细化扫描坐标
                                 new_result = copy.deepcopy(fixed_points)
-                                new_result.insert(index, [new_x_start, new_y])
+                                new_result.insert(index, [new_x, new_y_start])
                                 new_res = check(new_result, csv_writer)
-                    else:
-                       for new_x in range(new_x_start, current_x, new_x_step):
-                            new_result = copy.deepcopy(fixed_points)
-                            new_result.insert(index, [new_x, new_y_start])
-                            new_res = check(new_result, csv_writer)
-                    print("stop this inner circle")
-                    break
+                                total_tests += 1  # 更新总测试数
+                                # 统计精细化扫描的结果
+                                if new_res:
+                                    row_passed += 1
+                                    total_passed += 1  # 更新总通过数
+                                else:
+                                    row_failed += 1
+                                    total_failed += 1  # 更新总失败数
+                        print("stop this inner circle")
+                        break
             
             # End timing for this row
             row_end_time = time.time()
@@ -329,6 +372,18 @@ def main():
         end_time = time.time()
         total_elapsed = end_time - start_time
         print("\nTotal program runtime: {:.2f} seconds ({:.2f} minutes)".format(total_elapsed, total_elapsed / 60))
+        
+        # 输出最终统计结果
+        overall_pass_rate = (total_passed * 100.0 / total_tests) if total_tests > 0 else 0.0
+        print("\n" + "=" * 60)
+        print("FINAL STATISTICS:")
+        print("=" * 60)
+        print("Total Tests Run: {}".format(total_tests))
+        print("Total Passed: {}".format(total_passed))
+        print("Total Failed: {}".format(total_failed))
+        print("Overall Pass Rate: {:.2f}%".format(overall_pass_rate))
+        print("=" * 60)
+        tee.flush()  # 确保统计信息立即刷入日志文件
 
     # 关闭日志文件，恢复 stdout
     _sys.stdout = tee._console
