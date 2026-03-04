@@ -66,9 +66,10 @@ PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__f
 # DATA_MODE 可选值：
 #   'quadrant'  - 使用预处理后的分象限CSV
 #   'raw_1deg'  - 使用原始1度完整数据文件
+#   'raw_05deg' - 使用原始0.5度完整数据文件
 #   'raw_01deg' - 使用原始0.1度完整数据文件
 #
-DATA_MODE = 'quadrant'
+DATA_MODE = 'raw_05deg'
 
 # 当 DATA_MODE = 'quadrant' 时，选择要测试的象限文件：
 #   'quadrant_1_left_top.csv'     (象限1 左上)
@@ -82,11 +83,13 @@ CSV_QUADRANT_FILE = 'quadrant_3_left_bottom.csv'
 if DATA_MODE == 'quadrant':
     CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'CSV_quadrant_data', CSV_QUADRANT_FILE)
 elif DATA_MODE == 'raw_1deg':
-    CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'Raw_interface_output_data', 'ak_scan_yaw_pitch_step1_20260204_100304.csv')
+    CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'Angle_Raw_interface_output_data', 'ak_scan_yaw_pitch_step1_20260204_100304.csv')
+elif DATA_MODE == 'raw_05deg':
+    CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'Angle_Raw_interface_output_data', 'ak_scan_yaw_pitch_step0.50_20260204_125453.csv')
 elif DATA_MODE == 'raw_01deg':
-    CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'Raw_interface_output_data', 'ak_scan_yaw_pitch_step0.10_20260204_143212.csv')
+    CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'Angle_Raw_interface_output_data', 'ak_scan_yaw_pitch_step0.10_20260204_143212.csv')
 else:
-    raise ValueError("DATA_MODE 配置错误，可选值: 'quadrant' / 'raw_1deg' / 'raw_01deg'")
+    raise ValueError("DATA_MODE 配置错误，可选值: 'quadrant' / 'raw_1deg' / 'raw_05deg' / 'raw_01deg'")
 
 OUTPUT_PATH = os.path.join(PROJECT_ROOT, 'reports')
 
@@ -114,7 +117,7 @@ except Exception as e:
 
 # ==================== Configuration Area ====================
 # 步长根据 DATA_MODE 自动设置（无需手动修改）
-_AUTO_STEP = 1.0 if DATA_MODE == 'raw_1deg' else 0.1
+_AUTO_STEP = 1.0 if DATA_MODE == 'raw_1deg' else (0.5 if DATA_MODE == 'raw_05deg' else 0.1)
 
 # Test range configuration
 TEST_CONFIG = {
@@ -122,7 +125,7 @@ TEST_CONFIG = {
     'yaw_max': 40,       # yaw maximum
     'pitch_min': -40,    # pitch minimum (down-/up+)
     'pitch_max': 40,     # pitch maximum
-    'step': _AUTO_STEP,  # 自动适配：raw_1deg=1.0度，其他=0.1度
+    'step': _AUTO_STEP,  # 自动适配：raw_1deg=1.0度，raw_05deg=0.5度，其他=0.1度
     
     # ===== 分段测试配置 (可选) =====
     # 【使用分象限CSV文件后，这些配置可以全部设为None】
@@ -137,7 +140,7 @@ TEST_CONFIG = {
 }
 
 # 进度日志输出间隔：每 LOG_INTERVAL 个有效测试输出一次进度（含 PASS/FAIL + 时间统计）
-LOG_INTERVAL = 200
+LOG_INTERVAL = 500
 # =============================================================
 # 【推荐工作流程】
 # 1. 运行 "CSV预处理-拆分象限.py"
