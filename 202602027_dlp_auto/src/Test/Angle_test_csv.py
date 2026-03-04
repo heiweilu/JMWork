@@ -66,8 +66,8 @@ class _Tee(object):
         self._logfile.close()
 
 
-# 工程根目录（输出路径自动定位，无需修改）
-DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+# 工程根目录（手动指定绝对路径，按实际部署位置修改）
+DATA_ROOT = r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto'
 
 # ==============================================================================
 # 【手动配置区】每次测试前修改此处选择数据源
@@ -88,7 +88,7 @@ DATA_MODE = 'raw_05deg'
 CSV_QUADRANT_FILE = 'quadrant_3_left_bottom.csv'
 # ==============================================================================
 
-# 路径自动拼接（无需手动修改）
+# 路径自动拼接（需手动修改）
 if DATA_MODE == 'quadrant':
     CSV_FILE_PATH = os.path.join(DATA_ROOT, 'data', 'CSV_quadrant_data', CSV_QUADRANT_FILE)
 elif DATA_MODE == 'raw_1deg':
@@ -381,6 +381,23 @@ def check_keystone(write_points, csv_writer, csvfile, v_angle, h_angle, angle_de
         bool: Whether test passed
     """
     try:
+        # UInt16 范围预检 [0, 65535]，防止 IronPython OverflowException
+        _flat_check = [
+            write_points[0][0], write_points[0][1],
+            write_points[1][0], write_points[1][1],
+            write_points[2][0], write_points[2][1],
+            write_points[3][0], write_points[3][1]
+        ]
+        if any(c < 0 or c > 65535 for c in _flat_check):
+            csv_writer.writerow([
+                str(v_angle), str(h_angle), angle_desc,
+                ','.join(map(str, _flat_check)),
+                '',
+                'FAIL', '-1', '0'
+            ])
+            csvfile.flush()
+            return False
+
         # Write keystone corners
         KeystoneCornersQueuedObj = KeystoneCornersQueued()
         KeystoneCornersQueuedObj.TopLeftX = write_points[0][0]
@@ -442,18 +459,25 @@ def check_keystone(write_points, csv_writer, csvfile, v_angle, h_angle, angle_de
         csv_writer.writerow(row_data)
         csvfile.flush()  # 立即刷新到磁盘，防止数据丢失
         
-        # Print failures for debugging (successes are silent to reduce log spam)
-        if not is_match or int(ErrorCode) != 1:
-            print("    [FAIL] {} - ErrorCode={}, Delta={}px".format(angle_desc, int(ErrorCode), max_diff))
-            if not is_match:
-                print("      Write: {}".format(write_points_flat))
-                print("      Read:  {}".format(read_points))
-        
         return is_match and int(ErrorCode) == 1
         
-        
     except Exception as e:
-        print("  [ERROR] Test failed at ({}, {}): {}".format(v_angle, h_angle, e))
+        try:
+            _err_flat = [
+                write_points[0][0], write_points[0][1],
+                write_points[1][0], write_points[1][1],
+                write_points[2][0], write_points[2][1],
+                write_points[3][0], write_points[3][1]
+            ]
+            csv_writer.writerow([
+                str(v_angle), str(h_angle), angle_desc,
+                ','.join(map(str, _err_flat)),
+                '',
+                'FAIL', '-1', '0'
+            ])
+            csvfile.flush()
+        except Exception:
+            pass
         return False
 
 
