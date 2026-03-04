@@ -32,11 +32,11 @@ except ImportError:
     import sys
     sys.exit(1)
 
-# 工程根目录（脚本所在目录即根目录，reports/ 等文件夹与脚本同级）
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+# 工程根目录（输出路径自动定位，无需修改）
+DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
-# 自动拼接路径（无需手动修改）
-ANGLE_RESULTS_BASE = os.path.join(PROJECT_ROOT, 'reports', 'Angle_test_results')
+# 自动搜索最新结果文件（无需手动指定）
+ANGLE_RESULTS_BASE = os.path.join(DATA_ROOT, 'reports', 'Angle_test_results')
 
 
 def find_latest_result_file():

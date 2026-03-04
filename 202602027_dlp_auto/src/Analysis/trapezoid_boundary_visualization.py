@@ -29,15 +29,12 @@ import matplotlib.patches as mpatches
 from matplotlib.gridspec import GridSpec
 from datetime import datetime
 
-# ── 工程根目录（脚本所在目录即根目录，data/ reports/ 等文件夹与脚本同级）──
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+# 工程根目录（输出路径自动定位，无需修改）
+DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
 # ==============================================================================
-# 【手动配置区】
-INPUT_CSV = os.path.join(
-    PROJECT_ROOT, 'data', 'data_temp', '20260302',
-    '坚果N5ProMax梯形校正数据摸底 - Sheet1.csv'
-)
+# 【手动配置区】每次运行前修改此处
+INPUT_CSV = r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\data_temp\20260302\坚果N5ProMax梯形校正数据摸底 - Sheet1.csv'
 # ==============================================================================
 
 # 中文字体（Windows）
@@ -290,7 +287,7 @@ def visualize_trapezoid_boundary(csv_path: str):
     timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
     date_str   = datetime.now().strftime("%Y%m%d")
     output_dir = os.path.join(
-        PROJECT_ROOT, 'reports', 'Data_Analysis_Result', 'Angle',
+        DATA_ROOT, 'reports', 'Data_Analysis_Result', 'Angle',
         'trapezoid_boundary', date_str
     )
     os.makedirs(output_dir, exist_ok=True)

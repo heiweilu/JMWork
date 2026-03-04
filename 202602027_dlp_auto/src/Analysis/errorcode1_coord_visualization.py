@@ -31,16 +31,12 @@ import numpy as np
 import os
 from datetime import datetime
 
-# 工程根目录（脚本所在目录即根目录，data/ reports/ 等文件夹均与脚本同级）
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+# 工程根目录（输出路径自动定位，无需修改）
+DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
 # ==============================================================================
-# 【手动配置区】
-# 输入文件：指定要可视化的角度测试结果 CSV 路径
-INPUT_CSV = os.path.join(
-    PROJECT_ROOT, 'reports', 'Angle_test_results', '1_degress', '20260213',
-    'angle_test_result_2026_02_13_17_10_41.csv'
-)
+# 【手动配置区】每次运行前修改此处
+INPUT_CSV = r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Angle_test_results\1_degress\20260213\angle_test_result_2026_02_13_17_10_41.csv'
 # 屏幕/投影分辨率（用于绘图边界参考线）
 SCREEN_W = 3840
 SCREEN_H = 2160
@@ -306,7 +302,7 @@ def visualize_errorcode1_coords(csv_path):
     # ── 保存 ─────────────────────────────────────────────────
     timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
     date_str   = datetime.now().strftime("%Y%m%d")
-    output_dir = os.path.join(PROJECT_ROOT, 'reports', 'Data_Analysis_Result',
+    output_dir = os.path.join(DATA_ROOT, 'reports', 'Data_Analysis_Result',
                               'Angle', 'Coord_EC1', date_str)
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"errorcode1_coord_visualization_{timestamp}.png")

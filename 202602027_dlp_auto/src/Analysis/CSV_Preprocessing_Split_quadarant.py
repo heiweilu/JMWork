@@ -25,20 +25,17 @@ import os
 import time
 import shutil
 
-# 工程根目录（脚本所在目录即根目录，data/ 等文件夹与脚本同级）
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+# 工程根目录（输出路径自动定位，无需修改）
+DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
 # ==============================================================================
-# 【手动配置区】
-# 源CSV文件名（位于 data/Raw_interface_output_data/ 目录下，无需后缀），如有更换只需改这里
-SOURCE_CSV_NAME = 'ak_scan_yaw_pitch_step0.10_20260204_143212'
+# 【手动配置区】每次运行前修改此处
+# 源CSV完整路径（手动填入绝对路径）
+SOURCE_CSV = r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\Angle_Raw_interface_output_data\ak_scan_yaw_pitch_step0.10_20260204_143212.csv'
 # ==============================================================================
-
-# 源CSV完整路径（自动拼接，无需修改）
-SOURCE_CSV = os.path.join(PROJECT_ROOT, 'data', 'Raw_interface_output_data', SOURCE_CSV_NAME)
 
 # 输出目录（自动拼接，无需修改）
-OUTPUT_DIR = os.path.join(PROJECT_ROOT, 'data', 'CSV_quadrant_data')
+OUTPUT_DIR = os.path.join(DATA_ROOT, 'data', 'CSV_quadrant_data')
 
 # 角度范围配置（应该与原CSV一致）
 YAW_MIN = -40

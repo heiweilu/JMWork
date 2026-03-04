@@ -14,8 +14,8 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# 工程根目录（脚本所在目录即根目录，data/ reports/ 等文件夹均与脚本同级）
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+# 工程根目录（输出路径自动定位，无需修改）
+DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
 # ============================================================
 # 处理模式配置：
@@ -76,7 +76,7 @@ def extract_data(input_csv_path, mode='error_only'):
             return
 
     # 创建输出目录
-    output_dir = os.path.join(PROJECT_ROOT, 'reports', 'Extracted_Data')
+    output_dir = os.path.join(DATA_ROOT, 'reports', 'Extracted_Data')
     os.makedirs(output_dir, exist_ok=True)
 
     # 生成输出文件名
@@ -92,8 +92,7 @@ def extract_data(input_csv_path, mode='error_only'):
 
 if __name__ == "__main__":
     # 指定输入文件路径
-    INPUT_CSV = os.path.join(PROJECT_ROOT, 'reports', 'Angle_test_results', '1_degress', '20260213',
-                             'angle_test_result_2026_02_13_17_10_41.csv')
+    INPUT_CSV = r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Angle_test_results\1_degress\20260213\angle_test_result_2026_02_13_17_10_41.csv'
 
     # 使用顶部 MODE 变量控制处理模式，或直接传入参数覆盖：
     #   extract_data(INPUT_CSV, mode='all')

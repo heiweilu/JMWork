@@ -30,18 +30,14 @@ import pandas as pd
 import numpy as np
 
 # ============================================================
-# 项目根路径（脚本所在目录即根目录，无需手动修改）
+# 工程根目录（输出路径自动定位，无需修改）
 # ============================================================
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
 # ============================================================
 # ===== 手动配置区 =====
 # ============================================================
-INPUT_CSV = os.path.join(
-    PROJECT_ROOT, 'reports', 'Angle_test_results',
-    '1_degress', '20260213',
-    'angle_test_result_2026_02_13_17_10_41.csv'
-)
+INPUT_CSV = r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Angle_test_results\1_degress\20260213\angle_test_result_2026_02_13_17_10_41.csv'
 
 # 屏幕分辨率
 SCREEN_W = 3839
@@ -50,7 +46,7 @@ SCREEN_H = 2159
 # 输出目录（自动创建）
 TODAY = datetime.date.today().strftime('%Y%m%d')
 OUTPUT_DIR = os.path.join(
-    PROJECT_ROOT, 'reports', 'Data_Analysis_Result',
+    DATA_ROOT, 'reports', 'Data_Analysis_Result',
     'Angle', 'quadrant_limit', TODAY
 )
 

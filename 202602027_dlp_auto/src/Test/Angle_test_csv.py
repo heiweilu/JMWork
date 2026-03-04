@@ -66,8 +66,8 @@ class _Tee(object):
         self._logfile.close()
 
 
-# 工程根目录（脚本所在目录即根目录，data/ reports/ logs/ 等文件夹均与脚本同级）
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+# 工程根目录（输出路径自动定位，无需修改）
+DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
 # ==============================================================================
 # 【手动配置区】每次测试前修改此处选择数据源
@@ -90,17 +90,17 @@ CSV_QUADRANT_FILE = 'quadrant_3_left_bottom.csv'
 
 # 路径自动拼接（无需手动修改）
 if DATA_MODE == 'quadrant':
-    CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'CSV_quadrant_data', CSV_QUADRANT_FILE)
+    CSV_FILE_PATH = os.path.join(DATA_ROOT, 'data', 'CSV_quadrant_data', CSV_QUADRANT_FILE)
 elif DATA_MODE == 'raw_1deg':
-    CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'Angle_Raw_interface_output_data', 'ak_scan_yaw_pitch_step1_20260204_100304.csv')
+    CSV_FILE_PATH = os.path.join(DATA_ROOT, 'data', 'Angle_Raw_interface_output_data', 'ak_scan_yaw_pitch_step1_20260204_100304.csv')
 elif DATA_MODE == 'raw_05deg':
-    CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'Angle_Raw_interface_output_data', 'ak_scan_yaw_pitch_step0.50_20260204_125453.csv')
+    CSV_FILE_PATH = os.path.join(DATA_ROOT, 'data', 'Angle_Raw_interface_output_data', 'ak_scan_yaw_pitch_step0.50_20260204_125453.csv')
 elif DATA_MODE == 'raw_01deg':
-    CSV_FILE_PATH = os.path.join(PROJECT_ROOT, 'data', 'Angle_Raw_interface_output_data', 'ak_scan_yaw_pitch_step0.10_20260204_143212.csv')
+    CSV_FILE_PATH = os.path.join(DATA_ROOT, 'data', 'Angle_Raw_interface_output_data', 'ak_scan_yaw_pitch_step0.10_20260204_143212.csv')
 else:
     raise ValueError("DATA_MODE 配置错误，可选值: 'quadrant' / 'raw_1deg' / 'raw_05deg' / 'raw_01deg'")
 
-OUTPUT_PATH = os.path.join(PROJECT_ROOT, 'reports')
+OUTPUT_PATH = os.path.join(DATA_ROOT, 'reports')
 
 print("Importing libraries...")
 try:
@@ -515,7 +515,7 @@ def main():
 
     # ── 日志文件（PROJECT_ROOT/logs/，文件名含时间戳）──────────────────────── #
     import sys as _sys
-    log_path = os.path.join(PROJECT_ROOT, 'logs',
+    log_path = os.path.join(DATA_ROOT, 'logs',
                             'angle_test_{}.log'.format(time.strftime("%Y%m%d_%H%M%S")))
     tee = _Tee(log_path)
     _sys.stdout = tee

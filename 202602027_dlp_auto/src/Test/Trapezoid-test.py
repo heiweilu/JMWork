@@ -66,11 +66,11 @@ Y_STEP = 3
 # True=only test the first row, False=full test
 TEST_SINGLE_ROW = False
 
-# 工程根目录（脚本所在目录即根目录，data/ reports/ logs/ 等文件夹均与脚本同级）
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+# 工程根目录（输出路径自动定位，无需修改）
+DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
 # output path（自动拼接，无需手动修改）
-OUTPUT_PATH = os.path.join(PROJECT_ROOT, 'reports')
+OUTPUT_PATH = os.path.join(DATA_ROOT, 'reports')
 
 # Write Keystone Enable Queued
 Summary = WriteKeystoneEnableQueued(True)
@@ -168,7 +168,7 @@ def main():
 
     # ── 日志文件（PROJECT_ROOT/logs/，文件名含时间戳）──────────────────────── #
     import sys as _sys
-    log_path = os.path.join(PROJECT_ROOT, 'logs',
+    log_path = os.path.join(DATA_ROOT, 'logs',
                             'trapezoid_test_{}.log'.format(time.strftime("%Y%m%d_%H%M%S")))
     tee = _Tee(log_path)
     _sys.stdout = tee

@@ -34,8 +34,12 @@ import numpy as np
 import os
 from datetime import datetime
 
-# ── 工程根目录（脚本所在目录即根目录，data/ reports/ 等文件夹均与脚本同级）──── #
+# ── 工程根目录（脚本所在目录）──── #
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+# 数据根目录：指向实际 data/ 和 reports/ 的父目录
+# 当前机器：脚本在 src/Analysis/ 子目录，数据在项目根目录（上两级）
+# 分发给他人时：将脚本与 data/ reports/ 放同一目录，改为: DATA_ROOT = PROJECT_ROOT
+DATA_ROOT = os.path.normpath(os.path.join(PROJECT_ROOT, '..', '..'))
 
 # ==============================================================================
 # 【手动配置区】
@@ -45,12 +49,11 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 #     TR = Top-Right   右上  (Yaw>=0, Pitch<0)
 #     BL = Bottom-Left 左下  (Yaw<0,  Pitch>=0)
 #     BR = Bottom-Right右下  (Yaw>=0, Pitch>=0)
-#   路径基于工程根目录自动生成，无需关心执行位置
 # ---------------------------------------------------------------------------- #
 QUADRANT_FILES = {
-    'TL': os.path.join(PROJECT_ROOT, 'reports', 'Angle_test_results', '0.1_degress', '20260226',
+    'TL': os.path.join(DATA_ROOT, 'reports', 'Angle_test_results', '0.1_degress', '20260226',
                        'TL_angle_test_result_2026_02_24_14_57_24.csv'),
-    'TR': os.path.join(PROJECT_ROOT, 'reports', 'Angle_test_results', '0.1_degress', '20260226',
+    'TR': os.path.join(DATA_ROOT, 'reports', 'Angle_test_results', '0.1_degress', '20260226',
                        'TR_angle_test_result_2026_02_26_16_53_45.csv'),
     'BL': None,   # 尚未跑完，设为 None
     'BR': None,   # 尚未跑完，设为 None
@@ -339,7 +342,7 @@ def visualize_0_1_degree(quadrant_files: dict, project_root: str,
     # ── 13. 保存 ─────────────────────────────────────────────
     timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
     date_str   = datetime.now().strftime("%Y%m%d")
-    output_dir = os.path.join(project_root, 'reports', 'Data_Analysis_Result',
+    output_dir = os.path.join(DATA_ROOT, 'reports', 'Data_Analysis_Result',
                               'Angle', '0.1', date_str)
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir,
@@ -355,7 +358,7 @@ def visualize_0_1_degree(quadrant_files: dict, project_root: str,
 if __name__ == "__main__":
     visualize_0_1_degree(
         quadrant_files=QUADRANT_FILES,
-        project_root=PROJECT_ROOT,
+        project_root=DATA_ROOT,
         yaw_range=AXIS_YAW_RANGE,
         pitch_range=AXIS_PITCH_RANGE,
     )

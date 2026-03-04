@@ -30,15 +30,12 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
-# ── 工程根目录（脚本所在目录即根目录，data/ reports/ 等文件夹均与脚本同级）── #
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+# 工程根目录（输出路径自动定位，无需修改）
+DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
 # ==============================================================================
-# 【手动配置区】
-INPUT_CSV = os.path.join(
-    PROJECT_ROOT, 'data', 'isKstValid_out_test_data', '20260303',
-    'all_kst_test_result_1770202800.csv'
-)
+# 【手动配置区】每次运行前修改此处
+INPUT_CSV = r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\isKstValid_out_test_data\20260303\all_kst_test_result_1770202800.csv'
 # ==============================================================================
 
 # 中文字体（Windows）
@@ -276,7 +273,7 @@ def visualize_kst_result(csv_path: str):
     timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
     date_str   = datetime.now().strftime("%Y%m%d")
     output_dir = os.path.join(
-        PROJECT_ROOT, 'reports', 'Data_Analysis_Result', 'isKstValid', date_str
+        DATA_ROOT, 'reports', 'Data_Analysis_Result', 'isKstValid', date_str
     )
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"kst_valid_visualization_{timestamp}.png")

@@ -22,14 +22,12 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# 工程根目录（脚本所在目录即根目录，data/ reports/ 等文件夹均与脚本同级）
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+# 工程根目录（输出路径自动定位，无需修改）
+DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
 # ==============================================================================
-# 【手动配置区】
-# 输入文件：指定要分析的角度测试结果 CSV（基于工程根目录的绝对路径，无需关心执行位置）
-INPUT_CSV = os.path.join(PROJECT_ROOT, 'reports', 'Angle_test_results', '1_degress', '20260213',
-                        'angle_test_result_2026_02_13_17_10_41.csv')
+# 【手动配置区】每次运行前修改此处
+INPUT_CSV = r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Angle_test_results\1_degress\20260213\angle_test_result_2026_02_13_17_10_41.csv'
 # ==============================================================================
 
 # 读取原始数据文件
@@ -264,7 +262,7 @@ if not result_df.empty:
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 date_str = datetime.now().strftime('%Y%m%d')
 output_dir = os.path.join(
-    PROJECT_ROOT, 'reports', 'Angle_boundary_statistics', date_str
+    DATA_ROOT, 'reports', 'Angle_boundary_statistics', date_str
 )
 os.makedirs(output_dir, exist_ok=True)
 output_csv = os.path.join(output_dir, f'comprehensive_boundary_{timestamp}.csv')
