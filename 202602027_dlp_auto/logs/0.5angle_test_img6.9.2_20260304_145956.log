@@ -1,0 +1,105 @@
+[14:59:56] 
+[14:59:56] Entering main function...
+[14:59:56] Log file: C:\Users\heiweilu.li\test\20260304\logs\angle_test_20260304_145956.log
+[14:59:56] ================================================================================
+[14:59:56] Keystone Angle Test - CSV Data Version
+[14:59:56] ================================================================================
+[14:59:56] CSV Data Source: C:\Users\heiweilu.li\test\20260304\ak_scan_yaw_pitch_step0.50_20260204_125453.csv
+[14:59:56] Test Configuration:
+[14:59:56]   Full Yaw Range: -40deg to 40deg
+[14:59:56]   Full Pitch Range: -40deg to 40deg
+[14:59:56]   Step Size: 0.5deg
+[14:59:56]   Resume Mode: Enabled
+[14:59:56] Output File: C:\Users\heiweilu.li\test\20260304\reports\Angle_test_results\20260304\angle_test_result_2026_03_04_14_59_56.csv
+[14:59:56] 
+[14:59:56] Ensuring output directory exists...
+[14:59:56] 
+[14:59:56] Loading CSV file: C:\Users\heiweilu.li\test\20260304\ak_scan_yaw_pitch_step0.50_20260204_125453.csv
+[14:59:56] (This may take 30-90 seconds for large files...)
+[15:00:26]   [30s] Progress: 3311 rows processed, 3310 loaded...
+[15:00:57]   [60s] Progress: 6616 rows processed, 6615 loaded...
+[15:01:27]   [90s] Progress: 9761 rows processed, 9760 loaded...
+[15:01:57]   [120s] Progress: 12793 rows processed, 12792 loaded...
+[15:02:27]   [150s] Progress: 15825 rows processed, 15824 loaded...
+[15:02:57]   [180s] Progress: 18898 rows processed, 18897 loaded...
+[15:03:27]   [210s] Progress: 21940 rows processed, 21939 loaded...
+[15:03:57]   [240s] Progress: 24832 rows processed, 24831 loaded...
+[15:04:09] Load complete: 25921 records match test range (from 25927 total rows)
+[15:04:09]   Load time: 252.1 seconds
+[15:05:02] Total 25921 test cases
+[15:05:02] 
+[15:05:02] 断点续传：未找到已有结果文件，从头开始
+[15:05:02] 
+[15:05:02] Creating CSV file...
+[15:05:02] CSV header written
+[15:05:02] 
+[15:05:02] Starting tests...
+[15:05:02] 
+[15:05:02] [1/25921] PASS:0 FAIL:0 (0%) | Elapsed:0.0min(0.00h) | Rate:0.000s/test | ETA:0.0min
+[15:09:00] [501/25921] PASS:0 FAIL:500 (0%) | Elapsed:4.0min(0.07h) | Rate:0.476s/test | ETA:201.6min
+[15:12:58] [1001/25921] PASS:0 FAIL:1000 (0%) | Elapsed:7.9min(0.13h) | Rate:0.476s/test | ETA:197.5min
+[15:16:52] [1501/25921] PASS:40 FAIL:1460 (2%) | Elapsed:11.8min(0.20h) | Rate:0.473s/test | ETA:192.6min
+[15:20:50] [2001/25921] PASS:209 FAIL:1791 (10%) | Elapsed:15.8min(0.26h) | Rate:0.474s/test | ETA:189.0min
+[15:24:50] [2501/25921] PASS:419 FAIL:2081 (16%) | Elapsed:19.8min(0.33h) | Rate:0.475s/test | ETA:185.5min
+[15:28:52] [3001/25921] PASS:634 FAIL:2366 (21%) | Elapsed:23.8min(0.40h) | Rate:0.477s/test | ETA:182.1min
+[15:32:49] [3501/25921] PASS:894 FAIL:2606 (25%) | Elapsed:27.8min(0.46h) | Rate:0.476s/test | ETA:178.0min
+[15:36:40] [4001/25921] PASS:1206 FAIL:2794 (30%) | Elapsed:31.6min(0.53h) | Rate:0.474s/test | ETA:173.3min
+[15:40:35] [4501/25921] PASS:1535 FAIL:2965 (34%) | Elapsed:35.5min(0.59h) | Rate:0.474s/test | ETA:169.2min
+[15:44:30] [5001/25921] PASS:1887 FAIL:3113 (37%) | Elapsed:39.5min(0.66h) | Rate:0.474s/test | ETA:165.2min
+[15:48:35] [5501/25921] PASS:2263 FAIL:3237 (41%) | Elapsed:43.6min(0.73h) | Rate:0.475s/test | ETA:161.7min
+[15:52:31] [6001/25921] PASS:2655 FAIL:3345 (44%) | Elapsed:47.5min(0.79h) | Rate:0.475s/test | ETA:157.7min
+[15:56:25] [6501/25921] PASS:3060 FAIL:3440 (47%) | Elapsed:51.4min(0.86h) | Rate:0.474s/test | ETA:153.5min
+[16:00:27] [7001/25921] PASS:3471 FAIL:3529 (49%) | Elapsed:55.4min(0.92h) | Rate:0.475s/test | ETA:149.8min
+[16:04:26] [7501/25921] PASS:3893 FAIL:3607 (51%) | Elapsed:59.4min(0.99h) | Rate:0.475s/test | ETA:145.9min
+[16:08:23] [8001/25921] PASS:4291 FAIL:3709 (53%) | Elapsed:63.3min(1.06h) | Rate:0.475s/test | ETA:141.9min
+[16:12:17] [8501/25921] PASS:4671 FAIL:3829 (54%) | Elapsed:67.2min(1.12h) | Rate:0.475s/test | ETA:137.8min
+[16:16:11] [9001/25921] PASS:5035 FAIL:3965 (55%) | Elapsed:71.2min(1.19h) | Rate:0.474s/test | ETA:133.8min
+[16:20:01] [9501/25921] PASS:5365 FAIL:4135 (56%) | Elapsed:75.0min(1.25h) | Rate:0.474s/test | ETA:129.6min
+[16:23:57] [10001/25921] PASS:5704 FAIL:4296 (57%) | Elapsed:78.9min(1.32h) | Rate:0.473s/test | ETA:125.6min
+[16:27:55] [10501/25921] PASS:6054 FAIL:4446 (57%) | Elapsed:82.9min(1.38h) | Rate:0.474s/test | ETA:121.7min
+[16:31:56] [11001/25921] PASS:6418 FAIL:4582 (58%) | Elapsed:86.9min(1.45h) | Rate:0.474s/test | ETA:117.9min
+[16:35:57] [11501/25921] PASS:6791 FAIL:4709 (59%) | Elapsed:90.9min(1.52h) | Rate:0.474s/test | ETA:114.0min
+[16:39:57] [12001/25921] PASS:7179 FAIL:4821 (59%) | Elapsed:94.9min(1.58h) | Rate:0.475s/test | ETA:110.1min
+[16:43:47] [12501/25921] PASS:7566 FAIL:4934 (60%) | Elapsed:98.8min(1.65h) | Rate:0.474s/test | ETA:106.0min
+[16:47:44] [13001/25921] PASS:7986 FAIL:5014 (61%) | Elapsed:102.7min(1.71h) | Rate:0.474s/test | ETA:102.1min
+[16:51:40] [13501/25921] PASS:8394 FAIL:5106 (62%) | Elapsed:106.6min(1.78h) | Rate:0.474s/test | ETA:98.1min
+[16:55:34] [14001/25921] PASS:8789 FAIL:5211 (62%) | Elapsed:110.5min(1.84h) | Rate:0.474s/test | ETA:94.1min
+[16:59:37] [14501/25921] PASS:9170 FAIL:5330 (63%) | Elapsed:114.6min(1.91h) | Rate:0.474s/test | ETA:90.2min
+[17:03:34] [15001/25921] PASS:9544 FAIL:5456 (63%) | Elapsed:118.5min(1.98h) | Rate:0.474s/test | ETA:86.3min
+[17:07:35] [15501/25921] PASS:9907 FAIL:5593 (63%) | Elapsed:122.5min(2.04h) | Rate:0.474s/test | ETA:82.4min
+[17:11:30] [16001/25921] PASS:10256 FAIL:5744 (64%) | Elapsed:126.5min(2.11h) | Rate:0.474s/test | ETA:78.4min
+[17:15:30] [16501/25921] PASS:10596 FAIL:5904 (64%) | Elapsed:130.5min(2.17h) | Rate:0.474s/test | ETA:74.5min
+[17:19:30] [17001/25921] PASS:10942 FAIL:6058 (64%) | Elapsed:134.5min(2.24h) | Rate:0.475s/test | ETA:70.6min
+[17:23:26] [17501/25921] PASS:11293 FAIL:6207 (64%) | Elapsed:138.4min(2.31h) | Rate:0.474s/test | ETA:66.6min
+[17:27:21] [18001/25921] PASS:11676 FAIL:6324 (64%) | Elapsed:142.3min(2.37h) | Rate:0.474s/test | ETA:62.6min
+[17:31:17] [18501/25921] PASS:12091 FAIL:6409 (65%) | Elapsed:146.3min(2.44h) | Rate:0.474s/test | ETA:58.7min
+[17:35:22] [19001/25921] PASS:12503 FAIL:6497 (65%) | Elapsed:150.3min(2.51h) | Rate:0.475s/test | ETA:54.8min
+[17:39:18] [19501/25921] PASS:12917 FAIL:6583 (66%) | Elapsed:154.3min(2.57h) | Rate:0.475s/test | ETA:50.8min
+[17:43:19] [20001/25921] PASS:13325 FAIL:6675 (66%) | Elapsed:158.3min(2.64h) | Rate:0.475s/test | ETA:46.9min
+[17:47:17] [20501/25921] PASS:13717 FAIL:6783 (66%) | Elapsed:162.2min(2.70h) | Rate:0.475s/test | ETA:42.9min
+[17:51:13] [21001/25921] PASS:14093 FAIL:6907 (67%) | Elapsed:166.2min(2.77h) | Rate:0.475s/test | ETA:38.9min
+[17:55:12] [21501/25921] PASS:14453 FAIL:7047 (67%) | Elapsed:170.2min(2.84h) | Rate:0.475s/test | ETA:35.0min
+[17:59:13] [22001/25921] PASS:14800 FAIL:7200 (67%) | Elapsed:174.2min(2.90h) | Rate:0.475s/test | ETA:31.0min
+[18:03:09] [22501/25921] PASS:15096 FAIL:7404 (67%) | Elapsed:178.1min(2.97h) | Rate:0.475s/test | ETA:27.1min
+[18:07:13] [23001/25921] PASS:15329 FAIL:7671 (66%) | Elapsed:182.2min(3.04h) | Rate:0.475s/test | ETA:23.1min
+[18:11:11] [23501/25921] PASS:15543 FAIL:7957 (66%) | Elapsed:186.2min(3.10h) | Rate:0.475s/test | ETA:19.2min
+[18:15:05] [24001/25921] PASS:15742 FAIL:8258 (65%) | Elapsed:190.1min(3.17h) | Rate:0.475s/test | ETA:15.2min
+[18:19:04] [24501/25921] PASS:15878 FAIL:8622 (64%) | Elapsed:194.0min(3.23h) | Rate:0.475s/test | ETA:11.2min
+[18:22:58] [25001/25921] PASS:15883 FAIL:9117 (63%) | Elapsed:197.9min(3.30h) | Rate:0.475s/test | ETA:7.3min
+[18:26:57] [25501/25921] PASS:15883 FAIL:9617 (62%) | Elapsed:201.9min(3.37h) | Rate:0.475s/test | ETA:3.3min
+[18:30:12] 
+[18:30:12] ================================================================================
+[18:30:12] Test Complete
+[18:30:12] ================================================================================
+[18:30:12] Total: 25921 tests
+[18:30:12] Passed: 15883 (61%)
+[18:30:12] Failed: 10038 (38%)
+[18:30:12] 
+[18:30:12] Note: Some failures may be due to angle >16deg (hardware limitation)
+[18:30:12]       Check ErrorCode: 3517=Invalid, 3518=OutOfRange, 3520=GeometricInvalid
+[18:30:12] 
+[18:30:12] Total time: 12615.36 sec (210.26 min)
+[18:30:12] Average: 0.487 sec/test
+[18:30:12] 
+[18:30:12] Results saved to: C:\Users\heiweilu.li\test\20260304\reports\Angle_test_results\20260304\angle_test_result_2026_03_04_14_59_56.csv
+[18:30:12] ================================================================================
