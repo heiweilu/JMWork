@@ -208,9 +208,9 @@ def main():
         # 四个角点的基准坐标（非扫描角点时固定在此位置）
         BASE_CORNERS = [
             [0,    0],     # Top Left
-            [2304, 0],     # Top Right
-            [1536, 2159],  # Bottom Left
-            [2304, 2159],  # Bottom Right
+            [3839, 0],     # Top Right
+            [0, 2159],  # Bottom Left
+            [3839, 2159],  # Bottom Right
         ]
         CORNER_NAMES = ["Top Left", "Top Right", "Bottom Left", "Bottom Right"]
 
