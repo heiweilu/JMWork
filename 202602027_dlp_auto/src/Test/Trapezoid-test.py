@@ -74,7 +74,7 @@ TEST_MODE = 'file'
 # ── file 模式专用：指定要测试的 TXT 数据文件路径（支持多个，依次执行）── #
 # 每个文件第一行为表头，数据行第一列格式：TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y
 INPUT_FILES = [
-    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260306_115418_grid\all_grid_combinations.txt',
+    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260306_141954_grid\all_grid_combinations.txt',
     # 可继续添加更多文件，例如三角组合：
     # r'D:\...\combo_11_TL_TR_BL.txt',
 ]

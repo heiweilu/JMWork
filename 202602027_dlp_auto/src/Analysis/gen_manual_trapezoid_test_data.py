@@ -77,7 +77,7 @@ from datetime import datetime
 # 'plot_circle'  : 读取圆内坐标实测结果，叠加各角小圆轮廓输出可视化图
 # 'gen_grid'     : 网格中心点笛卡尔积，全覆盖多角组合，含确定性 ErrorCode
 # 'plot_grid'    : 读取网格坐标实测结果，输出热力矩阵图 + 屏幕散点图
-RUN_MODE = 'plot_grid'
+RUN_MODE = 'gen_grid'
 
 # ── plot/both 模式：指定要可视化的测试结果文件（支持多个） ─────────────── #
 # 文件格式（Trapezoid-test.py 输出）：
@@ -134,7 +134,26 @@ RESULT_FILES_CIRCLE = [
 # 示例：[('TL','BR')]            → 仅生成 左上+右下
 #        [('TL','BR'),('TR','BL')] → 生成 左上+右下 和 右上+左下
 #        [('TL','TR','BR')]        → 生成 三角组合
-GRID_COMBOS = [('TL', 'BR')]
+# 【2 角组合共 6 种】C(4,2) = 6
+#   对角线组合 (2 种)：TL+BR, TR+BL
+#   边组合 (4 种)：TL+TR(上边), BL+BR(下边), TL+BL(左边), TR+BR(右边)
+# 
+GRID_COMBOS = [
+    # ── 2 角组合（笛卡尔积全遍历）──
+    # ('TL', 'BR'),   # 对角线
+    # ('TR', 'BL'),   # 对角线
+    # ('TL', 'TR'),   # 上边
+    # ('BL', 'BR'),   # 下边
+    # ('TL', 'BL'),   # 左边
+    # ('TR', 'BR'),   # 右边
+    
+    # ── 3 角组合──
+    # 取消注释以下行以启用 3 角组合生成
+    ('TL', 'TR', 'BL'),   # 左上 + 右上 + 左下
+    ('TL', 'TR', 'BR'),   # 左上 + 右上 + 右下
+    ('TL', 'BL', 'BR'),   # 左上 + 左下 + 右下
+    ('TR', 'BL', 'BR'),   # 右上 + 左下 + 右下
+]
 
 # IN 区网格格子尺寸（像素）——影响 PASS 样本密度
 # 范围建议：50px（极密，2角约7万行）~ 600px（极稀，2角约百行），推荐 250~400px
@@ -635,10 +654,15 @@ def _draw_grid_heatmap(combo, combo_rows, output_dir, fname_prefix):
     仅适用于 2 角组合。
     以 c0 每个格子位置作为子图（排列成 c0_y × c0_x 的网格），
     每个子图内以 c1_x 为列、c1_y 为行绘制二维矩阵，轴标签只显示纯坐标数字，
-    单元格内标注 P/F，颜色：绿=PASS，红=FAIL，浅灰=未测到。
+    单元格内同时标注测试坐标和 P/F 结果，颜色：绿=PASS，红=FAIL，浅灰=未测到。
+
+    支持 2 角和 3 角组合：
+      2 角 (c0,c1)      → 1 张 PNG，c0 为外层子图，c1 为内层矩阵。
+      3 角 (c0,c1,c2)   → 每个 c2 唯一位置各 1 张 PNG（图名含 c2 坐标），
+                         返回路径列表；每张内布局与 2 角相同。
     combo_rows : [(coords_8, error_code), ...]
     """
-    if len(combo) != 2:
+    if len(combo) not in (2, 3):
         return None
     import matplotlib
     matplotlib.use('Agg')
@@ -647,117 +671,125 @@ def _draw_grid_heatmap(combo, combo_rows, output_dir, fname_prefix):
     from matplotlib.patches import Patch
     plt.rcParams['font.family'] = 'Microsoft YaHei'
     plt.rcParams['axes.unicode_minus'] = False
-    c0, c1    = combo[0], combo[1]
-    idx0      = CORNER_ORDER.index(c0)
-    idx1      = CORNER_ORDER.index(c1)
+
+    COLORS = {1: [0.18, 0.80, 0.44], 0: [0.85, 0.25, 0.20], -1: [0.88, 0.88, 0.88]}
+    TEXT_C = {1: 'white', 0: 'white', -1: '#555555'}
     combo_key = '_'.join(combo)
+    os.makedirs(output_dir, exist_ok=True)
+
+    # ── 内部绘页函数：对给定 (c0,c1) 子集行绘制一张热力图并保存 ──────── #
+    def _draw_page(c0, c1, rows_subset, plot_path, suptitle):
+        idx0 = CORNER_ORDER.index(c0)
+        idx1 = CORNER_ORDER.index(c1)
+        c0_xs = sorted(set(r[idx0*2]   for r, _ in rows_subset))
+        c0_ys = sorted(set(r[idx0*2+1] for r, _ in rows_subset))
+        c1_xs = sorted(set(r[idx1*2]   for r, _ in rows_subset))
+        c1_ys = sorted(set(r[idx1*2+1] for r, _ in rows_subset))
+        c0x_i = {v: i for i, v in enumerate(c0_xs)}
+        c0y_i = {v: i for i, v in enumerate(c0_ys)}
+        c1x_i = {v: i for i, v in enumerate(c1_xs)}
+        c1y_i = {v: i for i, v in enumerate(c1_ys)}
+        n0x, n0y = len(c0_xs), len(c0_ys)
+        n1x, n1y = len(c1_xs), len(c1_ys)
+        # 构建 4D 数据字典 [c0_xi][c0_yi] -> 矩阵(c1_y 行, c1_x 列)
+        mats = {(xi, yi): np.full((n1y, n1x), -1, dtype=int)
+                for xi in range(n0x) for yi in range(n0y)}
+        for coords, ec in rows_subset:
+            xi = c0x_i[coords[idx0*2]]; yi = c0y_i[coords[idx0*2+1]]
+            ci = c1x_i[coords[idx1*2]]; ri = c1y_i[coords[idx1*2+1]]
+            mats[(xi, yi)][ri, ci] = ec
+        # 子图尺寸
+        CELL_W = max(1.1, 8.0 / n1x)
+        CELL_H = max(0.9, 6.0 / n1y)
+        fig_w  = n0x * (n1x * CELL_W + 1.5) + 1.0
+        fig_h  = n0y * (n1y * CELL_H + 1.2) + 1.5
+        fig, axes = plt.subplots(n0y, n0x, figsize=(fig_w, fig_h), squeeze=False)
+        fig.suptitle(suptitle, fontsize=11, fontweight='bold', y=1.0)
+        COORD_SZ  = max(5, min(9,  int(min(CELL_W, CELL_H) * 7)))
+        RESULT_SZ = max(7, min(13, int(min(CELL_W, CELL_H) * 10)))
+        for yi, c0y in enumerate(c0_ys):
+            for xi, c0x in enumerate(c0_xs):
+                ax  = axes[yi][xi]
+                mat = mats[(xi, yi)]
+                color_mat = np.zeros((n1y, n1x, 3))
+                for r in range(n1y):
+                    for c in range(n1x):
+                        color_mat[r, c] = COLORS[mat[r, c]]
+                ax.imshow(color_mat, aspect='auto', interpolation='none',
+                          extent=[-0.5, n1x - 0.5, n1y - 0.5, -0.5])
+                for gi in range(n1x + 1):
+                    ax.axvline(gi - 0.5, color='white', linewidth=0.5)
+                for gi in range(n1y + 1):
+                    ax.axhline(gi - 0.5, color='white', linewidth=0.5)
+                for r in range(n1y):
+                    for c in range(n1x):
+                        v  = mat[r, c]
+                        tc = TEXT_C[v]
+                        ax.text(c, r - 0.18, '({},{})'.format(c1_xs[c], c1_ys[r]),
+                                ha='center', va='center', fontsize=COORD_SZ, color=tc)
+                        ax.text(c, r + 0.22, {1: 'P', 0: 'F', -1: '—'}[v],
+                                ha='center', va='center', fontsize=RESULT_SZ,
+                                color=tc, fontweight='bold')
+                ax.set_xticks(range(n1x))
+                ax.set_xticklabels([str(v) for v in c1_xs], rotation=45,
+                                   ha='right', fontsize=max(5, COORD_SZ - 1))
+                ax.set_yticks(range(n1y))
+                ax.set_yticklabels([str(v) for v in c1_ys],
+                                   fontsize=max(5, COORD_SZ - 1))
+                n_p = int(np.sum(mat == 1))
+                n_f = int(np.sum(mat == 0))
+                ax.set_title('{}=({},{})  P:{} F:{}'.format(c0, c0x, c0y, n_p, n_f),
+                             fontsize=max(7, COORD_SZ + 1), pad=3)
+                if xi == 0:
+                    ax.set_ylabel('{}_y →'.format(c1), fontsize=8)
+                if yi == n0y - 1:
+                    ax.set_xlabel('{}_x →'.format(c1), fontsize=8)
+        legend_elements = [
+            Patch(facecolor=COLORS[1],  label='PASS (ErrorCode=1)'),
+            Patch(facecolor=COLORS[0],  label='FAIL (ErrorCode≠1)'),
+            Patch(facecolor=COLORS[-1], label='未测到'),
+        ]
+        fig.legend(handles=legend_elements, loc='lower center',
+                   ncol=3, fontsize=9, bbox_to_anchor=(0.5, 0.0))
+        fig.tight_layout(rect=[0, 0.04, 1, 0.98])
+        plt.savefig(plot_path, dpi=120, bbox_inches='tight')
+        plt.close(fig)
+    # ─────────────────────────────────────────────────────────────────── #
 
     n_pass_total = sum(1 for _, ec in combo_rows if ec == 1)
     n_fail_total = sum(1 for _, ec in combo_rows if ec == 0)
 
-    # c0 拆为独立 x/y 坐标列表（每值一列/行），c1 同理，轴标签只用纯数字
-    c0_xs = sorted(set(r[idx0*2]   for r, _ in combo_rows))
-    c0_ys = sorted(set(r[idx0*2+1] for r, _ in combo_rows))
-    c1_xs = sorted(set(r[idx1*2]   for r, _ in combo_rows))
-    c1_ys = sorted(set(r[idx1*2+1] for r, _ in combo_rows))
-    c0x_i = {v: i for i, v in enumerate(c0_xs)}
-    c0y_i = {v: i for i, v in enumerate(c0_ys)}
-    c1x_i = {v: i for i, v in enumerate(c1_xs)}
-    c1y_i = {v: i for i, v in enumerate(c1_ys)}
+    if len(combo) == 2:
+        c0, c1 = combo[0], combo[1]
+        title = '网格热力矩阵  {}({}) × {}({})  |  总 PASS:{} FAIL:{}'.format(
+            c0, CORNER_CN[c0], c1, CORNER_CN[c1], n_pass_total, n_fail_total)
+        plot_path = os.path.join(output_dir,
+            '{}_grid_combo_{}_heatmap.png'.format(fname_prefix, combo_key))
+        _draw_page(c0, c1, combo_rows, plot_path, title)
+        return plot_path
 
-    # 构建 4D 数据字典：[c0_xi][c0_yi] -> 矩阵(c1_y 行, c1_x 列)
-    n0x, n0y = len(c0_xs), len(c0_ys)
-    n1x, n1y = len(c1_xs), len(c1_ys)
-    mats = {}
-    for xi in range(n0x):
-        for yi in range(n0y):
-            mats[(xi, yi)] = np.full((n1y, n1x), -1, dtype=int)
-    for coords, ec in combo_rows:
-        xi = c0x_i[coords[idx0*2]]
-        yi = c0y_i[coords[idx0*2+1]]
-        ci = c1x_i[coords[idx1*2]]
-        ri = c1y_i[coords[idx1*2+1]]
-        mats[(xi, yi)][ri, ci] = ec
-
-    # 子图布局：行=c0_y 从上到下，列=c0_x 从左到右
-    CELL_W = max(0.7, 8.0 / n1x)   # 每格至少 0.7 英寸宽
-    CELL_H = max(0.6, 6.0 / n1y)
-    sub_w  = n1x * CELL_W + 1.5
-    sub_h  = n1y * CELL_H + 1.2
-    fig_w  = n0x * sub_w + 1.0
-    fig_h  = n0y * sub_h + 1.5
-    fig, axes = plt.subplots(n0y, n0x,
-                             figsize=(fig_w, fig_h),
-                             squeeze=False)
-    fig.suptitle(
-        '网格热力矩阵  {}({}) × {}({})  |  总 PASS:{} FAIL:{}'.format(
-            c0, CORNER_CN[c0], c1, CORNER_CN[c1],
-            n_pass_total, n_fail_total),
-        fontsize=12, fontweight='bold', y=1.0)
-
-    COLORS = {1: [0.18, 0.80, 0.44], 0: [0.85, 0.25, 0.20], -1: [0.88, 0.88, 0.88]}
-    TEXT   = {1: 'P', 0: 'F', -1: ''}
-    TEXT_C = {1: 'white', 0: 'white', -1: 'gray'}
-    FONT_SZ = max(5, min(10, int(min(CELL_W, CELL_H) * 9)))
-
-    x_labels = [str(v) for v in c1_xs]
-    y_labels = [str(v) for v in c1_ys]
-
-    for yi, c0y in enumerate(c0_ys):
-        for xi, c0x in enumerate(c0_xs):
-            ax  = axes[yi][xi]
-            mat = mats[(xi, yi)]
-            # 颜色矩阵
-            color_mat = np.zeros((n1y, n1x, 3))
-            for r in range(n1y):
-                for c in range(n1x):
-                    color_mat[r, c] = COLORS[mat[r, c]]
-            ax.imshow(color_mat, aspect='auto', interpolation='none',
-                      extent=[-0.5, n1x - 0.5, n1y - 0.5, -0.5])
-            # 格线
-            for gi in range(n1x + 1):
-                ax.axvline(gi - 0.5, color='white', linewidth=0.5)
-            for gi in range(n1y + 1):
-                ax.axhline(gi - 0.5, color='white', linewidth=0.5)
-            # 单元格文字
-            for r in range(n1y):
-                for c in range(n1x):
-                    v = mat[r, c]
-                    if TEXT[v]:
-                        ax.text(c, r, TEXT[v], ha='center', va='center',
-                                fontsize=FONT_SZ, color=TEXT_C[v],
-                                fontweight='bold')
-            # 轴标签
-            ax.set_xticks(range(n1x))
-            ax.set_xticklabels(x_labels, rotation=45, ha='right',
-                               fontsize=max(5, FONT_SZ - 1))
-            ax.set_yticks(range(n1y))
-            ax.set_yticklabels(y_labels, fontsize=max(5, FONT_SZ - 1))
-            n_p = int(np.sum(mat == 1))
-            n_f = int(np.sum(mat == 0))
-            ax.set_title(
-                '{}=({},{})  P:{} F:{}'.format(c0, c0x, c0y, n_p, n_f),
-                fontsize=max(7, FONT_SZ), pad=3)
-            if xi == 0:
-                ax.set_ylabel('{}_y  →'.format(c1), fontsize=8)
-            if yi == n0y - 1:
-                ax.set_xlabel('{}_x  →'.format(c1), fontsize=8)
-
-    # 图例
-    legend_elements = [
-        Patch(facecolor=COLORS[1],  label='PASS (ErrorCode=1)'),
-        Patch(facecolor=COLORS[0],  label='FAIL (ErrorCode≠1)'),
-        Patch(facecolor=COLORS[-1], label='未测到'),
-    ]
-    fig.legend(handles=legend_elements, loc='lower center',
-               ncol=3, fontsize=9, bbox_to_anchor=(0.5, 0.0))
-    fig.tight_layout(rect=[0, 0.04, 1, 0.98])
-    os.makedirs(output_dir, exist_ok=True)
-    plot_name = '{}_grid_combo_{}_heatmap.png'.format(fname_prefix, combo_key)
-    plot_path = os.path.join(output_dir, plot_name)
-    plt.savefig(plot_path, dpi=120, bbox_inches='tight')
-    plt.close(fig)
-    return plot_path
+    else:  # len(combo) == 3
+        c0, c1, c2 = combo[0], combo[1], combo[2]
+        idx2  = CORNER_ORDER.index(c2)
+        c2_pts = sorted(set((r[idx2*2], r[idx2*2+1]) for r, _ in combo_rows))
+        saved = []
+        for c2x, c2y in c2_pts:
+            slice_rows = [(r, ec) for r, ec in combo_rows
+                          if r[idx2*2] == c2x and r[idx2*2+1] == c2y]
+            if not slice_rows:
+                continue
+            n_p = sum(1 for _, ec in slice_rows if ec == 1)
+            n_f = sum(1 for _, ec in slice_rows if ec == 0)
+            title = ('网格热力矩阵  {}({}) × {}({})  |  {}({})=({},{})  '
+                     '|  PASS:{} FAIL:{}').format(
+                c0, CORNER_CN[c0], c1, CORNER_CN[c1],
+                c2, CORNER_CN[c2], c2x, c2y, n_p, n_f)
+            plot_name = '{}_grid_combo_{}_{}_{:d}_{:d}_heatmap.png'.format(
+                fname_prefix, combo_key, c2, c2x, c2y)
+            plot_path = os.path.join(output_dir, plot_name)
+            _draw_page(c0, c1, slice_rows, plot_path, title)
+            saved.append(plot_path)
+        return saved
 
 
 def _draw_grid_scatter(combo, combo_rows, output_dir, fname_prefix):
@@ -942,17 +974,22 @@ def plot_grid_from_result_file(result_file, output_dir):
         combo_cn_str = '+'.join(CORNER_CN[c] for c in combo)
         print('    [{}] {}行  PASS:{}  FAIL:{}'.format(
             combo_cn_str, len(combo_rows), n_pass, n_fail))
-        # 图1：热力矩阵（仅 2 角）
-        if len(combo) == 2:
+        # 图1：热力矩阵（支持 2 角与 3 角组合）
+        if len(combo) in (2, 3):
             try:
-                p = _draw_grid_heatmap(combo, combo_rows, output_dir, fname_prefix)
-                if p:
-                    saved_plots.append(p)
-                    print('      -> 热力矩阵: {}'.format(os.path.basename(p)))
+                result = _draw_grid_heatmap(combo, combo_rows, output_dir, fname_prefix)
+                # 2 角返回单个路径，3 角返回路径列表
+                if isinstance(result, list):
+                    for p in result:
+                        saved_plots.append(p)
+                        print('      -> 热力矩阵: {}'.format(os.path.basename(p)))
+                elif result:
+                    saved_plots.append(result)
+                    print('      -> 热力矩阵: {}'.format(os.path.basename(result)))
             except Exception as e:
                 print('      -> 热力矩阵失败: {}'.format(e))
         else:
-            print('      -> 热力矩阵: 跳过（仅支持 2 角组合）')
+            print('      -> 热力矩阵: 跳过（仅支持 2/3 角组合）')
         # 图2：屏幕散点
         try:
             p = _draw_grid_scatter(combo, combo_rows, output_dir, fname_prefix)

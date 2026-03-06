@@ -27,8 +27,7 @@ DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file
 
 # ── 【配置】输入文件路径（支持 CSV 或 TXT，可填多个，依次处理）────────── #
 INPUT_FILES = [
-    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Deliver\coordinate_20260305_1700\2_corner_combination_result_file_2026_03_05_16_24_31\2_corner_combination_result_file_2026_03_05_16_24_31.txt',
-    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Deliver\coordinate_20260305_1700\3_corner_combination_result_file_2026_03_05_16_10_30\3_corner_combination_result_file_2026_03_05_16_10_30.txt',
+    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Trapezoidal_coordinate_test_results\20260306\result_file_2026_03_06_14_21_11.txt',
     # 可继续添加更多文件：
     # r'D:\...\3_corner_combination_result_file_xxx.txt',
     # r'D:\...\angle_test_result_xxx.csv',
