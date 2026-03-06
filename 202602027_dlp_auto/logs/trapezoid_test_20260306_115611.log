@@ -1,0 +1,29 @@
+[11:56:11] Log file: D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\logs\trapezoid_test_20260306_115611.log
+[11:56:11] ('Creating TXT file:', 'D:\\software\\heiweilu\\workspace\\xgimi\\code\\202602027_dlp_auto\\reports\\Trapezoidal_coordinate_test_results\\20260306\\result_file_2026_03_06_11_56_11.txt')
+[11:56:12] File mode: 1 file(s), grand total rows: 441
+[11:56:12] 
+[11:56:12] ============================================================
+[11:56:12] [File 1/1] all_grid_combinations.txt
+[11:56:12] ============================================================
+[11:56:29] [11:56:29] [50/441] coords=(525,175,3839,0,0,2159,3721,1929) PASS:24 FAIL:26 (48%) | Elapsed:0.3min | Rate:0.344s/test | ETA:2.2min
+[11:56:45] [11:56:45] [100/441] coords=(875,175,3839,0,0,2159,3021,1061) PASS:40 FAIL:60 (40%) | Elapsed:0.6min | Rate:0.342s/test | ETA:1.9min
+[11:57:02] [11:57:02] [150/441] coords=(1225,525,3839,0,0,2159,3021,1579) PASS:59 FAIL:91 (39%) | Elapsed:0.8min | Rate:0.340s/test | ETA:1.6min
+[11:57:19] [11:57:19] [200/441] coords=(1519,525,3839,0,0,2159,1869,1579) PASS:80 FAIL:120 (40%) | Elapsed:1.1min | Rate:0.339s/test | ETA:1.4min
+[11:57:36] [11:57:36] [250/441] coords=(1869,525,3839,0,0,2159,1519,1061) PASS:80 FAIL:170 (32%) | Elapsed:1.4min | Rate:0.338s/test | ETA:1.1min
+[11:57:53] [11:57:53] [300/441] coords=(175,931,3839,0,0,2159,3371,1929) PASS:80 FAIL:220 (26%) | Elapsed:1.7min | Rate:0.338s/test | ETA:0.8min
+[11:58:09] [11:58:09] [350/441] coords=(875,931,3839,0,0,2159,2219,1929) PASS:80 FAIL:270 (22%) | Elapsed:2.0min | Rate:0.338s/test | ETA:0.5min
+[11:58:26] [11:58:26] [400/441] coords=(1869,931,3839,0,0,2159,2671,1579) PASS:80 FAIL:320 (20%) | Elapsed:2.3min | Rate:0.338s/test | ETA:0.2min
+[11:58:40] [11:58:40] [441/441] coords=(2219,931,3839,0,0,2159,2219,1061) PASS:80 FAIL:361 (18%) | Elapsed:2.5min | Rate:0.337s/test | ETA:0.0min
+[11:58:40] Final save to D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Trapezoidal_coordinate_test_results\20260306\result_file_2026_03_06_11_56_11.txt
+[11:58:40] 
+[11:58:40] Total program runtime: 148.85 seconds (2.48 minutes)
+[11:58:40] 
+[11:58:40] ============================================================
+[11:58:40] FINAL STATISTICS:
+[11:58:40] ============================================================
+[11:58:40] Total Tests Run: 441
+[11:58:40] Total Passed:    80
+[11:58:40] Total Failed:    361
+[11:58:40] Overall Pass Rate: 18.14%
+[11:58:40] Output TXT: D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Trapezoidal_coordinate_test_results\20260306\result_file_2026_03_06_11_56_11.txt
+[11:58:40] ============================================================

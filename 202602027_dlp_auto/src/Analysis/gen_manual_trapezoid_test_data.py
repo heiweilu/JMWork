@@ -34,6 +34,24 @@
         在散点图上为每个测试角叠加其对应小圆（橙色实线）和 CORNER_RANGES_IN 边界矩形，
         每个唯一角点组合单独输出一张 PNG。
 
+    【gen_grid 模式】网格中心点笛卡尔积，生成确定性全覆盖 2 角（或多角）组合数据
+        针对随机采样可能遗漏「一角IN + 一角OUT」等边界组合的问题，采用网格中心点策略：
+          1. 把每个角点的 IN 区域和 OUT 区域分别切成若干等大格子（GRID_CELL_SIZE_IN / GRID_CELL_SIZE_OUT）
+          2. 取每个格子的中心点作为候选坐标
+          3. 对 GRID_COMBOS 中的每个角点组合，做所有候选点的笛卡尔积
+          4. 所有角均取 IN 候选点 → ErrorCode=1（PASS）
+             任意角取 OUT 候选点   → ErrorCode=0（FAIL）
+        输出仅含坐标的 TXT（无 ErrorCode），需设备实测后再使用 plot_grid 模式可视化。
+        【行数估算】2角组合：TL格数 × BR格数。格子越小行数越多：
+          GRID_CELL_SIZE=300px → 约 1,600 行；200px → 约 5,000 行；100px → 约 30,000 行
+
+    【plot_grid 模式】读取网格坐标的设备实测结果，输出热力矩阵图 + 屏幕散点图
+        读取 RESULT_FILES_GRID 配置的实测结果 TXT（设备返回的真实 ErrorCode），
+        对每个角点组合输出两张图：
+          图1热力矩阵：行 = 第一个测试角格子坐标，列 = 第二个测试角格子坐标，单元格颜色 = PASS/FAIL。
+                仅支持 2 角组合；3+ 角组合跳过热力矩阵。
+          图2屏幕散点：4 个子图（每角一个），测试角按实测 ErrorCode 着色。
+
     投影仪分辨率：4K（3839 x 2159）
 
 输出目录:
@@ -41,6 +59,7 @@
     plot/both        : reports/Trapezoidal_coordinate_test_results/plots/{文件名}/result_plot.png
     gen_circle       : data/trapezoid_manual_test_data/{时间戳}_circle/combo_XX_*.txt（无图）
     plot_circle      : reports/Trapezoidal_coordinate_test_results/plots_circle/{文件名}/*.png
+    gen_grid         : data/trapezoid_manual_test_data/{时间戳}_grid/grid_combo_XX_*.txt
 ============================================================
 """
 
@@ -54,9 +73,11 @@ from datetime import datetime
 # 'gen'          : 生成随机坐标数据 + 可视化图（原有功能，受 COMBO_SIZES 控制）
 # 'plot'         : 从硬件测试结果 TXT 读取真实 ErrorCode，输出可视化图
 # 'both'         : 同时执行 gen 和 plot
-# 'gen_circle'   : 基于四点外接圆生成三角组合坐标（圆内55开，无 ErrorCode，无图）
-# 'plot_circle'  : 读取圆内坐标实测结果，叠加外接圆轮廓输出可视化图
-RUN_MODE = 'plot_circle'
+# 'gen_circle'   : 以各角参考点为圆心画小圆，生成三角组合坐标（无 ErrorCode，无图）
+# 'plot_circle'  : 读取圆内坐标实测结果，叠加各角小圆轮廓输出可视化图
+# 'gen_grid'     : 网格中心点笛卡尔积，全覆盖多角组合，含确定性 ErrorCode
+# 'plot_grid'    : 读取网格坐标实测结果，输出热力矩阵图 + 屏幕散点图
+RUN_MODE = 'plot_grid'
 
 # ── plot/both 模式：指定要可视化的测试结果文件（支持多个） ─────────────── #
 # 文件格式（Trapezoid-test.py 输出）：
@@ -106,6 +127,30 @@ CIRCLE_STEP   = 10
 RESULT_FILES_CIRCLE = [
     # r'D:\path\to\circle_test_result.txt',
     r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Trapezoidal_coordinate_test_results\20260306\result_file_2026_03_06_10_25_43.txt',
+]
+
+# ── gen_grid 模式专属配置 ────────────────────────────────────────────── #
+# 需要生成的角点组合列表，每项为一个 tuple，支持 2/3/4 角。
+# 示例：[('TL','BR')]            → 仅生成 左上+右下
+#        [('TL','BR'),('TR','BL')] → 生成 左上+右下 和 右上+左下
+#        [('TL','TR','BR')]        → 生成 三角组合
+GRID_COMBOS = [('TL', 'BR')]
+
+# IN 区网格格子尺寸（像素）——影响 PASS 样本密度
+# 范围建议：50px（极密，2角约7万行）~ 600px（极稀，2角约百行），推荐 250~400px
+# 格子越小覆盖越细，SVM 训练边界越精确；格子过小会导致行数爆炸，建议先用 350px 验证
+GRID_CELL_SIZE_IN  = 350   # IN  区格子尺寸（px）
+
+# OUT 区网格格子尺寸（像素）——影响 FAIL 样本密度
+# OUT 区共 3 个子区域，格子可比 IN 区稍大以控制总行数；建议范围 50px ~ 800px
+GRID_CELL_SIZE_OUT = 350   # OUT 区格子尺寸（px）
+
+# ── plot_grid 模式：实测结果文件（含真实 ErrorCode）─────────────────── #
+# 设备实测得到的结果文件（Tab 分隔）：
+#   WriteCoords(TL_x,...) \t ReadCoords(TL_x,...) \t Result \t ErrorCode
+RESULT_FILES_GRID = [
+    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Trapezoidal_coordinate_test_results\20260306\result_file_2026_03_06_11_56_11.txt',
+    # r'D:\path\to\grid_test_result.txt',
 ]
 
 # ── 基准坐标（非测试角固定于此）────────────────────────────────────────── #
@@ -476,6 +521,446 @@ def plot_circle_from_result_file(result_file, output_dir):
         except Exception as e:
             print('    -> [{}] 绘图失败: {}'.format(combo_cn_str, e))
 
+    return saved_plots
+
+
+# ── gen_grid 模式：网格中心点全遍历 ─────────────────────────────────────── #
+def _build_grid_cells(corner_key, cell_size_in, cell_size_out):
+    """
+    将 corner_key 的 IN 区域和 OUT 三个子区域各自切成等大格子，
+    返回每个格子的中心点坐标列表。
+
+    参数
+    ----
+    corner_key   : 'TL' / 'TR' / 'BL' / 'BR'
+    cell_size_in : IN 区格子尺寸（像素）；范围建议 50~600
+    cell_size_out: OUT 区格子尺寸（像素）；范围建议 50~800
+
+    返回
+    ----
+    {'IN': [(cx,cy),...], 'OUT': [(cx,cy),...]}
+      IN  : CORNER_RANGES_IN 区域内的格子中心点
+      OUT : CORNER_RANGES_OUT 三子区域合并后的格子中心点
+    """
+    def _cells_from_range(rng_dict, cell_size):
+        """将矩形区域按 cell_size 切格，返回每格中心点列表。"""
+        x0, x1 = rng_dict['x']
+        y0, y1 = rng_dict['y']
+        pts = []
+        x = x0 + cell_size // 2
+        while x <= x1:
+            y = y0 + cell_size // 2
+            while y <= y1:
+                pts.append((x, y))
+                y += cell_size
+            x += cell_size
+        return pts
+
+    in_pts = _cells_from_range(CORNER_RANGES_IN[corner_key], cell_size_in)
+
+    out_pts = []
+    for sub_range in CORNER_RANGES_OUT[corner_key]:
+        out_pts.extend(_cells_from_range(sub_range, cell_size_out))
+
+    return {'IN': in_pts, 'OUT': out_pts}
+
+
+def generate_grid_combo_rows(combo, cell_size_in, cell_size_out):
+    """
+    对给定角点组合做网格中心点笛卡尔积，生成全覆盖坐标数据（含 ErrorCode）。
+
+    规则
+    ----
+    - 每个活跃角点分别构建 IN 候选点列表和 OUT 候选点列表（格子中心）。
+    - 笛卡尔积：遍历所有角点的 IN/OUT 选择组合。
+      * 所有活跃角均为 IN → ErrorCode = 1（PASS）
+      * 任意活跃角为 OUT → ErrorCode = 0（FAIL）
+    - 非活跃角固定使用 BASE_CORNERS。
+
+    参数
+    ----
+    combo        : 角点元组，如 ('TL', 'BR')
+    cell_size_in : IN 区格子尺寸（像素）
+    cell_size_out: OUT 区格子尺寸（像素）
+
+    返回
+    ----
+    [(coords_8, error_code), ...]
+      coords_8   : [TL_x, TL_y, TR_x, TR_y, BL_x, BL_y, BR_x, BR_y]
+      error_code : 1=PASS / 0=FAIL
+    """
+    # 为每个活跃角点构建候选点字典 {corner: {'IN':[...], 'OUT':[...]}}
+    cell_pts = {}
+    for c in combo:
+        cell_pts[c] = _build_grid_cells(c, cell_size_in, cell_size_out)
+        if not cell_pts[c]['IN']:
+            print('  [WARN][gen_grid] 角点 {} IN区格子为空，请加大 GRID_CELL_SIZE_IN'.format(c))
+        if not cell_pts[c]['OUT']:
+            print('  [WARN][gen_grid] 角点 {} OUT区格子为空，请加大 GRID_CELL_SIZE_OUT'.format(c))
+
+    # 每个活跃角点的候选列表：IN点 + OUT点（用 ('IN',x,y) / ('OUT',x,y) 标记）
+    per_corner_candidates = []
+    for c in combo:
+        tagged = [('IN',  x, y) for x, y in cell_pts[c]['IN']] + \
+                 [('OUT', x, y) for x, y in cell_pts[c]['OUT']]
+        per_corner_candidates.append((c, tagged))
+
+    rows = []
+    # 笛卡尔积：combo 中每个角分别选一个候选点
+    for combo_pts in itertools.product(*[cands for _, cands in per_corner_candidates]):
+        # combo_pts: ((status_c0, x_c0, y_c0), (status_c1, x_c1, y_c1), ...)
+        has_out = any(status == 'OUT' for status, _, _ in combo_pts)
+        error_code = 0 if has_out else 1
+
+        # 按 CORNER_ORDER 顺序构造 8 列坐标
+        coord_map = {}
+        for (c, _cands), (status, cx, cy) in zip(per_corner_candidates, combo_pts):
+            coord_map[c] = (cx, cy)
+
+        coords = []
+        for c in CORNER_ORDER:
+            if c in coord_map:
+                coords.extend(list(coord_map[c]))
+            else:
+                coords.extend(BASE_CORNERS[c])
+
+        rows.append((coords, error_code))
+
+    return rows
+
+
+# ── plot_grid 模式：网格实测结果可视化 ─────────────────────────────────── #
+def _draw_grid_heatmap(combo, combo_rows, output_dir, fname_prefix):
+    """
+    仅适用于 2 角组合。
+    以 c0 每个格子位置作为子图（排列成 c0_y × c0_x 的网格），
+    每个子图内以 c1_x 为列、c1_y 为行绘制二维矩阵，轴标签只显示纯坐标数字，
+    单元格内标注 P/F，颜色：绿=PASS，红=FAIL，浅灰=未测到。
+    combo_rows : [(coords_8, error_code), ...]
+    """
+    if len(combo) != 2:
+        return None
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from matplotlib.patches import Patch
+    plt.rcParams['font.family'] = 'Microsoft YaHei'
+    plt.rcParams['axes.unicode_minus'] = False
+    c0, c1    = combo[0], combo[1]
+    idx0      = CORNER_ORDER.index(c0)
+    idx1      = CORNER_ORDER.index(c1)
+    combo_key = '_'.join(combo)
+
+    n_pass_total = sum(1 for _, ec in combo_rows if ec == 1)
+    n_fail_total = sum(1 for _, ec in combo_rows if ec == 0)
+
+    # c0 拆为独立 x/y 坐标列表（每值一列/行），c1 同理，轴标签只用纯数字
+    c0_xs = sorted(set(r[idx0*2]   for r, _ in combo_rows))
+    c0_ys = sorted(set(r[idx0*2+1] for r, _ in combo_rows))
+    c1_xs = sorted(set(r[idx1*2]   for r, _ in combo_rows))
+    c1_ys = sorted(set(r[idx1*2+1] for r, _ in combo_rows))
+    c0x_i = {v: i for i, v in enumerate(c0_xs)}
+    c0y_i = {v: i for i, v in enumerate(c0_ys)}
+    c1x_i = {v: i for i, v in enumerate(c1_xs)}
+    c1y_i = {v: i for i, v in enumerate(c1_ys)}
+
+    # 构建 4D 数据字典：[c0_xi][c0_yi] -> 矩阵(c1_y 行, c1_x 列)
+    n0x, n0y = len(c0_xs), len(c0_ys)
+    n1x, n1y = len(c1_xs), len(c1_ys)
+    mats = {}
+    for xi in range(n0x):
+        for yi in range(n0y):
+            mats[(xi, yi)] = np.full((n1y, n1x), -1, dtype=int)
+    for coords, ec in combo_rows:
+        xi = c0x_i[coords[idx0*2]]
+        yi = c0y_i[coords[idx0*2+1]]
+        ci = c1x_i[coords[idx1*2]]
+        ri = c1y_i[coords[idx1*2+1]]
+        mats[(xi, yi)][ri, ci] = ec
+
+    # 子图布局：行=c0_y 从上到下，列=c0_x 从左到右
+    CELL_W = max(0.7, 8.0 / n1x)   # 每格至少 0.7 英寸宽
+    CELL_H = max(0.6, 6.0 / n1y)
+    sub_w  = n1x * CELL_W + 1.5
+    sub_h  = n1y * CELL_H + 1.2
+    fig_w  = n0x * sub_w + 1.0
+    fig_h  = n0y * sub_h + 1.5
+    fig, axes = plt.subplots(n0y, n0x,
+                             figsize=(fig_w, fig_h),
+                             squeeze=False)
+    fig.suptitle(
+        '网格热力矩阵  {}({}) × {}({})  |  总 PASS:{} FAIL:{}'.format(
+            c0, CORNER_CN[c0], c1, CORNER_CN[c1],
+            n_pass_total, n_fail_total),
+        fontsize=12, fontweight='bold', y=1.0)
+
+    COLORS = {1: [0.18, 0.80, 0.44], 0: [0.85, 0.25, 0.20], -1: [0.88, 0.88, 0.88]}
+    TEXT   = {1: 'P', 0: 'F', -1: ''}
+    TEXT_C = {1: 'white', 0: 'white', -1: 'gray'}
+    FONT_SZ = max(5, min(10, int(min(CELL_W, CELL_H) * 9)))
+
+    x_labels = [str(v) for v in c1_xs]
+    y_labels = [str(v) for v in c1_ys]
+
+    for yi, c0y in enumerate(c0_ys):
+        for xi, c0x in enumerate(c0_xs):
+            ax  = axes[yi][xi]
+            mat = mats[(xi, yi)]
+            # 颜色矩阵
+            color_mat = np.zeros((n1y, n1x, 3))
+            for r in range(n1y):
+                for c in range(n1x):
+                    color_mat[r, c] = COLORS[mat[r, c]]
+            ax.imshow(color_mat, aspect='auto', interpolation='none',
+                      extent=[-0.5, n1x - 0.5, n1y - 0.5, -0.5])
+            # 格线
+            for gi in range(n1x + 1):
+                ax.axvline(gi - 0.5, color='white', linewidth=0.5)
+            for gi in range(n1y + 1):
+                ax.axhline(gi - 0.5, color='white', linewidth=0.5)
+            # 单元格文字
+            for r in range(n1y):
+                for c in range(n1x):
+                    v = mat[r, c]
+                    if TEXT[v]:
+                        ax.text(c, r, TEXT[v], ha='center', va='center',
+                                fontsize=FONT_SZ, color=TEXT_C[v],
+                                fontweight='bold')
+            # 轴标签
+            ax.set_xticks(range(n1x))
+            ax.set_xticklabels(x_labels, rotation=45, ha='right',
+                               fontsize=max(5, FONT_SZ - 1))
+            ax.set_yticks(range(n1y))
+            ax.set_yticklabels(y_labels, fontsize=max(5, FONT_SZ - 1))
+            n_p = int(np.sum(mat == 1))
+            n_f = int(np.sum(mat == 0))
+            ax.set_title(
+                '{}=({},{})  P:{} F:{}'.format(c0, c0x, c0y, n_p, n_f),
+                fontsize=max(7, FONT_SZ), pad=3)
+            if xi == 0:
+                ax.set_ylabel('{}_y  →'.format(c1), fontsize=8)
+            if yi == n0y - 1:
+                ax.set_xlabel('{}_x  →'.format(c1), fontsize=8)
+
+    # 图例
+    legend_elements = [
+        Patch(facecolor=COLORS[1],  label='PASS (ErrorCode=1)'),
+        Patch(facecolor=COLORS[0],  label='FAIL (ErrorCode≠1)'),
+        Patch(facecolor=COLORS[-1], label='未测到'),
+    ]
+    fig.legend(handles=legend_elements, loc='lower center',
+               ncol=3, fontsize=9, bbox_to_anchor=(0.5, 0.0))
+    fig.tight_layout(rect=[0, 0.04, 1, 0.98])
+    os.makedirs(output_dir, exist_ok=True)
+    plot_name = '{}_grid_combo_{}_heatmap.png'.format(fname_prefix, combo_key)
+    plot_path = os.path.join(output_dir, plot_name)
+    plt.savefig(plot_path, dpi=120, bbox_inches='tight')
+    plt.close(fig)
+    return plot_path
+
+
+def _draw_grid_scatter(combo, combo_rows, output_dir, fname_prefix):
+    """
+    2 列子图布局：
+      左列 = 测试角（按 combo 顺序），绘制彩色散点：绿圆=PASS，红×=FAIL；
+             X 轴 = c_x，Y 轴 = c_y，轴范围缩至实测数据区（+边距），直观展示覆盖范围。
+      右列 = 固定角（combo 以外），只标出其唯一坐标位置（蓝星），并注明像素坐标。
+    combo_rows : [(coords_8, error_code), ...]  error_code 来自设备实测
+    """
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle
+    plt.rcParams['font.family'] = 'Microsoft YaHei'
+    plt.rcParams['axes.unicode_minus'] = False
+    corner_idx   = {c: i for i, c in enumerate(CORNER_ORDER)}
+    n_pass       = sum(1 for _, ec in combo_rows if ec == 1)
+    n_fail       = sum(1 for _, ec in combo_rows if ec == 0)
+    combo_cn_str = '+'.join(CORNER_CN[c] for c in combo)
+    combo_key    = '_'.join(combo)
+
+    test_corners  = list(combo)
+    fixed_corners = [c for c in CORNER_ORDER if c not in combo]
+
+    # 子图布局：每测试角一行，分左（测试角散点）右（固定角）两列
+    n_rows = max(len(test_corners), len(fixed_corners), 1)
+    fig, axes = plt.subplots(n_rows, 2,
+                             figsize=(15, 5 * n_rows),
+                             squeeze=False)
+    fig.subplots_adjust(hspace=0.45, wspace=0.30)
+    fig.suptitle(
+        '网格实测屏幕散点  组合：{}  共{}行  PASS:{}  FAIL:{}'.format(
+            combo_cn_str, len(combo_rows), n_pass, n_fail),
+        fontsize=13, fontweight='bold')
+
+    # ── 左列：测试角散点（每测试角一行） ──
+    for row_i, c in enumerate(test_corners):
+        ax  = axes[row_i][0]
+        idx = corner_idx[c]
+        xs_pass, ys_pass, xs_fail, ys_fail = [], [], [], []
+        for coords, ec in combo_rows:
+            x = coords[idx * 2]
+            y = coords[idx * 2 + 1]
+            if ec == 1:
+                xs_pass.append(x); ys_pass.append(y)
+            else:
+                xs_fail.append(x); ys_fail.append(y)
+        if xs_pass:
+            ax.scatter(xs_pass, ys_pass, c='#2ecc71', s=80, alpha=0.9,
+                       zorder=4, label='PASS  {}点'.format(len(xs_pass)))
+        if xs_fail:
+            ax.scatter(xs_fail, ys_fail, c='#e74c3c', s=80, alpha=0.9,
+                       marker='x', linewidths=1.5, zorder=5,
+                       label='FAIL  {}点'.format(len(xs_fail)))
+        # IN 边界框（绿色虚线）
+        bnd = CORNER_RANGES_IN[c]
+        ax.add_patch(Rectangle(
+            (bnd['x'][0], bnd['y'][0]),
+            bnd['x'][1] - bnd['x'][0], bnd['y'][1] - bnd['y'][0],
+            linewidth=1.8, edgecolor='#27ae60', facecolor='#27ae60',
+            alpha=0.07, linestyle='--', label='IN 边界', zorder=2))
+        # 轴范围：缩至实际测试区域 + 5% 边距
+        all_xs = xs_pass + xs_fail
+        all_ys = ys_pass + ys_fail
+        if all_xs:
+            pad_x = max(200, (max(all_xs) - min(all_xs)) * 0.08)
+            pad_y = max(200, (max(all_ys) - min(all_ys)) * 0.08)
+            ax.set_xlim(min(all_xs) - pad_x, max(all_xs) + pad_x)
+            ax.set_ylim(max(all_ys) + pad_y, min(all_ys) - pad_y)  # y 轴翻转
+        else:
+            ax.set_xlim(0, WIDTH); ax.set_ylim(HEIGHT, 0)
+        ax.set_title('【测试角】{} ({})  —  X/Y 坐标散点'.format(c, CORNER_CN[c]),
+                     fontsize=11, fontweight='bold')
+        ax.set_xlabel('X (px)', fontsize=9)
+        ax.set_ylabel('Y (px)', fontsize=9)
+        ax.legend(fontsize=8, loc='best')
+        ax.grid(True, alpha=0.25)
+        # 每个测试点坐标标注（点数不超过 60 时才标，避免拥挤）
+        if len(xs_fail) + len(xs_pass) <= 60:
+            for x, y in zip(xs_pass, ys_pass):
+                ax.annotate('({},{})'.format(x, y), (x, y),
+                            fontsize=6, color='#1a7a3c',
+                            xytext=(4, 4), textcoords='offset points')
+            for x, y in zip(xs_fail, ys_fail):
+                ax.annotate('({},{})'.format(x, y), (x, y),
+                            fontsize=6, color='#9b1515',
+                            xytext=(4, 4), textcoords='offset points')
+
+    # ── 右列：固定角（只显示唯一坐标，不重复堆叠） ──
+    for row_i, c in enumerate(fixed_corners):
+        ax  = axes[row_i][1]
+        idx = corner_idx[c]
+        uniq_pts = sorted(set(
+            (coords[idx*2], coords[idx*2+1]) for coords, _ in combo_rows))
+        xs = [p[0] for p in uniq_pts]
+        ys = [p[1] for p in uniq_pts]
+        ax.scatter(xs, ys, c='steelblue', marker='*', s=300,
+                   zorder=5, label='固定坐标 {}点'.format(len(uniq_pts)))
+        for x, y in uniq_pts:
+            ax.annotate('({},{})'.format(x, y), (x, y),
+                        fontsize=7, color='#1a4a7a',
+                        xytext=(6, 6), textcoords='offset points')
+        bnd = CORNER_RANGES_IN[c]
+        ax.add_patch(Rectangle(
+            (bnd['x'][0], bnd['y'][0]),
+            bnd['x'][1] - bnd['x'][0], bnd['y'][1] - bnd['y'][0],
+            linewidth=1.5, edgecolor='#27ae60', facecolor='none',
+            linestyle='--', label='IN 边界'))
+        ax.set_xlim(-200, WIDTH + 200)
+        ax.set_ylim(HEIGHT + 200, -200)
+        ax.set_title('【固定角】{} ({})'.format(c, CORNER_CN[c]),
+                     fontsize=11, fontweight='bold')
+        ax.set_xlabel('X (px)', fontsize=9)
+        ax.set_ylabel('Y (px)', fontsize=9)
+        ax.legend(fontsize=8, loc='best')
+        ax.grid(True, alpha=0.25)
+
+    # 多余行隐藏
+    for row_i in range(n_rows):
+        if row_i >= len(test_corners):
+            axes[row_i][0].set_visible(False)
+        if row_i >= len(fixed_corners):
+            axes[row_i][1].set_visible(False)
+
+    os.makedirs(output_dir, exist_ok=True)
+    plot_name = '{}_grid_combo_{}_scatter.png'.format(fname_prefix, combo_key)
+    plot_path = os.path.join(output_dir, plot_name)
+    plt.savefig(plot_path, dpi=120, bbox_inches='tight')
+    plt.close(fig)
+    return plot_path
+
+
+def plot_grid_from_result_file(result_file, output_dir):
+    """
+    读取设备实测后的网格测试结果 TXT（含真实 ErrorCode），
+    按角点组合分组，每组输出两张图：
+      图1 热力矩阵（仅 2 角组合）
+      图2 屏幕散点（所有组合）
+    文件格式（Tab 分隔）：
+        WriteCoords(TL_x,...) \\t ReadCoords(TL_x,...) \\t Result \\t ErrorCode
+    """
+    import io as _io
+    from collections import OrderedDict
+    rows = []
+    with _io.open(result_file, 'r', encoding='utf-8-sig') as f:
+        for line_no, line in enumerate(f):
+            line = line.strip()
+            if not line:
+                continue
+            if line_no == 0 or line.startswith('WriteCoords'):
+                continue
+            parts = line.split('\t')
+            if len(parts) < 2:
+                continue
+            try:
+                coords  = list(map(int, parts[0].strip('"').split(',')))
+                ec_raw  = int(parts[-1].strip())
+                ec      = 1 if ec_raw == 1 else 0   # 归一化：1=PASS，0=FAIL（ErrorCode 可为任意非1值）
+            except ValueError:
+                continue
+            if len(coords) != 8:
+                continue
+            rows.append((coords, ec))
+    if not rows:
+        print('  [WARN] 无有效数据行，跳过: {}'.format(os.path.basename(result_file)))
+        return []
+    groups = OrderedDict()
+    for coords, ec in rows:
+        combo = _detect_combo(coords)
+        if combo not in groups:
+            groups[combo] = []
+        groups[combo].append((coords, ec))
+    fname_prefix = os.path.splitext(os.path.basename(result_file))[0]
+    os.makedirs(output_dir, exist_ok=True)
+    saved_plots  = []
+    print('  [plot_grid] {} 共 {} 种角点组合：'.format(
+        os.path.basename(result_file), len(groups)))
+    for combo, combo_rows in groups.items():
+        n_pass       = sum(1 for _, ec in combo_rows if ec == 1)
+        n_fail       = sum(1 for _, ec in combo_rows if ec == 0)
+        combo_cn_str = '+'.join(CORNER_CN[c] for c in combo)
+        print('    [{}] {}行  PASS:{}  FAIL:{}'.format(
+            combo_cn_str, len(combo_rows), n_pass, n_fail))
+        # 图1：热力矩阵（仅 2 角）
+        if len(combo) == 2:
+            try:
+                p = _draw_grid_heatmap(combo, combo_rows, output_dir, fname_prefix)
+                if p:
+                    saved_plots.append(p)
+                    print('      -> 热力矩阵: {}'.format(os.path.basename(p)))
+            except Exception as e:
+                print('      -> 热力矩阵失败: {}'.format(e))
+        else:
+            print('      -> 热力矩阵: 跳过（仅支持 2 角组合）')
+        # 图2：屏幕散点
+        try:
+            p = _draw_grid_scatter(combo, combo_rows, output_dir, fname_prefix)
+            if p:
+                saved_plots.append(p)
+                print('      -> 屏幕散点: {}'.format(os.path.basename(p)))
+        except Exception as e:
+            print('      -> 屏幕散点失败: {}'.format(e))
     return saved_plots
 
 
@@ -973,8 +1458,101 @@ def main():
                     print('  [ERROR] 可视化失败: {}'.format(e))
             print('[plot_circle] 完成，图片目录: {}'.format(plots_root))
 
-    if mode not in ('gen', 'plot', 'both', 'gen_circle', 'plot_circle'):
-        print("ERROR: RUN_MODE='{}' 无效，请设为 'gen'/'plot'/'both'/'gen_circle'/'plot_circle'".format(RUN_MODE))
+    # ── GEN_GRID 步骤 ──────────────────────────────────────────── #
+    if mode == 'gen_grid':
+        if not GRID_COMBOS:
+            print('[gen_grid] ERROR: GRID_COMBOS 为空，请填写需要生成的角点组合。')
+        else:
+            print('[gen_grid] 格子尺寸  IN区: {} px  OUT区: {} px'.format(
+                GRID_CELL_SIZE_IN, GRID_CELL_SIZE_OUT))
+            print('[gen_grid] 角点组合: {}'.format(GRID_COMBOS))
+
+            timestamp  = datetime.now().strftime('%Y%m%d_%H%M%S')
+            output_dir = os.path.join(
+                DATA_ROOT, 'data', 'trapezoid_manual_test_data',
+                timestamp + '_grid')
+            os.makedirs(output_dir, exist_ok=True)
+            print('[gen_grid] 输出目录: {}'.format(output_dir))
+
+            HEADER   = 'WriteCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)'
+            all_rows = []
+
+            for combo_idx, raw_combo in enumerate(GRID_COMBOS, 1):
+                combo     = tuple(raw_combo)   # 确保为 tuple
+                combo_en  = '+'.join(combo)
+                combo_cn  = '+'.join(CORNER_CN[c] for c in combo)
+                combo_key = '_'.join(combo)
+
+                # 预先打印各角格子数量
+                cell_info = []
+                for c in combo:
+                    cells = _build_grid_cells(c, GRID_CELL_SIZE_IN, GRID_CELL_SIZE_OUT)
+                    cell_info.append('{}: IN{}格/OUT{}格'.format(
+                        c, len(cells['IN']), len(cells['OUT'])))
+                print('[gen_grid][{:02d}] {} ({})  {}'.format(
+                    combo_idx, combo_cn, combo_en, '  '.join(cell_info)))
+
+                rows = generate_grid_combo_rows(combo, GRID_CELL_SIZE_IN, GRID_CELL_SIZE_OUT)
+
+                n_pass = sum(1 for _, ec in rows if ec == 1)
+                n_fail = sum(1 for _, ec in rows if ec == 0)
+                base_name = 'grid_combo_{:02d}_{}'.format(combo_idx, combo_key)
+
+                fname = os.path.join(output_dir, base_name + '.txt')
+                with open(fname, 'w', encoding='utf-8-sig') as f:
+                    f.write(HEADER + '\n')
+                    for coords, _ec in rows:
+                        f.write('{}\n'.format(','.join(map(str, coords))))
+
+                all_rows.extend(rows)
+                print('       -> {}行  PASS:{} FAIL:{}  {}'.format(
+                    len(rows), n_pass, n_fail, os.path.basename(fname)))
+
+            # 汇总文件（仅坐标）
+            all_fname = os.path.join(output_dir, 'all_grid_combinations.txt')
+            with open(all_fname, 'w', encoding='utf-8-sig') as f:
+                f.write(HEADER + '\n')
+                for coords, _ec in all_rows:
+                    f.write('{}\n'.format(','.join(map(str, coords))))
+
+            total_pass = sum(1 for _, ec in all_rows if ec == 1)
+            total_fail = sum(1 for _, ec in all_rows if ec == 0)
+            print('\n' + '=' * 60)
+            print('[gen_grid] 生成完毕（无 ErrorCode，需上机实测后用 plot_grid 可视化）')
+            print('  格子尺寸 IN: {} px  OUT: {} px'.format(
+                GRID_CELL_SIZE_IN, GRID_CELL_SIZE_OUT))
+            print('  角点组合数:  {} 组'.format(len(GRID_COMBOS)))
+            print('  预期 PASS/FAIL 分布: PASS:{} FAIL:{} (仅供参考，实际由设备测定)'.format(
+                total_pass, total_fail))
+            print('  输出目录:    {}'.format(output_dir))
+            print('=' * 60)
+
+    # ── PLOT_GRID 步骤 ───────────────────────────────────────── #
+    if mode == 'plot_grid':
+        if not RESULT_FILES_GRID:
+            print('[plot_grid] ERROR: RESULT_FILES_GRID 为空，请配置实测结果文件路径。')
+        else:
+            print('[plot_grid] 共 {} 个结果文件待可视化'.format(len(RESULT_FILES_GRID)))
+            plots_root = os.path.join(
+                DATA_ROOT, 'reports',
+                'Trapezoidal_coordinate_test_results', 'plots_grid')
+            for idx, rf in enumerate(RESULT_FILES_GRID, 1):
+                print('[plot_grid][{}/{}] {}'.format(
+                    idx, len(RESULT_FILES_GRID), os.path.basename(rf)))
+                if not os.path.isfile(rf):
+                    print('  [WARN] 文件不存在，跳过: {}'.format(rf))
+                    continue
+                sub_dir = os.path.join(
+                    plots_root,
+                    os.path.splitext(os.path.basename(rf))[0])
+                try:
+                    plot_grid_from_result_file(rf, sub_dir)
+                except Exception as e:
+                    print('  [ERROR] 可视化失败: {}'.format(e))
+            print('[plot_grid] 完成，图片目录: {}'.format(plots_root))
+
+    if mode not in ('gen', 'plot', 'both', 'gen_circle', 'plot_circle', 'gen_grid', 'plot_grid'):
+        print("ERROR: RUN_MODE='{}' 无效，请设为 'gen'/'plot'/'both'/'gen_circle'/'plot_circle'/'gen_grid'/'plot_grid'".format(RUN_MODE))
 
 
 if __name__ == '__main__':
