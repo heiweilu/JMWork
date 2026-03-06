@@ -1,0 +1,45 @@
+[10:25:43] Log file: D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\logs\trapezoid_test_20260306_102543.log
+[10:25:43] ('Creating TXT file:', 'D:\\software\\heiweilu\\workspace\\xgimi\\code\\202602027_dlp_auto\\reports\\Trapezoidal_coordinate_test_results\\20260306\\result_file_2026_03_06_10_25_43.txt')
+[10:25:43] File mode: 1 file(s), grand total rows: 1200
+[10:25:43] 
+[10:25:43] ============================================================
+[10:25:43] [File 1/1] all_circle_combinations.txt
+[10:25:43] ============================================================
+[10:26:00] [10:26:00] [50/1200] coords=(726,1008,2411,236,0,2159,3839,2159) PASS:22 FAIL:28 (44%) | Elapsed:0.3min | Rate:0.347s/test | ETA:6.6min
+[10:26:17] [10:26:17] [100/1200] coords=(836,958,2571,146,0,2159,3839,2159) PASS:43 FAIL:57 (43%) | Elapsed:0.6min | Rate:0.345s/test | ETA:6.3min
+[10:26:34] [10:26:34] [150/1200] coords=(696,748,2801,256,270,2089,3839,2159) PASS:59 FAIL:91 (39%) | Elapsed:0.9min | Rate:0.341s/test | ETA:6.0min
+[10:26:51] [10:26:51] [200/1200] coords=(676,748,2871,266,0,2159,3839,2159) PASS:85 FAIL:115 (42%) | Elapsed:1.1min | Rate:0.339s/test | ETA:5.7min
+[10:27:07] [10:27:07] [250/1200] coords=(536,1188,2451,196,0,2159,3839,2159) PASS:105 FAIL:145 (42%) | Elapsed:1.4min | Rate:0.339s/test | ETA:5.4min
+[10:27:24] [10:27:24] [300/1200] coords=(566,1108,2851,296,90,1989,3839,2159) PASS:133 FAIL:167 (44%) | Elapsed:1.7min | Rate:0.339s/test | ETA:5.1min
+[10:27:41] [10:27:41] [350/1200] coords=(596,748,2671,526,0,2159,3619,1579) PASS:154 FAIL:196 (44%) | Elapsed:2.0min | Rate:0.339s/test | ETA:4.8min
+[10:27:58] [10:27:58] [400/1200] coords=(666,748,2751,106,0,2159,3699,1739) PASS:175 FAIL:225 (43%) | Elapsed:2.3min | Rate:0.338s/test | ETA:4.5min
+[10:28:15] [10:28:15] [450/1200] coords=(716,748,2781,336,0,2159,3819,1849) PASS:197 FAIL:253 (43%) | Elapsed:2.5min | Rate:0.338s/test | ETA:4.2min
+[10:28:32] [10:28:32] [500/1200] coords=(596,748,2711,96,0,2159,3829,1449) PASS:221 FAIL:279 (44%) | Elapsed:2.8min | Rate:0.338s/test | ETA:3.9min
+[10:28:48] [10:28:48] [550/1200] coords=(646,748,2781,276,0,2159,3729,1979) PASS:243 FAIL:307 (44%) | Elapsed:3.1min | Rate:0.338s/test | ETA:3.7min
+[10:29:05] [10:29:05] [600/1200] coords=(826,818,2471,286,0,2159,3809,1829) PASS:261 FAIL:339 (43%) | Elapsed:3.4min | Rate:0.337s/test | ETA:3.4min
+[10:29:22] [10:29:22] [650/1200] coords=(626,748,3839,0,0,2159,3819,1929) PASS:298 FAIL:352 (45%) | Elapsed:3.7min | Rate:0.337s/test | ETA:3.1min
+[10:29:39] [10:29:39] [700/1200] coords=(676,748,3839,0,80,2019,3729,1959) PASS:333 FAIL:367 (47%) | Elapsed:3.9min | Rate:0.337s/test | ETA:2.8min
+[10:29:55] [10:29:55] [750/1200] coords=(606,748,3839,0,240,2099,3579,1669) PASS:366 FAIL:384 (48%) | Elapsed:4.2min | Rate:0.337s/test | ETA:2.5min
+[10:30:12] [10:30:12] [800/1200] coords=(866,1038,3839,0,0,2159,3839,2159) PASS:396 FAIL:404 (49%) | Elapsed:4.5min | Rate:0.337s/test | ETA:2.2min
+[10:30:29] [10:30:29] [850/1200] coords=(656,748,3839,0,250,2119,3799,1929) PASS:434 FAIL:416 (51%) | Elapsed:4.8min | Rate:0.337s/test | ETA:2.0min
+[10:30:46] [10:30:46] [900/1200] coords=(686,748,3839,0,250,2079,3839,2159) PASS:469 FAIL:431 (52%) | Elapsed:5.1min | Rate:0.337s/test | ETA:1.7min
+[10:31:03] [10:31:03] [950/1200] coords=(0,0,2651,536,240,2029,3709,1809) PASS:515 FAIL:435 (54%) | Elapsed:5.3min | Rate:0.337s/test | ETA:1.4min
+[10:31:20] Flushed 1000 lines to D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Trapezoidal_coordinate_test_results\20260306\result_file_2026_03_06_10_25_43.txt
+[10:31:20] [10:31:20] [1000/1200] coords=(0,0,2541,26,170,2019,3819,1789) PASS:562 FAIL:438 (56%) | Elapsed:5.6min | Rate:0.337s/test | ETA:1.1min
+[10:31:37] [10:31:37] [1050/1200] coords=(0,0,2331,356,90,2049,3839,2159) PASS:611 FAIL:439 (58%) | Elapsed:5.9min | Rate:0.337s/test | ETA:0.8min
+[10:31:54] [10:31:53] [1100/1200] coords=(0,0,2461,46,0,2159,3839,2159) PASS:660 FAIL:440 (60%) | Elapsed:6.2min | Rate:0.337s/test | ETA:0.6min
+[10:32:10] [10:32:10] [1150/1200] coords=(0,0,2831,406,230,2019,3569,1739) PASS:708 FAIL:442 (61%) | Elapsed:6.5min | Rate:0.337s/test | ETA:0.3min
+[10:32:27] [10:32:27] [1200/1200] coords=(0,0,2781,156,40,1949,3839,2159) PASS:755 FAIL:445 (62%) | Elapsed:6.7min | Rate:0.337s/test | ETA:0.0min
+[10:32:27] Final save to D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Trapezoidal_coordinate_test_results\20260306\result_file_2026_03_06_10_25_43.txt
+[10:32:27] 
+[10:32:27] Total program runtime: 404.45 seconds (6.74 minutes)
+[10:32:27] 
+[10:32:27] ============================================================
+[10:32:27] FINAL STATISTICS:
+[10:32:27] ============================================================
+[10:32:27] Total Tests Run: 1200
+[10:32:27] Total Passed:    755
+[10:32:27] Total Failed:    445
+[10:32:27] Overall Pass Rate: 62.92%
+[10:32:27] Output TXT: D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\reports\Trapezoidal_coordinate_test_results\20260306\result_file_2026_03_06_10_25_43.txt
+[10:32:27] ============================================================

@@ -74,16 +74,7 @@ TEST_MODE = 'file'
 # ── file 模式专用：指定要测试的 TXT 数据文件路径（支持多个，依次执行）── #
 # 每个文件第一行为表头，数据行第一列格式：TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y
 INPUT_FILES = [
-    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260305_153731\combo_05_TL_TR.txt',
-    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260305_153731\combo_06_TL_BL.txt',
-    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260305_153731\combo_07_TL_BR.txt',
-    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260305_153731\combo_08_TR_BL.txt',
-    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260305_153731\combo_09_TR_BR.txt',
-    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260305_153731\combo_10_BL_BR.txt',
-    # r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260305_153731\combo_11_TL_TR_BL.txt',
-    # r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260305_153731\combo_12_TL_TR_BR.txt',
-    # r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260305_153731\combo_13_TL_BL_BR.txt',
-    # r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260305_153731\combo_14_TR_BL_BR.txt',
+    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260306_102059_circle\all_circle_combinations.txt',
     # 可继续添加更多文件，例如三角组合：
     # r'D:\...\combo_11_TL_TR_BL.txt',
 ]
