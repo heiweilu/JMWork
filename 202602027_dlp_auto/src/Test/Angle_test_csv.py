@@ -8,7 +8,7 @@
     逐一向 DLP8445 硬件写入梯形校正参数并回读验证，
     统计每个角度点的 PASS/FAIL 结果（含 ErrorCode 和坐标偏差 Delta），
     支持断点续传（跳过已测试角度），
-    输出测试结果 CSV 至：reports/Angle_test_results/{日期}/
+    输出测试结果 TXT 至：reports/Angle_test_results/{日期}/
 
 前置步骤:
     1. 将原始接口数据放入 data/Angle_Raw_interface_output_data/
@@ -17,7 +17,6 @@
     4. 修改下方【手动配置区】，然后运行本脚本
 ============================================================
 """
-import csv
 import io
 import os
 import sys
@@ -41,7 +40,8 @@ DATA_MODE = 'quadrant'
 # DATA_MODE = 'quadrant' 时选择象限文件：
 #   quadrant_1_left_top.txt / quadrant_2_right_top.txt
 #   quadrant_3_left_bottom.txt / quadrant_4_right_bottom.txt
-TXT_QUADRANT_FILE = 'quadrant_1_left_top.txt'
+#   quadrant_3_left_bottom_test.txt
+TXT_QUADRANT_FILE = 'quadrant_3_left_bottom.txt'
 
 # 测试范围（分段测试时使用，不需要时设为 None）
 TEST_RANGE = {
@@ -59,9 +59,9 @@ TEST_RANGE = {
 RESUME_FROM_PREVIOUS = True
 
 # 每隔 LOG_INTERVAL 个有效测试输出一次进度
-LOG_INTERVAL = 100
-# 每写入 FLUSH_INTERVAL 行后执行一次 flush
-FLUSH_INTERVAL = 100
+LOG_INTERVAL = 10
+# 每条写入后立即 flush（硬件每次测试 ~0.5s，IO 开销可忽略，防止断电/中断导致数据丢失）
+# FLUSH_INTERVAL 已废弃，保留兼容旧配置，不再使用
 # ============================================================================
 
 # 步长根据 DATA_MODE 自动确定
@@ -80,7 +80,7 @@ _TXT_FILE_MAP = {
 }
 
 if DATA_MODE not in _TXT_FILE_MAP:
-    raise ValueError("DATA_MODE 配置错误，可选: {}".format(list(_TXT_FILE_MAP.keys())))
+    raise ValueError("Invalid DATA_MODE. Choices: {}".format(list(_TXT_FILE_MAP.keys())))
 
 TXT_FILE_PATH = _TXT_FILE_MAP[DATA_MODE]
 OUTPUT_PATH   = os.path.join(DATA_ROOT, 'reports')
@@ -145,110 +145,109 @@ if not validator:
     print("Warning: Running without validation!")
 
 
-#  数据加载  #
-class KeystoneTestData:
-    """从 TXT 文件（制表符分隔）加载梯形校正测试数据"""
+# ──────────────────────────────────────────────────────────────────────────────
+#  流式数据处理（替代原 KeystoneTestData 整体加载方案）
+#  参考 Trapezoid-test.py file 模式：读一行、测一行，零等待
+# ──────────────────────────────────────────────────────────────────────────────
 
-    def __init__(self, txt_path, step, test_range):
-        self.txt_path   = txt_path
-        self.step       = step
-        self.test_range = test_range
-        self.test_data  = {}
-        self._load()
+def _in_range(yaw, pitch, test_range, step):
+    """判断 (yaw, pitch) 是否在测试范围内且符合步长对齐。"""
+    r = test_range
+    if not (r['yaw_min'] <= yaw <= r['yaw_max']):
+        return False
+    if not (r['pitch_min'] <= pitch <= r['pitch_max']):
+        return False
+    if r.get('sub_yaw_min')   is not None and yaw   < r['sub_yaw_min']:   return False
+    if r.get('sub_yaw_max')   is not None and yaw   > r['sub_yaw_max']:   return False
+    if r.get('sub_pitch_min') is not None and pitch < r['sub_pitch_min']: return False
+    if r.get('sub_pitch_max') is not None and pitch > r['sub_pitch_max']: return False
+    s   = step
+    tol = s / 2.0 if s < 1.0 else 0.5
+    yaw_ok   = abs(yaw   % s) < tol or abs(yaw   % s - s) < tol
+    pitch_ok = abs(pitch % s) < tol or abs(pitch % s - s) < tol
+    return yaw_ok and pitch_ok
 
-    def _in_range(self, yaw, pitch):
-        r = self.test_range
-        if not (r['yaw_min'] <= yaw <= r['yaw_max']):
-            return False
-        if not (r['pitch_min'] <= pitch <= r['pitch_max']):
-            return False
-        if r.get('sub_yaw_min')   is not None and yaw   < r['sub_yaw_min']:   return False
-        if r.get('sub_yaw_max')   is not None and yaw   > r['sub_yaw_max']:   return False
-        if r.get('sub_pitch_min') is not None and pitch < r['sub_pitch_min']: return False
-        if r.get('sub_pitch_max') is not None and pitch > r['sub_pitch_max']: return False
 
-        s = self.step
-        tol = s / 2.0 if s < 1.0 else 0.5
-        yaw_ok   = abs(yaw   % s) < tol or abs(yaw   % s - s) < tol
-        pitch_ok = abs(pitch % s) < tol or abs(pitch % s - s) < tol
-        return yaw_ok and pitch_ok
+def _count_data_lines(txt_path):
+    """快速统计数据行数（仅计行，不解析），用于 ETA 估算。"""
+    if not os.path.exists(txt_path):
+        return 0
+    with open(txt_path, 'rb') as f:
+        content = f.read()
+    lines   = content.decode('utf-8', errors='ignore').split('\n')
+    skipped = 0  # 表头 + 空行 + 注释
+    for line in lines:
+        s = line.strip()
+        if not s or s.startswith('#'):
+            continue
+        skipped += 1  # 第一条非注释行是表头
+        break
+    total = sum(1 for l in lines if l.strip() and not l.strip().startswith('#'))
+    return max(0, total - 1)  # 减去表头
 
-    def _load(self):
-        print("\nLoading TXT file: {}".format(self.txt_path))
-        if not os.path.exists(self.txt_path):
-            raise IOError("TXT file not found: {}".format(self.txt_path))
 
-        with open(self.txt_path, 'rb') as f:
-            content = f.read().replace(b'\x00', b'')
+def stream_test_data(txt_path, step, test_range):
+    """
+    流式读取 TXT 文件，逐行解析并 yield (yaw, pitch, points)。
+    不把全部数据加载到内存，实现「读一行、测一行」。
+    """
+    if not os.path.exists(txt_path):
+        raise IOError("TXT file not found: {}".format(txt_path))
 
-        lines = content.decode('utf-8', errors='ignore').splitlines()
+    # IronPython io.open 文本模式迭代不可靠，一次性读取字节再 split
+    with open(txt_path, 'rb') as f:
+        content = f.read()
+    # 使用 utf-8-sig 自动剥除文件开头的 BOM (\ufeff)，避免首列键名被污染
+    lines  = content.decode('utf-8-sig', errors='ignore').split('\n')
+    header = None
 
-        start_idx = next((i for i, l in enumerate(lines) if not l.startswith('#')), None)
-        if start_idx is None:
-            raise ValueError("No valid data in TXT file")
-
-        header = [h.strip() for h in lines[start_idx].split('\t')]
-        print("  表头: {}".format(header))
-
-        loaded = 0
-        filtered = 0
-        total = 0
-        t0 = time.time()
-
-        for line in lines[start_idx + 1:]:
-            line = line.strip()
-            if not line:
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if header is None:
+            header = [h.strip().lstrip('\ufeff') for h in line.split('\t')]
+            print("  Data header: {}".format(header))
+            continue
+        try:
+            vals = line.split('\t')
+            if len(vals) < len(header):
                 continue
-            total += 1
-            if total % 100000 == 0:
-                print("  [{:.0f}s] 已处理 {} 行，已加载 {} 条...".format(
-                    time.time() - t0, total, loaded))
-            try:
-                vals = line.split('\t')
-                if len(vals) < len(header):
-                    continue
-                row = {header[i]: vals[i] for i in range(len(header))}
-                yaw   = float(row['yaw'])
-                pitch = float(row['pitch'])
-                if not self._in_range(yaw, pitch):
-                    filtered += 1
-                    continue
-                points = [
-                    [int(float(row['TL_X'])), int(float(row['TL_Y']))],
-                    [int(float(row['TR_X'])), int(float(row['TR_Y']))],
-                    [int(float(row['BL_X'])), int(float(row['BL_Y']))],
-                    [int(float(row['BR_X'])), int(float(row['BR_Y']))],
-                ]
-                self.test_data[(yaw, pitch)] = points
-                loaded += 1
-            except (ValueError, KeyError, IndexError):
+            row   = {header[i]: vals[i] for i in range(len(header))}
+            yaw   = float(row['yaw'])
+            pitch = float(row['pitch'])
+            if not _in_range(yaw, pitch, test_range, step):
                 continue
-
-        print("加载完成: {} 条 / {} 总行（过滤 {} 条，耗时 {:.1f}s）".format(
-            loaded, total, filtered, time.time() - t0))
-        if loaded == 0:
-            raise ValueError("未加载到有效测试数据，请检查 TXT 文件和测试范围配置。")
-
-    def get_all_tests(self):
-        return [
-            {'vertical_angle': yaw, 'horizontal_angle': pitch, 'points': pts}
-            for (yaw, pitch), pts in sorted(self.test_data.items())
-        ]
+            points = [
+                [int(float(row['TL_X'])), int(float(row['TL_Y']))],
+                [int(float(row['TR_X'])), int(float(row['TR_Y']))],
+                [int(float(row['BL_X'])), int(float(row['BL_Y']))],
+                [int(float(row['BR_X'])), int(float(row['BR_Y']))],
+            ]
+            yield (yaw, pitch, points)
+        except (ValueError, KeyError, IndexError):
+            continue
 
 
 #  核心测试函数  #
-def check_keystone(write_points, csv_writer, csvfile, v_angle, h_angle, angle_desc):
-    """向设备写入梯形坐标并回读验证，将结果追加到 CSV"""
+def check_keystone(write_points, txt_writer, v_angle, h_angle, angle_desc):
+    """Write keystone coords to device, read back and verify, append result to TXT."""
     flat = [
         write_points[0][0], write_points[0][1],
         write_points[1][0], write_points[1][1],
         write_points[2][0], write_points[2][1],
         write_points[3][0], write_points[3][1],
     ]
+
+    def _write_row(read_str, result, ec, delta):
+        txt_writer.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(
+            v_angle, h_angle, angle_desc,
+            ','.join(map(str, flat)), read_str,
+            result, ec, delta))
+
     try:
         if any(c < 0 or c > 65535 for c in flat):
-            csv_writer.writerow([str(v_angle), str(h_angle), angle_desc,
-                                  ','.join(map(str, flat)), '', 'FAIL', '-1', '0'])
+            _write_row('', 'FAIL', '-1', '0')
             return False
 
         obj = KeystoneCornersQueued()
@@ -272,18 +271,15 @@ def check_keystone(write_points, csv_writer, csvfile, v_angle, h_angle, angle_de
         ]
 
         is_match = all(w == r for w, r in zip(flat, read))
-        result   = "PASS" if is_match else "FAIL"
+        result   = 'PASS' if is_match else 'FAIL'
         max_diff = max(abs(w - r) for w, r in zip(flat, read))
 
-        csv_writer.writerow([str(v_angle), str(h_angle), angle_desc,
-                              ','.join(map(str, flat)), ','.join(map(str, read)),
-                              result, str(int(ErrorCode)), str(max_diff)])
+        _write_row(','.join(map(str, read)), result, str(int(ErrorCode)), str(max_diff))
         return is_match and int(ErrorCode) == 1
 
     except Exception:
         try:
-            csv_writer.writerow([str(v_angle), str(h_angle), angle_desc,
-                                  ','.join(map(str, flat)), '', 'FAIL', '-1', '0'])
+            _write_row('', 'FAIL', '-1', '0')
         except Exception:
             pass
         return False
@@ -295,24 +291,24 @@ def format_angle_name(v, h):
     return "{}, {}".format(v_s, h_s)
 
 
-def load_tested_angles(csv_path):
-    """从已有结果 CSV 读取已测试的 (yaw, pitch) 集合，用于断点续传"""
+def load_tested_angles(txt_path):
+    """Read (yaw, pitch) set from an existing result TXT for resume support."""
     tested = set()
-    if not os.path.exists(csv_path):
+    if not os.path.exists(txt_path):
         return tested
     try:
-        with open(csv_path, 'r') as f:
-            reader = csv.reader(f)
-            next(reader)
-            for row in reader:
-                if len(row) >= 2:
+        with io.open(txt_path, 'r', encoding='utf-8') as f:
+            next(f)  # skip header
+            for line in f:
+                parts = line.split('\t')
+                if len(parts) >= 2:
                     try:
-                        tested.add((float(row[0]), float(row[1])))
+                        tested.add((float(parts[0]), float(parts[1])))
                     except ValueError:
                         pass
-        print("断点续传：加载已测试角度 {} 个".format(len(tested)))
+        print("Resume: loaded {} previously tested angles.".format(len(tested)))
     except Exception as e:
-        print("Warning: 无法读取已有结果文件: {}".format(e))
+        print("Warning: Cannot read existing result file: {}".format(e))
     return tested
 
 
@@ -327,114 +323,139 @@ def main():
 
     print("Log file: {}".format(log_path))
 
-    csv_out = os.path.join(OUTPUT_PATH, 'Angle_test_results', time.strftime("%Y%m%d"),
-                           'angle_test_result_{}.csv'.format(time.strftime("%Y_%m_%d_%H_%M_%S")))
-
     print("=" * 80)
-    print("Keystone Angle Test  |  TXT Data Version")
+    print("Keystone Angle Test  |  Streaming Mode (read-test-immediately)")
     print("=" * 80)
-    print("数据文件: {}".format(TXT_FILE_PATH))
-    print("测试范围: Yaw [{}, {}]  Pitch [{}, {}]  Step {}deg".format(
+    print("Data file  : {}".format(TXT_FILE_PATH))
+    print("Test range : Yaw [{}, {}]  Pitch [{}, {}]  Step {}deg".format(
         TEST_RANGE['yaw_min'], TEST_RANGE['yaw_max'],
         TEST_RANGE['pitch_min'], TEST_RANGE['pitch_max'], STEP))
-    print("断点续传: {}".format('启用' if RESUME_FROM_PREVIOUS else '禁用'))
-    print("输出文件: {}".format(csv_out))
+    print("Resume     : {}".format('enabled' if RESUME_FROM_PREVIOUS else 'disabled'))
     print("=" * 80)
 
-    os.makedirs(os.path.dirname(csv_out), exist_ok=True)
+    # ── 快速预统计总行数（仅计行，不解析），用于 ETA 及进度显示 ────────── #
+    print("Pre-scanning file for row count (fast)...")
+    t_scan = time.time()
+    grand_total = _count_data_lines(TXT_FILE_PATH)
+    print("  Estimated data rows: {}  ({:.2f}s)".format(grand_total, time.time() - t_scan))
 
-    try:
-        data = KeystoneTestData(TXT_FILE_PATH, STEP, TEST_RANGE)
-        all_tests = data.get_all_tests()
-    except Exception as e:
-        print("\nError: 加载测试数据失败: {}".format(e))
-        traceback.print_exc(file=sys.stdout)
-        return
-
-    print("共 {} 个测试点\n".format(len(all_tests)))
-
-    # 断点续传：查找最新已有结果文件
+    # ── 断点续传：查找最新结果文件，加载已测角度集合 ─────────────────── #
     tested_angles = set()
+    resume_file   = None   # 续跑时复用的文件路径
     if RESUME_FROM_PREVIOUS:
         results_root = os.path.join(OUTPUT_PATH, 'Angle_test_results')
-        latest_csv, latest_mtime = None, 0
+        latest_txt, latest_mtime = None, 0
         if os.path.exists(results_root):
             for d in os.listdir(results_root):
                 dp = os.path.join(results_root, d)
                 if not os.path.isdir(dp):
                     continue
                 for fname in os.listdir(dp):
-                    if fname.startswith('angle_test_result_') and fname.endswith('.csv'):
+                    if fname.startswith('angle_test_result_') and fname.endswith('.txt'):
                         fp = os.path.join(dp, fname)
                         mt = os.path.getmtime(fp)
                         if mt > latest_mtime:
-                            latest_mtime, latest_csv = mt, fp
-        if latest_csv:
-            print("断点续传：找到结果文件: {}".format(latest_csv))
-            tested_angles = load_tested_angles(latest_csv)
+                            latest_mtime, latest_txt = mt, fp
+        if latest_txt:
+            print("Resume: found result file: {}".format(latest_txt))
+            tested_angles = load_tested_angles(latest_txt)
+            resume_file   = latest_txt   # 续跑：追加到同一文件
         else:
-            print("断点续传：未找到已有结果文件，从头开始\n")
+            print("Resume: no previous result file found, starting from scratch\n")
 
-    with open(csv_out, 'w') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow([
-            'VerticalAngle(Yaw)', 'HorizontalAngle(Pitch)', 'AngleDesc',
-            'WriteCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)',
-            'ReadCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)',
-            'Result', 'ErrorCode', 'Delta',
-        ])
-        csvfile.flush()
+    # 决定最终输出文件路径及打开模式
+    if resume_file:
+        txt_out   = resume_file
+        file_mode = 'a'          # 追加，不重写表头
+        print("Resume: appending results to: {}\n".format(txt_out))
+    else:
+        # 新建文件（含时间戳）
+        txt_out   = os.path.join(OUTPUT_PATH, 'Angle_test_results', time.strftime("%Y%m%d"),
+                                 'angle_test_result_{}.txt'.format(time.strftime("%Y_%m_%d_%H_%M_%S")))
+        file_mode = 'w'
+        _out_dir  = os.path.dirname(txt_out)
+        if not os.path.exists(_out_dir):
+            os.makedirs(_out_dir)
+        print("New output file: {}\n".format(txt_out))
 
-        passed = failed = skipped = 0
-        t_test = time.time()
-        t_last_log = t_test
+    # ── 核心：流式读取 + 立即测试（参考 Trapezoid-test.py file 模式）──── #
+    _HEADER = ('VerticalAngle(Yaw)\tHorizontalAngle(Pitch)\tAngleDesc\t'
+               'WriteCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)\t'
+               'ReadCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)\t'
+               'Result\tErrorCode\tDelta\n')
 
-        print("开始测试...\n")
-        for i, test in enumerate(all_tests, 1):
-            v, h, pts = test['vertical_angle'], test['horizontal_angle'], test['points']
+    passed = failed = skipped = 0
+    row_idx = 0          # 流中已遇到的行序号（含被跳过的）
+    t_test = time.time()
+    t_last_log = t_test
 
-            if (v, h) in tested_angles:
-                skipped += 1
-                continue
+    print("Output file: {}".format(txt_out))
+    print("\nStarting tests (streaming)...\n")
 
-            executed = passed + failed
-            now = time.time()
-            if i == 1 or (executed > 0 and executed % LOG_INTERVAL == 0) \
-                    or (now - t_last_log) >= 300:
-                elapsed  = now - t_test
-                avg      = elapsed / executed if executed > 0 else 0.0
-                eta      = max(len(all_tests) - i - skipped, 0) * avg / 60
-                rate_pct = passed * 100 // executed if executed > 0 else 0
-                print("[{}/{}] PASS:{} FAIL:{} ({}%) | "
-                      "Elapsed:{:.1f}min | Rate:{:.3f}s/test | ETA:{:.1f}min".format(
-                      i, len(all_tests), passed, failed, rate_pct,
-                      elapsed / 60, avg, eta))
-                t_last_log = now
-
-            ok = check_keystone(pts, writer, csvfile, v, h, format_angle_name(v, h))
-            if ok:
-                passed += 1
+    try:
+        with io.open(txt_out, file_mode, encoding='utf-8') as txtfile:
+            if file_mode == 'w':
+                # 全新文件：写表头
+                txtfile.write(_HEADER)
             else:
-                failed += 1
+                # 续跑追加：写一条分隔注释，方便区分不同批次的测试段
+                txtfile.write('# --- Resume {} ---\n'.format(time.strftime('%Y-%m-%d %H:%M:%S')))
+            txtfile.flush()
 
-            if (passed + failed) % FLUSH_INTERVAL == 0:
-                csvfile.flush()
+            for v, h, pts in stream_test_data(TXT_FILE_PATH, STEP, TEST_RANGE):
+                row_idx += 1
 
-            time.sleep(0.1)
+                # 断点续传：跳过已测角度
+                if (v, h) in tested_angles:
+                    skipped += 1
+                    continue
 
-        csvfile.flush()
+                executed = passed + failed
+                now = time.time()
+                if executed == 0 or executed % LOG_INTERVAL == 0 \
+                        or (now - t_last_log) >= 300:
+                    elapsed  = now - t_test
+                    avg      = elapsed / executed if executed > 0 else 0.0
+                    remaining = max(grand_total - row_idx - skipped, 0)
+                    eta      = remaining * avg / 60
+                    rate_pct = passed * 100 // executed if executed > 0 else 0
+                    print("[{}] [{}/~{}] PASS:{} FAIL:{} ({}%) | "
+                          "Elapsed:{:.1f}min | Rate:{:.3f}s/test | ETA:{:.1f}min".format(
+                          time.strftime('%H:%M:%S'),
+                          executed + skipped, grand_total,
+                          passed, failed, rate_pct,
+                          elapsed / 60, avg, eta))
+                    t_last_log = now
+
+                ok = check_keystone(pts, txtfile, v, h, format_angle_name(v, h))
+                if ok:
+                    passed += 1
+                else:
+                    failed += 1
+
+                # 每条写入后立即 flush，防止中断/异常时数据丢失
+                txtfile.flush()
+
+                time.sleep(0.1)
+
+            txtfile.flush()  # 循环正常结束后的最终 flush
+
+    except Exception as e:
+        print("\nError during streaming test: {}".format(e))
+        traceback.print_exc(file=sys.stdout)
 
     total_exec = passed + failed
     elapsed = time.time() - t_start
     print("\n" + "=" * 80)
-    print("测试完成")
+    print("Test Complete")
     print("=" * 80)
-    print("总计: {}  执行: {}  跳过: {}".format(len(all_tests), total_exec, skipped))
+    print("Executed: {}  Skipped: {}  (file rows seen: {})".format(
+        total_exec, skipped, row_idx))
     print("PASS: {} ({:.1f}%)  FAIL: {} ({:.1f}%)".format(
         passed, passed * 100.0 / total_exec if total_exec else 0,
         failed, failed * 100.0 / total_exec if total_exec else 0))
-    print("总耗时: {:.2f}s ({:.2f}min)".format(elapsed, elapsed / 60))
-    print("结果文件: {}".format(csv_out))
+    print("Elapsed: {:.2f}s ({:.2f}min)".format(elapsed, elapsed / 60))
+    print("Output: {}".format(txt_out))
     print("=" * 80)
 
     sys.stdout = tee._console
@@ -445,9 +466,9 @@ if __name__ == "__main__" or str(__name__) == "<module>":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n用户中断测试")
+        print("\nTest interrupted by user")
     except Exception as e:
-        print("\n发生异常: {}".format(e))
+        print("\nException: {}".format(e))
         traceback.print_exc()
     finally:
         if hasattr(sys.stdout, '_console'):
