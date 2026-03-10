@@ -7,7 +7,8 @@
 
 import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QTabWidget, QGroupBox,
-                              QPushButton, QLabel, QHBoxLayout, QMessageBox)
+                              QPushButton, QLabel, QHBoxLayout, QMessageBox,
+                              QScrollArea, QFrame)
 from PyQt6.QtCore import Qt
 
 from ui.widgets.file_selector import FileSelector
@@ -51,27 +52,39 @@ class PreprocessingCard(QWidget):
 
         # 文件选择
         input_type = self._module_info.get('input_type', 'csv')
-        filters = {
-            'csv': "CSV文件 (*.csv);;所有文件 (*)",
-            'txt': "文本文件 (*.txt);;所有文件 (*)",
+        filters_map = {
+            'csv':      "CSV文件 (*.csv);;所有文件 (*)",
+            'txt':      "文本文件 (*.txt);;所有文件 (*)",
+            'data':     "数据文件 (*.csv *.txt);;所有文件 (*)",
+            'optional': "数据文件 (*.csv *.txt);;所有文件 (*)",
             'directory': "",
         }
-        self.file_selector = FileSelector(
-            label="输入文件",
-            file_filter=filters.get(input_type, "所有文件 (*)"),
-            select_dir=(input_type == 'directory'),
-        )
-        layout.addWidget(self.file_selector)
+        self._needs_file = input_type not in ('none',)
+        if self._needs_file:
+            self.file_selector = FileSelector(
+                label="输入文件",
+                file_filter=filters_map.get(input_type, "所有文件 (*)"),
+                select_dir=(input_type == 'directory'),
+            )
+            layout.addWidget(self.file_selector)
+        else:
+            self.file_selector = None
 
-        # 参数
+        # 参数（带滚动区域，防止参数过多时控件重叠）
         params = self._module_info.get('params', [])
         if params:
             param_group = QGroupBox("参数")
-            param_layout = QVBoxLayout(param_group)
+            param_scroll = QScrollArea()
+            param_scroll.setWidgetResizable(True)
+            param_scroll.setFrameShape(QFrame.Shape.NoFrame)
+            param_scroll.setMinimumHeight(180)
             self.param_editor = ParamEditor()
             self.param_editor.set_params(params)
-            param_layout.addWidget(self.param_editor)
-            layout.addWidget(param_group)
+            param_scroll.setWidget(self.param_editor)
+            param_layout = QVBoxLayout(param_group)
+            param_layout.setContentsMargins(4, 4, 4, 4)
+            param_layout.addWidget(param_scroll)
+            layout.addWidget(param_group, 1)  # stretch=1，填充剩余空间
         else:
             self.param_editor = None
 
@@ -98,15 +111,25 @@ class PreprocessingCard(QWidget):
 
     def _on_execute(self):
         """执行预处理"""
-        input_path = self.file_selector.get_path()
-        if not input_path or not os.path.exists(input_path):
+        input_path = self.file_selector.get_path() if self.file_selector else ''
+        if self._needs_file and (not input_path or not os.path.exists(input_path)):
             QMessageBox.warning(self, "输入错误", "请选择有效的输入文件或目录")
             return
 
         project_root = ''
         if self._config_mgr:
             project_root = self._config_mgr.get_project_root()
-        output_dir = os.path.join(project_root, 'data') if project_root else os.path.dirname(input_path)
+        if project_root:
+            output_dir = os.path.join(project_root, 'data')
+        elif input_path:
+            output_dir = os.path.dirname(input_path)
+        else:
+            # input_type=none 时使用应用目录下的 reports
+            output_dir = os.path.join(
+                os.path.dirname(os.path.dirname(
+                    os.path.dirname(os.path.abspath(__file__)))),
+                'reports', 'preprocessed'
+            )
 
         params = self.param_editor.get_values() if self.param_editor else {}
         params['project_root'] = project_root
@@ -191,6 +214,8 @@ class PreprocessingPage(QWidget):
         modules = task_registry.get_modules('preprocessing')
         for mid, mdata in modules.items():
             info = mdata['info']
+            if not info.get('enabled', True):
+                continue
             card = PreprocessingCard(
                 module_id=mid,
                 module_info=info,

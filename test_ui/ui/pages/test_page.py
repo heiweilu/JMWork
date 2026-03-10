@@ -120,6 +120,7 @@ class TestPage(QWidget):
 
         # ---- 左侧: 测试配置 ----
         left_panel = QWidget()
+        left_panel.setMinimumWidth(540)
         left_layout = QVBoxLayout(left_panel)
         left_layout.setSpacing(10)
         left_layout.setContentsMargins(0, 0, 0, 0)
@@ -136,7 +137,8 @@ class TestPage(QWidget):
 
         # 模块描述
         self._desc_browser = QTextBrowser()
-        self._desc_browser.setMaximumHeight(160)
+        self._desc_browser.setMinimumHeight(96)
+        self._desc_browser.setMaximumHeight(128)
         self._desc_browser.setOpenExternalLinks(False)
         self._desc_browser.setStyleSheet("""
             QTextBrowser {
@@ -153,17 +155,26 @@ class TestPage(QWidget):
         self._file_group = QGroupBox("输入文件")
         file_layout = QVBoxLayout(self._file_group)
         self._file_selector = FileSelector(label="")
+        self._file_selector.file_selected.connect(lambda _p: self._update_run_state())
         file_layout.addWidget(self._file_selector)
         left_layout.addWidget(self._file_group)
 
         # 参数配置
         param_group = QGroupBox("参数配置")
+        param_group.setMinimumHeight(240)
         param_scroll = QScrollArea()
         param_scroll.setWidgetResizable(True)
         param_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        param_scroll.setMinimumHeight(200)
+        param_scroll.setStyleSheet("""
+            QScrollArea { background-color: #FFFFFF; border: none; }
+            QScrollArea > QWidget > QWidget { background-color: #FFFFFF; }
+        """)
         self._param_editor = ParamEditor()
+        self._param_editor.setStyleSheet("background-color: #FFFFFF;")
         param_scroll.setWidget(self._param_editor)
         param_layout = QVBoxLayout(param_group)
+        param_layout.setContentsMargins(6, 4, 6, 6)
         param_layout.addWidget(param_scroll)
         left_layout.addWidget(param_group, 1)
 
@@ -229,7 +240,13 @@ class TestPage(QWidget):
         self._progress = ProgressWidget()
         left_layout.addWidget(self._progress)
 
-        content_splitter.addWidget(left_panel)
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        left_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        left_scroll.setWidget(left_panel)
+
+        content_splitter.addWidget(left_scroll)
 
         # ---- 右侧: 实时日志 ----
         right_panel = QWidget()
@@ -269,8 +286,10 @@ class TestPage(QWidget):
         right_layout.addWidget(self._result_label)
 
         content_splitter.addWidget(right_panel)
-        content_splitter.setStretchFactor(0, 4)
-        content_splitter.setStretchFactor(1, 6)
+        content_splitter.setChildrenCollapsible(False)
+        content_splitter.setStretchFactor(0, 5)
+        content_splitter.setStretchFactor(1, 5)
+        content_splitter.setSizes([680, 680])
 
         main_layout.addWidget(content_splitter, 1)
 
@@ -403,6 +422,9 @@ class TestPage(QWidget):
 
     def _on_disconnect(self):
         """断开连接"""
+        if self._worker and self._worker.isRunning():
+            QMessageBox.warning(self, "提示", "测试执行中不可直接断开设备，请先停止测试")
+            return
         mgr = self._get_manager()
         if mgr:
             mgr.disconnect()
@@ -468,10 +490,45 @@ class TestPage(QWidget):
                 if entry:
                     _itype = entry['info'].get('input_type', 'none')
         if self._file_group.isVisible() and _itype not in ('none', 'optional'):
-            file_ok = bool(self._file_selector.get_path())
+            file_ok = bool(self._resolve_input_path(self._file_selector.get_path()))
 
         self._btn_run.setEnabled(connected and not running and file_ok)
         self._btn_stop.setEnabled(running)
+        self._btn_disconnect.setEnabled(connected and not running)
+
+    def _resolve_input_path(self, raw_path: str) -> str:
+        """支持绝对路径与相对路径解析。"""
+        raw_path = (raw_path or '').strip().strip('"')
+        if not raw_path:
+            return ''
+        if os.path.exists(raw_path):
+            return os.path.abspath(raw_path)
+
+        candidates = []
+
+        if self._config_mgr:
+            project_root = self._config_mgr.get_project_root()
+            if project_root:
+                candidates.append(os.path.join(project_root, raw_path))
+
+        # test_ui 根目录 / code 根目录 / code 下各项目目录
+        test_ui_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        code_root = os.path.dirname(test_ui_root)
+        candidates.append(os.path.join(test_ui_root, raw_path))
+        candidates.append(os.path.join(code_root, raw_path))
+
+        try:
+            for name in os.listdir(code_root):
+                sub = os.path.join(code_root, name)
+                if os.path.isdir(sub):
+                    candidates.append(os.path.join(sub, raw_path))
+        except OSError:
+            pass
+
+        for path in candidates:
+            if os.path.exists(path):
+                return os.path.abspath(path)
+        return ''
 
     # ──────────── 测试执行 ────────────
 
@@ -502,12 +559,12 @@ class TestPage(QWidget):
         input_path = ""
         _input_type = info.get('input_type', 'none')
         if _input_type not in ('none', 'optional'):
-            input_path = self._file_selector.get_path()
+            input_path = self._resolve_input_path(self._file_selector.get_path())
             if not input_path:
                 QMessageBox.warning(self, "提示", "请先选择输入文件")
                 return
         elif _input_type == 'optional':
-            input_path = self._file_selector.get_path()  # 允许为空
+            input_path = self._resolve_input_path(self._file_selector.get_path()) or self._file_selector.get_path()
 
         # 确保输出目录存在
         os.makedirs(self._output_dir, exist_ok=True)
@@ -538,7 +595,8 @@ class TestPage(QWidget):
     def _on_stop(self):
         """停止测试"""
         if self._worker and self._worker.isRunning():
-            self._worker.requestInterruption()
+            self._worker.cancel()  # 触发 cancel_event，供 run() 函数检测
+            self._btn_stop.setEnabled(False)
             self._log_msg("正在停止测试...", "WARNING")
 
     def _on_progress(self, current, total):
@@ -552,7 +610,7 @@ class TestPage(QWidget):
         self._log_msg(message, level)
 
     def _on_finished(self, result: dict):
-        """测试完成"""
+        """测试完成/停止"""
         self._btn_run.setEnabled(True)
         self._btn_stop.setEnabled(False)
         self._progress.set_value(100)
@@ -561,6 +619,13 @@ class TestPage(QWidget):
         status = result.get('status', 'error')
         message = result.get('message', '')
         output = result.get('output_path', '')
+
+        if status == 'cancelled':
+            self._log_msg("测试已停止", "WARNING")
+            if output:
+                self._log_msg(f"已保存结果: {output}", "INFO")
+            self._update_run_state()
+            return
 
         # 显示结果摘要
         summary = result.get('summary', {})

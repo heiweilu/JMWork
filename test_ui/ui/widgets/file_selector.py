@@ -6,7 +6,7 @@
 """
 
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QLineEdit, QPushButton,
-                              QFileDialog, QLabel, QVBoxLayout)
+                              QFileDialog, QLabel, QVBoxLayout, QApplication)
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 import os
@@ -64,7 +64,8 @@ class FileSelector(QWidget):
         row_layout.setSpacing(8)
 
         self.path_edit = QLineEdit()
-        self.path_edit.setPlaceholderText("输入路径或拖拽文件到此处...")
+        self.path_edit.setPlaceholderText("可直接输入文件/目录路径，或拖拽到此处...")
+        self.path_edit.setClearButtonEnabled(True)
         self.path_edit.setSizePolicy(
             self.path_edit.sizePolicy().horizontalPolicy(),
             self.path_edit.sizePolicy().verticalPolicy()
@@ -77,14 +78,27 @@ class FileSelector(QWidget):
         self.btn_browse.clicked.connect(self._on_browse)
         row_layout.addWidget(self.btn_browse)
 
+        self.btn_paste = QPushButton("粘贴")
+        self.btn_paste.setFixedWidth(54)
+        self.btn_paste.setToolTip("从剪贴板粘贴完整路径")
+        self.btn_paste.clicked.connect(self._on_paste)
+        row_layout.addWidget(self.btn_paste)
+
+        self.btn_clear = QPushButton("清空")
+        self.btn_clear.setFixedWidth(54)
+        self.btn_clear.clicked.connect(self.path_edit.clear)
+        row_layout.addWidget(self.btn_clear)
+
         main_layout.addLayout(row_layout)
 
         # 格式描述提示
+        hint_text = "支持：直接输入完整路径 / 拖拽文件 / 点击浏览选择"
         if description:
-            desc_label = QLabel(description)
-            desc_label.setStyleSheet("color: #888; font-size: 11px;")
-            desc_label.setWordWrap(True)
-            main_layout.addWidget(desc_label)
+            hint_text = f"{description}\n{hint_text}"
+        desc_label = QLabel(hint_text)
+        desc_label.setStyleSheet("color: #888; font-size: 11px;")
+        desc_label.setWordWrap(True)
+        main_layout.addWidget(desc_label)
 
     def _on_browse(self):
         """打开系统文件对话框"""
@@ -105,6 +119,14 @@ class FileSelector(QWidget):
             self.path_edit.setStyleSheet("border: 1px solid #E06C75;")
         else:
             self.path_edit.setStyleSheet("")
+        self.file_selected.emit(text.strip())
+
+    def _on_paste(self):
+        """从剪贴板粘贴路径"""
+        text = QApplication.clipboard().text().strip().strip('"')
+        if text:
+            self.path_edit.setText(text)
+            self.file_selected.emit(text)
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():

@@ -63,6 +63,11 @@ class ProgressWidget(QWidget):
         self.status_label.setStyleSheet("color: #333;")
         self.detail_label.setText("")
 
+    def set_value(self, pct: int):
+        """直接设置进度百分比 (0-100)"""
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(int(min(max(pct, 0), 100)))
+
     def set_running(self):
         """设置为运行中状态"""
         self.set_status("执行中...", '#2196F3')

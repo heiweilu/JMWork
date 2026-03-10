@@ -50,6 +50,12 @@ class DLPManager:
         self._sdk_initialized = False
         self._connected = False
         self._dlpc843x = None
+        self._log_callback = None
+
+    def set_log_callback(self, callback):
+        """将底层 USB / SDK 日志透传给上层。"""
+        self._log_callback = callback
+        self._usb.set_log_callback(callback)
 
     # ──────────── 连接管理 ────────────
 
@@ -89,10 +95,12 @@ class DLPManager:
 
     def disconnect(self):
         """断开连接"""
-        self._usb.close()
-        self._connected = False
-        self._sdk_initialized = False
-        logger.info("DLPC8430 已断开")
+        try:
+            self._usb.close()
+        finally:
+            self._connected = False
+            self._sdk_initialized = False
+            logger.info("DLPC8430 已断开")
 
     def _init_sdk(self):
         """初始化 dlpc843x 命令库，注册 USB 回调"""

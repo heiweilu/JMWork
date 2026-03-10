@@ -176,6 +176,12 @@ QLineEdit:read-only {
     color: #7F8C8D;
 }
 
+QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {
+    background-color: #F0F3F4;
+    color: #9EABB3;
+    border-color: #D0D5D9;
+}
+
 QComboBox::drop-down {
     border: none;
     width: 24px;
@@ -183,7 +189,7 @@ QComboBox::drop-down {
 }
 
 QComboBox::down-arrow {
-    image: none; /* 原生箭头可能不好看，保持简洁 */
+    /* 使用系统默认箭头 */
 }
 
 /* === 卡片化分组框 GroupBox === */

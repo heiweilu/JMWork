@@ -7,6 +7,7 @@
 支持: 断点续传、范围过滤、步长过滤、进度回调
 """
 
+import io
 import os
 import time
 import traceback
@@ -185,7 +186,7 @@ def _format_angle_name(yaw: float, pitch: float) -> str:
 
 
 def run(input_path: str, output_dir: str, params: dict,
-        progress_callback=None, log_callback=None) -> dict:
+    progress_callback=None, log_callback=None, stop_event=None) -> dict:
     """
     角度测试主流程
 
@@ -194,11 +195,51 @@ def run(input_path: str, output_dir: str, params: dict,
     3. 启用梯形校正
     4. 遍历角度 → 写入坐标 → 执行 → 回读验证
     5. 输出结果TXT
+    同时将日志写入 logs/angle_test_{timestamp}.log（格式：[HH:MM:SS] msg）
     """
-    log = log_callback or (lambda msg, lvl="INFO": None)
+    _log_cb = log_callback or (lambda msg, lvl="INFO": None)
     prog = progress_callback or (lambda cur, total: None)
 
     from dlpc_sdk import DLPManager
+
+    # ---- 日志文件（参考 Angle_test_csv.py 中的 _Tee 类）----
+    os.makedirs(output_dir, exist_ok=True)
+    _log_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(output_dir))), 'logs')
+    try:
+        os.makedirs(_log_dir, exist_ok=True)
+    except OSError:
+        _log_dir = os.path.join(output_dir, 'logs')
+        os.makedirs(_log_dir, exist_ok=True)
+    _log_path = os.path.join(
+        _log_dir, 'angle_test_{}.log'.format(time.strftime('%Y%m%d_%H%M%S')))
+    _log_file = io.open(_log_path, 'w', encoding='utf-8')
+
+    def log(msg: str, lvl: str = "INFO"):
+        _log_cb(msg, lvl)
+        _log_file.write('[{}] {}\n'.format(time.strftime('%H:%M:%S'), msg))
+        _log_file.flush()
+
+    def _stopped() -> bool:
+        return stop_event is not None and stop_event.is_set()
+
+    def _log_progress(executed: int, total_count: int, pass_count: int, fail_count: int,
+                      start_ts: float, force: bool = False):
+        if executed == 0 and not force:
+            return
+        elapsed_sec = max(0.0, time.time() - start_ts)
+        elapsed_min = elapsed_sec / 60.0
+        rate = (elapsed_sec / executed) if executed > 0 else 0.0
+        remaining = max(0, total_count - executed)
+        eta_min = (remaining * rate) / 60.0 if executed > 0 else 0.0
+        pass_rate = (pass_count * 100.0 / executed) if executed > 0 else 0.0
+        log(
+            f"[{executed}/~{total_count}] PASS:{pass_count} FAIL:{fail_count} ({pass_rate:.0f}%) | "
+            f"Elapsed:{elapsed_min:.1f}min | Rate:{rate:.3f}s/test | ETA:{eta_min:.1f}min",
+            "INFO"
+        )
+
+    log(f"Log file: {_log_path}", "INFO")
 
     config = {
         'yaw_min': float(params.get('yaw_min', -40)),
@@ -223,17 +264,21 @@ def run(input_path: str, output_dir: str, params: dict,
         test_data = _load_csv_data(input_path, config, log)
     except Exception as e:
         log(f"数据加载失败: {e}", "ERROR")
+        _log_file.close()
         return {'status': 'error', 'message': str(e), 'output_path': None, 'figure': None}
 
     total = len(test_data)
     log(f"共 {total} 个测试点", "INFO")
+    _log_progress(0, total, 0, 0, start_time, force=True)
 
     log("连接 DLPC8430...", "INFO")
     mgr = DLPManager()
+    mgr.set_log_callback(log)
     if not mgr.connected:
         res = mgr.connect()
         if not res['success']:
             log(f"连接失败: {res['message']}", "ERROR")
+            _log_file.close()
             return {'status': 'error', 'message': res['message'],
                     'output_path': None, 'figure': None}
     log("设备已连接", "SUCCESS")
@@ -264,6 +309,10 @@ def run(input_path: str, output_dir: str, params: dict,
             txtfile.write(_HEADER)
 
             for i, test in enumerate(test_data, 1):
+                if _stopped():
+                    log("检测到停止信号，测试将在当前点后结束", "WARNING")
+                    break
+
                 yaw = test['yaw']
                 pitch = test['pitch']
                 points = test['points']
@@ -284,6 +333,9 @@ def run(input_path: str, output_dir: str, params: dict,
                     points[2][0], points[2][1],
                     points[3][0], points[3][1],
                 )
+
+                if _stopped():
+                    log("检测到停止信号，停止后续测试点", "WARNING")
 
                 w_str = ','.join(map(str, result.get('write_coords', [])))
                 r_str = ','.join(map(str, result.get('read_coords', [])))
@@ -307,29 +359,49 @@ def run(input_path: str, output_dir: str, params: dict,
                     if i <= 20 or failed <= 10:
                         log(f"  [FAIL] {angle_desc} ErrorCode={ec} Delta={delta}px", "WARNING")
 
+                executed = passed + failed
+                if executed % 10 == 0 or executed == total or _stopped():
+                    _log_progress(executed, total, passed, failed, start_time, force=True)
+
+                if _stopped():
+                    break
+
                 time.sleep(max(0, execute_delay - 0.3))
 
     except Exception as e:
         log(f"测试异常: {traceback.format_exc()}", "ERROR")
+        _log_file.close()
         return {'status': 'error', 'message': str(e),
                 'output_path': txt_path, 'figure': None}
 
     elapsed = time.time() - start_time
     executed = passed + failed
 
+    if executed and executed % 10 != 0:
+        _log_progress(executed, total, passed, failed, start_time, force=True)
+
     log("=" * 60, "INFO")
-    log("测试完成", "SUCCESS")
+    if _stopped():
+        log("测试已手动停止", "WARNING")
+    else:
+        log("测试完成", "SUCCESS")
     log(f"总计: {total}, 执行: {executed}, 跳过: {skipped}", "INFO")
     if executed > 0:
         log(f"通过: {passed} ({passed * 100 // executed}%), "
             f"失败: {failed} ({failed * 100 // executed}%)", "INFO")
     log(f"耗时: {elapsed:.1f}秒 ({elapsed / 60:.1f}分)", "INFO")
     log(f"结果: {txt_path}", "INFO")
+    log(f"Final save to {txt_path}", "INFO")
     log("=" * 60, "INFO")
 
+    _log_file.close()
     return {
-        'status': 'success' if failed == 0 else 'warning',
-        'message': f"角度测试完成: {passed} PASS / {failed} FAIL (共 {executed} 条)\n"
+        'status': 'cancelled' if _stopped() else ('success' if failed == 0 else 'warning'),
+        'message': (
+                   f"角度测试已停止: {passed} PASS / {failed} FAIL (共 {executed} 条)\n"
+                   if _stopped() else
+                   f"角度测试完成: {passed} PASS / {failed} FAIL (共 {executed} 条)\n"
+                   ) +
                    f"结果文件: {txt_path}",
         'output_path': txt_path,
         'figure': None,

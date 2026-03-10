@@ -12,7 +12,7 @@ import pandas as pd
 from datetime import datetime
 
 MODULE_INFO = {
-    "name": "1°精度可视化",
+    "name": "1°精度可视化（猫头鹰）",
     "category": "analysis",
     "description": "读取角度测试结果CSV，按PASS/FAIL分类绘制散点图。\n"
                    "绿色=PASS，蓝色=EC1且Delta≥10，橙色=EC1且Delta<10，红色=EC≠1",
@@ -30,7 +30,7 @@ MODULE_INFO = {
 
 def run(input_path: str, output_dir: str, params: dict,
         progress_callback=None, log_callback=None) -> dict:
-    """执行1°精度可视化"""
+    """执行1°精度可视化（猫头鹰）"""
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt

@@ -51,13 +51,25 @@ class TaskWorker(QThread):
     def run(self):
         """线程执行体"""
         try:
-            result = self._run_func(
-                input_path=self._input_path,
-                output_dir=self._output_dir,
-                params=self._params,
-                progress_callback=self._on_progress,
-                log_callback=self._on_log,
-            )
+            # 先尝试传入 stop_event（支持中途取消的模块），
+            # 若模块签名不接受该参数则回退到标准调用
+            try:
+                result = self._run_func(
+                    input_path=self._input_path,
+                    output_dir=self._output_dir,
+                    params=self._params,
+                    progress_callback=self._on_progress,
+                    log_callback=self._on_log,
+                    stop_event=self._cancel_event,
+                )
+            except TypeError:
+                result = self._run_func(
+                    input_path=self._input_path,
+                    output_dir=self._output_dir,
+                    params=self._params,
+                    progress_callback=self._on_progress,
+                    log_callback=self._on_log,
+                )
             if self._cancel_event.is_set():
                 result = {"status": "cancelled", "message": "任务已取消"}
             self.finished_signal.emit(result)

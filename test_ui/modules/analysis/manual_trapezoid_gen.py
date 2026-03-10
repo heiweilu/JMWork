@@ -18,15 +18,13 @@ import itertools
 from datetime import datetime
 
 MODULE_INFO = {
-    "name": "梯形测试数据生成",
+    "name": "梯形测试数据生成(已停用)",
     "category": "analysis",
-    "description": "生成梯形坐标测试数据（多种模式）：\n"
-                   "  gen - 随机坐标组合生成\n"
-                   "  plot - 实测结果可视化\n"
-                   "  gen_circle - 小圆边界探测数据\n"
-                   "  gen_grid - 网格笛卡尔积确定性覆盖\n"
-                   "  plot_circle / plot_grid - 对应结果可视化",
+    "description": "【已拆分】\n"
+                   "数据生成部分 → 数据预处理 > 梯形坐标数据生成\n"
+                   "可视化部分   → 分析执行   > 梯形测试结果可视化",
     "input_type": "optional",
+    "enabled": False,
     "input_description": "plot/plot_circle/plot_grid模式: 梯形测试结果TXT（Tab分隔）\n"
                          "gen/gen_circle/gen_grid模式: 无需输入文件",
     "output_type": "image",

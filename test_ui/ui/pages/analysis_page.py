@@ -29,6 +29,7 @@ class AnalysisPage(QWidget):
         self._log_panel = log_panel
         self._config_mgr = config_mgr
         self._worker = None
+        self._last_output_path = ''   # 记录最近一次成功输出路径
         self._init_ui()
 
     def _init_ui(self):
@@ -106,6 +107,14 @@ class AnalysisPage(QWidget):
         self.btn_export.clicked.connect(self._on_export)
         btn_layout.addWidget(self.btn_export)
 
+        self.btn_open_output = QPushButton("📂 打开结果目录")
+        self.btn_open_output.setObjectName("btn_open_output")
+        self.btn_open_output.setMinimumWidth(140)
+        self.btn_open_output.setEnabled(False)
+        self.btn_open_output.setToolTip("在文件管理器中打开分析结果所在目录")
+        self.btn_open_output.clicked.connect(self._on_open_output)
+        btn_layout.addWidget(self.btn_open_output)
+
         btn_layout.addStretch()
         left_layout.addLayout(btn_layout)
 
@@ -113,7 +122,8 @@ class AnalysisPage(QWidget):
         self.progress = ProgressWidget()
         left_layout.addWidget(self.progress)
 
-        left_panel.setMaximumWidth(420)
+        left_panel.setMinimumWidth(430)
+        left_panel.setMaximumWidth(500)
 
         # ======= 右侧: Tab(参考结果 | 分析结果) =======
         self.right_tabs = QTabWidget()
@@ -172,6 +182,8 @@ class AnalysisPage(QWidget):
         modules = task_registry.get_modules('analysis')
         for mid, mdata in modules.items():
             info = mdata['info']
+            if not info.get('enabled', True):
+                continue
             script = info.get('script_file', '')
             # 显示格式："模块名  -  script.py"
             label = f"{info['name']}  —  {script}" if script else info['name']
@@ -266,6 +278,10 @@ class AnalysisPage(QWidget):
         # 更新参数表单
         params = info.get('params', [])
         self.param_editor.set_params(params)
+        self.plot_widget.clear()
+        self.btn_export.setEnabled(False)
+        self.btn_open_output.setEnabled(False)
+        self._last_output_path = ''
 
     def _update_reference_panel(self, info: dict):
         """根据模块信息更新参考结果面板"""
@@ -414,14 +430,24 @@ class AnalysisPage(QWidget):
         if status == 'success':
             self.progress.set_success()
 
+            output_path = result.get('output_path', '')
+            output_files = result.get('output_files', []) or []
+            if output_path:
+                self._last_output_path = output_path
+                self.btn_open_output.setEnabled(True)
+
             # 显示图表，并自动切换到"分析结果" Tab
             fig = result.get('figure')
             if fig:
                 self.plot_widget.display_figure(fig)
                 self.btn_export.setEnabled(True)
                 self.right_tabs.setCurrentIndex(1)  # 切到"分析结果"Tab
-
-            output_path = result.get('output_path', '')
+            else:
+                image_paths = output_files or self._collect_result_images(output_path)
+                if image_paths:
+                    self.plot_widget.display_image_paths(image_paths)
+                    self.btn_export.setEnabled(True)
+                    self.right_tabs.setCurrentIndex(1)
             if self._log_panel:
                 self._log_panel.append_log(
                     f"执行成功! 输出: {output_path}", "SUCCESS")
@@ -462,3 +488,41 @@ class AnalysisPage(QWidget):
             self.plot_widget.save_figure(filepath, dpi)
             if self._log_panel:
                 self._log_panel.append_log(f"图片已导出: {filepath}", "SUCCESS")
+
+    def _on_open_output(self):
+        """在文件管理器中打开输出目录"""
+        import subprocess
+        path = self._last_output_path
+        if not path:
+            return
+        # 若路径是文件，打开其所在目录并选中该文件；若是目录直接打开
+        if os.path.isfile(path):
+            folder = os.path.dirname(path)
+            subprocess.Popen(f'explorer /select,"{path}"')
+        elif os.path.isdir(path):
+            os.startfile(path)
+        else:
+            # 尝试父目录
+            folder = os.path.dirname(path)
+            if os.path.isdir(folder):
+                os.startfile(folder)
+            else:
+                if self._log_panel:
+                    self._log_panel.append_log(f"输出路径不存在: {path}", "WARNING")
+
+    def _collect_result_images(self, output_path: str) -> list:
+        """从输出文件或目录中收集可显示的图片文件。"""
+        if not output_path:
+            return []
+        exts = {'.png', '.jpg', '.jpeg', '.bmp'}
+        images = []
+        if os.path.isfile(output_path):
+            if os.path.splitext(output_path)[1].lower() in exts:
+                images.append(output_path)
+        elif os.path.isdir(output_path):
+            for root, _, files in os.walk(output_path):
+                for name in files:
+                    if os.path.splitext(name)[1].lower() in exts:
+                        images.append(os.path.join(root, name))
+        images.sort(key=lambda p: (os.path.dirname(p), os.path.basename(p)))
+        return images

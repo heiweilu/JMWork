@@ -61,6 +61,18 @@ class USBBulkConnection:
         self._ep_in = None
         self._lock = threading.Lock()
         self._connected = False
+        self._log_callback = None
+
+    def set_log_callback(self, callback):
+        """设置日志回调，便于将底层 USB 警告同步到 UI。"""
+        self._log_callback = callback
+
+    def _emit_log(self, message: str, level: str = "INFO"):
+        if self._log_callback:
+            try:
+                self._log_callback(message, level)
+            except Exception:
+                pass
 
     @property
     def connected(self) -> bool:
@@ -184,6 +196,7 @@ class USBBulkConnection:
                     logger.debug("ACK [%d bytes]: %s", len(ack), bytes(ack).hex())
                 except Exception as e:
                     logger.warning("ACK 读取超时: %s", e)
+                    self._emit_log(f"ACK 读取超时: {e}", "WARNING")
 
     def read_command(self, read_length, writebytes, protocol_data):
         """
@@ -316,6 +329,7 @@ class USBBulkConnection:
         if INSERT_BYTE_LENGTH:
             if len(raw) < 3:
                 logger.warning("响应数据过短: %d bytes", len(raw))
+                self._emit_log(f"响应数据过短: {len(raw)} bytes", "WARNING")
                 return raw
             # 跳过 2 字节长度 + 1 字节 header
             data = raw[3:]
