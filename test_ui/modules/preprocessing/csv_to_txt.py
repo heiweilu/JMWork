@@ -19,9 +19,13 @@ MODULE_INFO = {
     "output_type": "txt",
     "params": [
         {"key": "delimiter_out", "label": "输出分隔符", "type": "choice",
-         "options": ["\t", ",", " ", "|"], "default": "\t"},
+         "options": ["制表符 \\t", "逗号 ,", "空格", "竖线 |"],
+         "values":  ["\t",         ",",      " ",   "|"],
+         "default": "\t"},
         {"key": "encoding", "label": "编码", "type": "choice",
-         "options": ["utf-8-sig", "utf-8", "gbk", "gb2312"], "default": "utf-8-sig"},
+         "options": ["utf-8-sig", "utf-8", "gbk", "gb2312"],
+         "values":  ["utf-8-sig", "utf-8", "gbk", "gb2312"],
+         "default": "utf-8-sig"},
     ],
 }
 
@@ -64,8 +68,16 @@ def run(input_path: str, output_dir: str, params: dict,
             progress_callback(cur, total)
 
     try:
-        delimiter_out = params.get('delimiter_out', '\t')
-        encoding = params.get('encoding', 'utf-8-sig')
+        delimiter_out = params.get('delimiter_out', '\t') or '\t'
+        encoding = params.get('encoding', 'utf-8-sig') or 'utf-8-sig'
+
+        # 输出目录与输入文件同目录
+        if os.path.isfile(input_path):
+            output_dir = os.path.dirname(input_path)
+        elif os.path.isdir(input_path):
+            output_dir = input_path
+        else:
+            return {"status": "error", "message": f"路径不存在: {input_path}"}
 
         os.makedirs(output_dir, exist_ok=True)
 
@@ -77,11 +89,6 @@ def run(input_path: str, output_dir: str, params: dict,
                     files.append(os.path.join(input_path, fn))
         elif os.path.isfile(input_path):
             files.append(input_path)
-        else:
-            return {"status": "error", "message": f"路径不存在: {input_path}"}
-
-        if not files:
-            return {"status": "error", "message": "未找到CSV文件"}
 
         _log(f"找到 {len(files)} 个CSV文件待转换")
         total = len(files)

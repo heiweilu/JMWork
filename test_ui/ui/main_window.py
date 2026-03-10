@@ -7,7 +7,7 @@
 
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                               QListWidget, QListWidgetItem, QStackedWidget,
-                              QSplitter, QStatusBar, QMessageBox)
+                              QSplitter, QStatusBar, QMessageBox, QFrame)
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QIcon, QFont
 
@@ -20,6 +20,7 @@ from ui.pages.config_page import ConfigPage
 from ui.pages.history_page import HistoryPage
 from ui.pages.test_page import TestPage
 from core.config_manager import ConfigManager
+from ui.animations import UIAnimator
 
 
 # 导航项定义
@@ -38,6 +39,7 @@ class MainWindow(QMainWindow):
     def __init__(self, config_mgr: ConfigManager):
         super().__init__()
         self._config_mgr = config_mgr
+        self._current_animation = None  # 初始化，避免 hasattr 检查
         self.setWindowTitle("DLP 自动化测试系统")
         self.setMinimumSize(1200, 750)
         self.resize(1400, 900)
@@ -72,21 +74,54 @@ class MainWindow(QMainWindow):
         self.nav_list.setCurrentRow(0)
         self.nav_list.currentRowChanged.connect(self._on_nav_changed)
         main_layout.addWidget(self.nav_list)
+        
+        # 给导航栏添加立体阴影
+        UIAnimator.add_soft_shadow(self.nav_list, blur_radius=20, x_offset=2, y_offset=0, alpha=30)
 
         # ====== 右侧内容区 ======
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(0)
+        right_layout.setContentsMargins(10, 10, 10, 10)
+        right_layout.setSpacing(10)
 
         # 上下分割: 页面 + 日志
         self.splitter = QSplitter(Qt.Orientation.Vertical)
+        
+        # 页面堆栈容器 — 用 CSS 模拟卡片阴影效果，不用 QGraphicsEffect
+        # （QGraphicsDropShadowEffect 会把整个容器放入离屏缓冲区，
+        #   与切换动画的 QGraphicsOpacityEffect 嵌套后必然引发重叠/错位）
+        self.page_stack_container = QFrame()
+        self.page_stack_container.setObjectName("page_stack_container")
+        self.page_stack_container.setStyleSheet(
+            "QFrame#page_stack_container { "
+            "background-color: #FFFFFF; "
+            "border-radius: 12px; "
+            "border: 1px solid rgba(0,0,0,0.08); "
+            "}")
+        
+        container_layout = QVBoxLayout(self.page_stack_container)
+        container_layout.setContentsMargins(15, 15, 15, 15)
 
         # 页面堆栈
         self.page_stack = QStackedWidget()
+        container_layout.addWidget(self.page_stack)
+
+        # 日志面板容器 — 同样用 CSS，不用 QGraphicsEffect
+        self.log_panel_container = QFrame()
+        self.log_panel_container.setObjectName("log_panel_container")
+        self.log_panel_container.setStyleSheet(
+            "QFrame#log_panel_container { "
+            "background-color: #1E222D; "
+            "border-radius: 10px; "
+            "border: 1px solid rgba(0,0,0,0.15); "
+            "}")
+        
+        log_layout = QVBoxLayout(self.log_panel_container)
+        log_layout.setContentsMargins(5, 5, 5, 5)
 
         # 日志面板
         self.log_panel = LogPanel()
+        log_layout.addWidget(self.log_panel)
 
         # 创建各页面
         self.analysis_page = AnalysisPage(
@@ -111,8 +146,9 @@ class MainWindow(QMainWindow):
         self.page_stack.addWidget(self.history_page)
         self.page_stack.addWidget(self.test_page)
 
-        self.splitter.addWidget(self.page_stack)
-        self.splitter.addWidget(self.log_panel)
+        self.splitter.addWidget(self.page_stack_container)
+        self.splitter.addWidget(self.log_panel_container)
+        self.splitter.setHandleWidth(8)
 
         # 设置分割比例 (页面区 : 日志区 = 7 : 2)
         self.splitter.setStretchFactor(0, 7)
@@ -133,9 +169,23 @@ class MainWindow(QMainWindow):
         self.status_bar.addPermanentWidget(self.global_progress)
 
     def _on_nav_changed(self, index: int):
-        """导航切换"""
+        """导航切换（直接切换，不使用 GraphicsEffect 动画，避免离屏缓冲导致重叠）"""
         if 0 <= index < self.page_stack.count():
+            # 清理残留动画引用
+            if self._current_animation is not None:
+                try:
+                    self._current_animation.stop()
+                except RuntimeError:
+                    pass
+                self._current_animation = None
+                # 清除可能残留的 effect
+                for i in range(self.page_stack.count()):
+                    w = self.page_stack.widget(i)
+                    if w is not None:
+                        w.setGraphicsEffect(None)
+
             self.page_stack.setCurrentIndex(index)
+
             name = NAV_ITEMS[index]['name'] if index < len(NAV_ITEMS) else ''
             self.status_bar.showMessage(f"当前: {name}")
 

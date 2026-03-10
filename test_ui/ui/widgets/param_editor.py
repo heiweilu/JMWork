@@ -83,10 +83,22 @@ class ParamEditor(QWidget):
 
         elif ptype == 'choice':
             w = QComboBox()
-            choices = param.get('choices', [])
-            w.addItems(choices)
-            if default in choices:
-                w.setCurrentText(str(default))
+            # 同时兑容 'options' 和 'choices' 两种键名
+            choices = param.get('options', param.get('choices', []))
+            # values 存储实际小，缺省等于显示标签本身
+            values = param.get('values', choices)
+            options_str = [str(c) for c in choices]
+            w.addItems(options_str)
+            # 按实际値匹配默认选中项
+            default_str = str(default)
+            try:
+                default_idx = [str(v) for v in values].index(default_str)
+                w.setCurrentIndex(default_idx)
+            except ValueError:
+                if options_str:
+                    w.setCurrentIndex(0)
+            # 把 values 存到 widget 上，起値时用实际値
+            w._values = [str(v) for v in values]
             return w
 
         elif ptype == 'tuple':
@@ -135,7 +147,12 @@ class ParamEditor(QWidget):
             elif ptype == 'bool':
                 result[key] = widget.isChecked()
             elif ptype == 'choice':
-                result[key] = widget.currentText()
+                # 如果有 _values，返回实际値；否则返回显示文本
+                if hasattr(widget, '_values'):
+                    idx = widget.currentIndex()
+                    result[key] = widget._values[idx] if 0 <= idx < len(widget._values) else widget.currentText()
+                else:
+                    result[key] = widget.currentText()
             elif ptype == 'tuple':
                 result[key] = (widget._spin1.value(), widget._spin2.value())
             else:

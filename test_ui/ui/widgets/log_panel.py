@@ -45,18 +45,50 @@ class LogPanel(QWidget):
         # 日志文本区域
         self.text_edit = QTextEdit()
         self.text_edit.setReadOnly(True)
-        self.text_edit.setFont(QFont('Consolas', 9))
+        self.text_edit.setFont(QFont('Consolas', 10))
         self.text_edit.setStyleSheet("""
             QTextEdit {
-                background-color: #1E1E1E;
-                color: #D4D4D4;
-                border: 1px solid #3C3C3C;
-                border-radius: 4px;
-                padding: 4px;
+                background-color: #161A22;
+                color: #CFD8DC;
+                border: 1px solid #2B3342;
+                border-radius: 8px;
+                padding: 6px;
+                selection-background-color: #3498DB;
+            }
+            QTextEdit QScrollBar:vertical {
+                background: transparent; width: 6px; margin: 0px;
+            }
+            QTextEdit QScrollBar::handle:vertical {
+                background: #4A5568; border-radius: 3px;
             }
         """)
         self.text_edit.setMinimumHeight(80)
         layout.addWidget(self.text_edit)
+
+        # 日志面板局部暗色样式
+        self.setStyleSheet("""
+            QPushButton {
+                background-color: #2A303C;
+                color: #A0AAB2;
+                border: 1px solid #3B4252;
+                border-radius: 4px;
+                padding: 4px 10px;
+                min-height: 24px;
+            }
+            QPushButton:hover {
+                background-color: #3B4252;
+                color: #FFFFFF;
+                border: 1px solid #4C566A;
+            }
+            QPushButton:pressed {
+                background-color: #4C566A;
+            }
+            QPushButton:disabled {
+                background-color: transparent;
+                border: none;
+                color: #4C566A;
+            }
+        """)
 
         # 按钮栏
         btn_layout = QHBoxLayout()

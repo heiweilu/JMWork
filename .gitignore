@@ -1,0 +1,36 @@
+# ===== Python 编译缓存 =====
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ===== 虚拟环境 =====
+.venv/
+venv/
+env/
+.env
+
+# ===== IDE =====
+.vscode/
+.idea/
+
+# ===== 日志 =====
+logs/
+*.log
+*.log.*
+
+# ===== 报告 / 输出 =====
+reports/
+202602027_dlp_auto/reports/
+202602027_dlp_auto/logs/
+
+# ===== 临时文件 =====
+temp/
+data/temp_img/
+data/data_temp/
+*.tmp
+*.bak
+
+# ===== 系统文件 =====
+Thumbs.db
+.DS_Store
+desktop.ini

@@ -1,0 +1,29 @@
+# Python 编译缓存
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# 日志与报告（运行时生成）
+logs/*.log
+logs/*.txt
+reports/
+
+# 临时文件
+temp/
+data/temp_img/
+data/data_temp/
+*.tmp
+
+# 系统文件
+Thumbs.db
+.DS_Store
