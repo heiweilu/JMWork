@@ -1,0 +1,38 @@
+{
+  "general": {
+    "project_root": "D:\\software\\heiweilu\\workspace\\xgimi\\code\\202602027_dlp_auto",
+    "language": "zh-CN"
+  },
+  "screen": {
+    "width": 3839,
+    "height": 2159
+  },
+  "angle": {
+    "step": 0.1,
+    "yaw_min": -40,
+    "yaw_max": 40,
+    "pitch_min": -40,
+    "pitch_max": 40,
+    "axis_yaw_range": [-42, 42],
+    "axis_pitch_range": [-42, 42]
+  },
+  "test": {
+    "resume_from_previous": true,
+    "log_interval": 10,
+    "data_mode": "quadrant"
+  },
+  "visualization": {
+    "dpi": 150,
+    "figsize_width": 16,
+    "figsize_height": 10,
+    "corner_ratio": 0.40
+  },
+  "paths": {
+    "data_dir": "data",
+    "reports_dir": "reports",
+    "logs_dir": "logs",
+    "csv_quadrant_dir": "data/CSV_quadrant_data",
+    "angle_results_dir": "reports/Angle_test_results",
+    "trapezoid_results_dir": "reports/Trapezoidal_coordinate_test_results"
+  }
+}
