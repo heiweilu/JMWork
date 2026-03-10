@@ -1,6 +1,7 @@
 # DLP 自动化测试系统 - UI 依赖
 PyQt6>=6.5.0
 pandas>=1.5.0
+pyserial>=3.5
 numpy>=1.23.0
 matplotlib>=3.6.0
 openpyxl>=3.0.10

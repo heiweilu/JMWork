@@ -294,6 +294,96 @@ def run(input_path, output_dir, params,
 </pre>
 """
     },
+    {
+        "title": "🔌 串口调试 & 角度采集",
+        "content": """
+<h2>串口调试 & 极米角度采集测试</h2>
+
+<h3>串口界面功能说明</h3>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;width:100%;font-size:12px;">
+  <tr style="background:#E3F2FD;"><th>功能</th><th>说明</th></tr>
+  <tr><td>端口配置</td><td>COM 口、波特率（默认115200）、数据位/校验位/停止位</td></tr>
+  <tr><td>彩色终端</td><td>绿色=发送，白色=接收，黄色=系统提示，红色=错误</td></tr>
+  <tr><td>快捷指令</td><td>固件升级流程、角度采集、系统工具均有一键按钮</td></tr>
+  <tr><td>自定义指令</td><td>可添加/编辑/删除，自动保存到 config/serial_quick_cmds.json</td></tr>
+  <tr><td>下载日志</td><td>将终端内容保存为 .log 文件</td></tr>
+</table>
+
+<h3>固件升级流程（libxgimi.so）</h3>
+<p>内置 so 文件路径: <code>assets/firmware/libxgimi.so</code></p>
+<ol style="line-height:2;">
+  <li>将 <code>libxgimi.so</code> 复制到 U 盘根目录</li>
+  <li>U 盘插入投影仪 USB 口</li>
+  <li>连接串口（115200 bps），点击「连接」</li>
+  <li>依次点击固件升级区的按钮（或手动输入）：</li>
+</ol>
+<pre style="background:#1E2433;color:#C9D1D9;padding:12px;border-radius:6px;font-size:13px;line-height:1.9">
+su                                                    # 切换 root 用户
+remount                                               # 重新挂载为可读写
+cp /vendor/lib/libxgimi.so /data/                     # 备份原始 so 文件
+cp /mnt/media_rw/0182-0265/libxgimi.so /vendor/lib/  # 从 U 盘安装新 so
+sync                                                  # 刷新文件系统缓冲
+reboot                                                # 重启生效
+</pre>
+<p style="color:#E74C3C;font-size:12px;">⚠ 注意：U 盘 UUID <code>0182-0265</code> 是固定挂载路径，不同 U 盘 UUID 不同，
+若找不到需先执行 <code>ls /mnt/media_rw/</code> 确认实际挂载目录。</p>
+
+<h3>角度采集测试说明</h3>
+<p>使用极米杨兴角度坐标映射采集接口，遍历指定范围内的 Yaw/Pitch 角度组合，
+记录每个角度对应的投影仪四角屏幕坐标（TL/TR/BL/BR）。</p>
+
+<h4>前置条件</h4>
+<ul style="line-height:2;font-size:13px;">
+  <li>固件已升级（libxgimi.so 已替换）</li>
+  <li>投影仪已重启并正常工作</li>
+  <li>串口已连接</li>
+</ul>
+
+<h4>采集指令</h4>
+<pre style="background:#1E2433;color:#C9D1D9;padding:12px;border-radius:6px;font-size:13px;line-height:1.7">
+gmpfUnit externDisplay kst_dev batchGetDisplayPointByAngle \\
+    "yaw;pitch;0;-40;40;-40;40;{step};/data/vendor"
+</pre>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;width:100%;font-size:12px;margin-top:6px;">
+  <tr style="background:#E8F5E9;"><th>参数位置</th><th>值</th><th>含义</th></tr>
+  <tr><td>axis1</td><td>yaw</td><td>第一扫描轴为 Yaw（水平偏航角）</td></tr>
+  <tr><td>axis2</td><td>pitch</td><td>第二扫描轴为 Pitch（垂直俯仰角）</td></tr>
+  <tr><td>fixed</td><td>0</td><td>Roll（滚转角）固定为 0°</td></tr>
+  <tr><td>start1 ~ end1</td><td>-40 ~ 40</td><td>Yaw 扫描范围（度）</td></tr>
+  <tr><td>start2 ~ end2</td><td>-40 ~ 40</td><td>Pitch 扫描范围（度）</td></tr>
+  <tr><td>step</td><td>0.1 / 0.5 / 1</td><td>步进间隔（度）</td></tr>
+  <tr><td>output_path</td><td>/data/vendor</td><td>CSV 输出目录（设备内部）</td></tr>
+</table>
+<p style="font-size:12px;color:#555;">
+  步进对应数据量估算：<br>
+  • step=0.1 → 约 161×161 = 25921 个点（约 30 分钟）<br>
+  • step=0.5 → 约 33×33 = 1089 个点<br>
+  • step=1.0 → 约 17×17 = 289 个点（快速验证）
+</p>
+
+<h4>输出文件格式</h4>
+<pre style="background:#f5f5f5;padding:10px;border-radius:6px;font-size:12px;">
+文件名: ak_scan_yaw_pitch_step{step}_{timestamp}.csv
+列:    Yaw, Pitch, Fixed_Axis, TL_X, TL_Y, TR_X, TR_Y, BL_X, BL_Y, BR_X, BR_Y
+坐标:  已×2 放大为 4K 分辨率（算法内部为 2K，自动扩展）
+</pre>
+
+<h4>数据取回</h4>
+<pre style="background:#1E2433;color:#C9D1D9;padding:12px;border-radius:6px;font-size:13px;">
+cp /data/vendor/ak_scan_*.csv /mnt/media_rw/0182-0265/
+</pre>
+<p style="font-size:12px;color:#555;">将 CSV 全部拷贝到 U 盘，然后拔 U 盘在电脑上用「分析执行」模块处理数据。</p>
+
+<h3>其他常用系统指令</h3>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;width:100%;font-size:12px;">
+  <tr style="background:#FFF3E0;"><th>功能</th><th>指令</th></tr>
+  <tr><td>监听 GM 调试日志</td><td><code>logcat | grep GM_DISP_DBG</code></td></tr>
+  <tr><td>关闭 AVB 验证</td><td><code>avb init 0;avb set-devicestate 0;avb set-verity disable;save;reset</code></td></tr>
+  <tr><td>调整休眠(24h)</td><td><code>settings put system screen_off_timeout 86400000</code></td></tr>
+  <tr><td>查看 U 盘挂载</td><td><code>ls /mnt/media_rw/</code></td></tr>
+</table>
+"""
+    },
 ]
 
 

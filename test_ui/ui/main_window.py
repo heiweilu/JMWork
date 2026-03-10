@@ -20,6 +20,7 @@ from ui.pages.config_page import ConfigPage
 from ui.pages.history_page import HistoryPage
 from ui.pages.test_page import TestPage
 from ui.pages.docs_page import DocsPage
+from ui.pages.serial_page import SerialPage
 from core.config_manager import ConfigManager
 from ui.animations import UIAnimator
 
@@ -31,6 +32,7 @@ NAV_ITEMS = [
     {"name": "配置管理",   "icon": "⚙",  "enabled": True},
     {"name": "历史浏览",   "icon": "📋", "enabled": True},
     {"name": "开发文档",   "icon": "📖", "enabled": True},
+    {"name": "串口调试",   "icon": "🔌", "enabled": True},
     {"name": "硬件测试",   "icon": "🔧", "enabled": False},
 ]
 
@@ -148,6 +150,8 @@ class MainWindow(QMainWindow):
         self.page_stack.addWidget(self.history_page)
         self.docs_page = DocsPage()
         self.page_stack.addWidget(self.docs_page)
+        self.serial_page = SerialPage()
+        self.page_stack.addWidget(self.serial_page)
         self.page_stack.addWidget(self.test_page)
 
         self.splitter.addWidget(self.page_stack_container)
