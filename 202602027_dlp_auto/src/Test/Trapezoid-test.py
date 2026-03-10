@@ -69,12 +69,12 @@ HEIGHT = 2159
 # ── 【必选】测试模式 ─────────────────────────────────────────────────── #
 # 'file' : 从 TXT 数据文件读取坐标列表逐行下点测试（适用于2角/3角/4角组合数据）
 # 'scan' : 按坐标范围扫描（原有方式，使用 TEST_TASKS 配置）
-TEST_MODE = 'scan'
+TEST_MODE = 'file'
 
 # ── file 模式专用：指定要测试的 TXT 数据文件路径（支持多个，依次执行）── #
 # 每个文件第一行为表头，数据行第一列格式：TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y
 INPUT_FILES = [
-    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260306_141954_grid\all_grid_combinations.txt',
+    r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto\data\trapezoid_manual_test_data\20260310_173358_grid\all_grid_combinations.txt',
     # 可继续添加更多文件，例如三角组合：
     # r'D:\...\combo_11_TL_TR_BL.txt',
 ]

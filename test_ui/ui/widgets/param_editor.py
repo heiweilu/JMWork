@@ -78,7 +78,9 @@ class ParamEditor(QWidget):
                 self._form_layout.addRow(f"{label_text}:", widget)
             self._widgets[key] = widget
 
-        self.adjustSize()
+        # 通知父级布局重新计算尺寸（updateGeometry 比 adjustSize 更安全，
+        # 不会在 QScrollArea 内强制覆盖 size manager 的管理）
+        self.updateGeometry()
 
     def _create_widget(self, param: dict) -> QWidget:
         """根据参数类型创建控件"""
@@ -103,7 +105,7 @@ class ParamEditor(QWidget):
             w.setChecked(bool(default))
             return w
 
-        elif ptype == 'choice':
+        elif ptype in ('choice', 'combo'):
             w = QComboBox()
             # 同时兑容 'options' 和 'choices' 两种键名
             choices = param.get('options', param.get('choices', []))
@@ -168,7 +170,7 @@ class ParamEditor(QWidget):
                 result[key] = widget.value()
             elif ptype == 'bool':
                 result[key] = widget.isChecked()
-            elif ptype == 'choice':
+            elif ptype in ('choice', 'combo'):
                 # 如果有 _values，返回实际値；否则返回显示文本
                 if hasattr(widget, '_values'):
                     idx = widget.currentIndex()

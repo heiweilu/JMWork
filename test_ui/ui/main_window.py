@@ -33,7 +33,7 @@ NAV_ITEMS = [
     {"name": "历史浏览",   "icon": "📋", "enabled": True},
     {"name": "开发文档",   "icon": "📖", "enabled": True},
     {"name": "串口调试",   "icon": "🔌", "enabled": True},
-    {"name": "硬件测试",   "icon": "🔧", "enabled": False},
+    {"name": "硬件测试",   "icon": "🔧", "enabled": True},
 ]
 
 

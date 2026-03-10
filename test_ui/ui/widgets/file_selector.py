@@ -65,7 +65,10 @@ class FileSelector(QWidget):
 
         self.path_edit = QLineEdit()
         self.path_edit.setPlaceholderText("输入路径或拖拽文件到此处...")
-        self.path_edit.setMinimumWidth(300)
+        self.path_edit.setSizePolicy(
+            self.path_edit.sizePolicy().horizontalPolicy(),
+            self.path_edit.sizePolicy().verticalPolicy()
+        )
         self.path_edit.textChanged.connect(self._on_text_changed)
         row_layout.addWidget(self.path_edit)
 

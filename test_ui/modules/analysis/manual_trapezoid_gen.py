@@ -26,9 +26,9 @@ MODULE_INFO = {
                    "  gen_circle - 小圆边界探测数据\n"
                    "  gen_grid - 网格笛卡尔积确定性覆盖\n"
                    "  plot_circle / plot_grid - 对应结果可视化",
-    "input_type": "csv",
+    "input_type": "optional",
     "input_description": "plot/plot_circle/plot_grid模式: 梯形测试结果TXT（Tab分隔）\n"
-                         "gen/gen_circle/gen_grid模式: 无需输入文件（留空即可）",
+                         "gen/gen_circle/gen_grid模式: 无需输入文件",
     "output_type": "image",
     "script_file": "manual_trapezoid_gen.py",
     "reference_output_desc": "生成梯形校正测试数据，输出包括CSV测试点坐标集和预览可视化图，包含樱形樀/网格模式的投射区域分布。",
@@ -36,15 +36,30 @@ MODULE_INFO = {
         {"key": "run_mode", "label": "运行模式", "type": "choice",
          "choices": ["gen", "plot", "gen_circle", "plot_circle", "gen_grid", "plot_grid"],
          "default": "gen_grid",
-         "tooltip": "gen=生成坐标数据\nplot=绘制轨迹图\ngen_circle=生成圆形轨迹\ngen_grid=生成网格点(推荐)"},
+         "tooltip": "gen=生成坐标数据\nplot=绘制轨迹图\ngen_circle=以参考点为圆心生成小圆轨迹\ngen_grid=生成网格点(推荐)"},
         {"key": "screen_w", "label": "屏幕宽度", "type": "int", "default": 3839,
          "tooltip": "屏幕水平分辨率（像素），4K屏幕为 3840，通常设为 3839（坐标最大索引）"},
         {"key": "screen_h", "label": "屏幕高度", "type": "int", "default": 2159,
          "tooltip": "屏幕垂直分辨率（像素），4K屏幕为 2160，通常设为 2159（坐标最大索引）"},
         {"key": "points_per_corner", "label": "每角点坐标数(gen)", "type": "int", "default": 600,
-         "tooltip": "gen/gen_circle 模式：每个角点随机生成的测试坐标数量，数值越大覆盖范围越全"},
+         "tooltip": "gen 模式：每个角点随机生成的测试坐标数量"},
         {"key": "grid_cell_size", "label": "网格格子尺寸(grid)", "type": "int", "default": 350,
          "tooltip": "gen_grid 模式：网格划分的格子边长（像素），值越小网格越密"},
+        # ── gen_circle 专属参数 ──
+        {"key": "circle_tl_ref", "label": "左上角参考点(circle)", "type": "string", "default": "666,1038",
+         "tooltip": "gen_circle 模式：左上角圆心坐标，格式 x,y"},
+        {"key": "circle_tr_ref", "label": "右上角参考点(circle)", "type": "string", "default": "2591,276",
+         "tooltip": "gen_circle 模式：右上角圆心坐标，格式 x,y"},
+        {"key": "circle_bl_ref", "label": "左下角参考点(circle)", "type": "string", "default": "0,2159",
+         "tooltip": "gen_circle 模式：左下角圆心坐标，格式 x,y"},
+        {"key": "circle_br_ref", "label": "右下角参考点(circle)", "type": "string", "default": "3839,1709",
+         "tooltip": "gen_circle 模式：右下角圆心坐标，格式 x,y"},
+        {"key": "circle_radius", "label": "小圆半径(circle)", "type": "int", "default": 300,
+         "tooltip": "gen_circle 模式：以参考点为圆心的采样圆半径（像素）"},
+        {"key": "circle_step", "label": "圆内采样步长(circle)", "type": "int", "default": 10,
+         "tooltip": "gen_circle 模式：圆内网格采样步长（像素），越小点越密"},
+        {"key": "circle_n_half", "label": "每组PASS/FAIL各N行(circle)", "type": "int", "default": 150,
+         "tooltip": "gen_circle 模式：每个三角组合生成的PASS行数和FAIL行数（各N行，共2N行）"},
     ],
 }
 
@@ -152,28 +167,108 @@ def _run_gen(project_root, run_mode, params, _log, _progress):
         _log(f"网格生成 {len(all_lines)} 组合 → {out_file}", "SUCCESS")
 
     elif run_mode == 'gen_circle':
-        _log("小圆边界探测模式")
-        radius = 300
-        step = 10
-        all_lines = []
-        for name, (bx, by) in BASE_CORNERS.items():
-            for angle in range(0, 360, step):
-                dx = int(radius * math.cos(math.radians(angle)))
-                dy = int(radius * math.sin(math.radians(angle)))
-                x = max(0, min(W, bx + dx))
-                y = max(0, min(H, by + dy))
-                corners = dict(BASE_CORNERS)
-                corners[name] = (x, y)
-                line = (f"{corners['TL'][0]},{corners['TL'][1]},"
-                        f"{corners['TR'][0]},{corners['TR'][1]},"
-                        f"{corners['BL'][0]},{corners['BL'][1]},"
-                        f"{corners['BR'][0]},{corners['BR'][1]}")
-                all_lines.append(line)
+        # 从 params 读取各角参考点坐标
+        def _parse_ref(s, default):
+            try:
+                parts = str(s).split(',')
+                return (int(parts[0].strip()), int(parts[1].strip()))
+            except Exception:
+                return default
 
-        out_file = os.path.join(out_dir, f'combo_circle_{timestamp}.txt')
-        with open(out_file, 'w') as f:
-            f.write('\n'.join(all_lines))
-        _log(f"圆边界生成 {len(all_lines)} 点 → {out_file}", "SUCCESS")
+        circle_ref = {
+            'TL': _parse_ref(params.get('circle_tl_ref', '666,1038'), (666, 1038)),
+            'TR': _parse_ref(params.get('circle_tr_ref', '2591,276'), (2591, 276)),
+            'BL': _parse_ref(params.get('circle_bl_ref', '0,2159'), (0, 2159)),
+            'BR': _parse_ref(params.get('circle_br_ref', '3839,1709'), (3839, 1709)),
+        }
+        radius = int(params.get('circle_radius', 300))
+        step = int(params.get('circle_step', 10))
+        n_half = int(params.get('circle_n_half', 150))
+
+        # IN/OUT 边界（与原始脚本保持一致）
+        corner_ranges_in = {
+            'TL': {'x': (0,    1343), 'y': (0,    755)},
+            'TR': {'x': (2496, 3839), 'y': (0,    755)},
+            'BL': {'x': (0,    1343), 'y': (1404, 2159)},
+            'BR': {'x': (2496, 3839), 'y': (1404, 2159)},
+        }
+
+        def _build_circle_pts(corner_key):
+            """小圆内的 IN/OUT 点列表"""
+            cx, cy = circle_ref[corner_key]
+            bnd = corner_ranges_in[corner_key]
+            in_pts, out_pts = [], []
+            for dx in range(-radius, radius + 1, step):
+                for dy in range(-radius, radius + 1, step):
+                    if dx * dx + dy * dy > radius * radius:
+                        continue
+                    x, y = cx + dx, cy + dy
+                    if not (0 <= x <= W and 0 <= y <= H):
+                        continue
+                    if (bnd['x'][0] <= x <= bnd['x'][1] and
+                            bnd['y'][0] <= y <= bnd['y'][1]):
+                        in_pts.append((x, y))
+                    else:
+                        out_pts.append((x, y))
+            return in_pts, out_pts
+
+        corner_order = ['TL', 'TR', 'BL', 'BR']
+        # 4 种三角组合
+        combos_3 = [('TL', 'TR', 'BL'), ('TL', 'TR', 'BR'),
+                    ('TL', 'BL', 'BR'), ('TR', 'BL', 'BR')]
+
+        all_lines = ['# TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y']
+        total_rows = 0
+
+        for combo in combos_3:
+            pools_in  = {}
+            pools_out = {}
+            for c in combo:
+                ip, op = _build_circle_pts(c)
+                pools_in[c]  = ip if ip else [circle_ref[c]]
+                pools_out[c] = op if op else [circle_ref[c]]
+
+            # PASS 行：所有测试角均取 IN 点
+            for i in range(n_half):
+                coords = []
+                for c in corner_order:
+                    if c in combo:
+                        p = pools_in[c]
+                        coords.extend(p[i % len(p)])
+                    else:
+                        coords.extend(BASE_CORNERS[c])
+                all_lines.append(','.join(map(str, coords)))
+                total_rows += 1
+
+            # FAIL 行：至少一个测试角取 OUT 点
+            for i in range(n_half):
+                out_c = combo[i % len(combo)]  # 轮流选 OUT 角
+                coords = []
+                for c in corner_order:
+                    if c in combo:
+                        if c == out_c:
+                            p = pools_out[c]
+                        else:
+                            p = pools_in[c]
+                        coords.extend(p[i % len(p)])
+                    else:
+                        coords.extend(BASE_CORNERS[c])
+                all_lines.append(','.join(map(str, coords)))
+                total_rows += 1
+
+            _log(f"  组合 {'+'.join(combo)}: {n_half*2} 行")
+            _progress(3 + combos_3.index(combo) * 2, 10)
+
+        # 写入文件头（与 Trapezoid-test.py 兼容的格式）
+        header = 'TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y'
+        lines_with_header = [header] + [l for l in all_lines if not l.startswith('#')]
+        out_file = os.path.join(out_dir, f'all_grid_combinations.txt')
+        with open(out_file, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines_with_header))
+        _log(f"小圆边界探测生成 {total_rows} 行 → {out_file}", "SUCCESS")
+        _log(f"各角参考点: TL{circle_ref['TL']} TR{circle_ref['TR']} "
+             f"BL{circle_ref['BL']} BR{circle_ref['BR']}")
+        _log(f"半径={radius}px  步长={step}px  每组PASS/FAIL各={n_half}行")
 
     _progress(10, 10)
     return {"status": "success", "output_path": out_dir, "figure": None,

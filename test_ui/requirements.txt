@@ -2,6 +2,8 @@
 PyQt6>=6.5.0
 pandas>=1.5.0
 pyserial>=3.5
+pyusb>=1.2.1
+libusb-package>=1.0.26
 numpy>=1.23.0
 matplotlib>=3.6.0
 openpyxl>=3.0.10

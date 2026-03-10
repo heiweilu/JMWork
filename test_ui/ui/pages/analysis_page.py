@@ -249,11 +249,15 @@ class AnalysisPage(QWidget):
         # 更新参考结果面板
         self._update_reference_panel(info)
 
-        # 更新文件选择器过滤
+        # 更新文件选择器可见性：none 隐藏，其他类型（含 optional）展示
         input_type = info.get('input_type', 'csv')
+        needs_file = input_type != 'none'
+        self.file_selector.setVisible(needs_file)
         filters = {
             'csv': "CSV文件 (*.csv);;所有文件 (*)",
             'txt': "文本文件 (*.txt);;所有文件 (*)",
+            'data': "数据文件 (*.csv *.txt);;CSV (*.csv);;TXT (*.txt);;所有文件 (*)",
+            'optional': "数据文件 (*.csv *.txt *.dat);;所有文件 (*)",
             'directory': "",
         }
         self.file_selector._file_filter = filters.get(input_type, "所有文件 (*)")
@@ -337,18 +341,26 @@ class AnalysisPage(QWidget):
             return
 
         # 获取输入路径
+        input_type = mdata['info'].get('input_type', 'csv')
         input_path = self.file_selector.get_path()
-        if not input_path or not os.path.exists(input_path):
-            QMessageBox.warning(self, "输入错误",
-                                "请选择有效的输入文件或目录")
-            return
+        # optional 类型模块可以不选文件；none 类型无文件选择器；csv/txt 类型必须选文件
+        if input_type not in ('none', 'optional'):
+            if not input_path or not os.path.exists(input_path):
+                QMessageBox.warning(self, "输入错误",
+                                    "请选择有效的输入文件或目录")
+                return
 
         # 获取输出目录
         project_root = ''
         if self._config_mgr:
             project_root = self._config_mgr.get_project_root()
         if not project_root:
-            project_root = os.path.dirname(os.path.dirname(input_path))
+            if input_path and os.path.exists(input_path):
+                project_root = os.path.dirname(os.path.dirname(input_path))
+            else:
+                # gen 模式无输入文件，使用默认工程目录
+                project_root = os.path.dirname(os.path.dirname(
+                    os.path.dirname(os.path.abspath(__file__))))
 
         output_dir = os.path.join(project_root, 'reports')
 

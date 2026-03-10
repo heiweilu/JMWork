@@ -14,14 +14,14 @@ env/
 .idea/
 
 # ===== 日志 =====
-logs/
-*.log
-*.log.*
+# logs/
+# *.log
+# *.log.*
 
 # ===== 报告 / 输出 =====
-reports/
-202602027_dlp_auto/reports/
-202602027_dlp_auto/logs/
+# reports/
+# 202602027_dlp_auto/reports/
+# 202602027_dlp_auto/logs/
 
 # ===== 临时文件 =====
 temp/
