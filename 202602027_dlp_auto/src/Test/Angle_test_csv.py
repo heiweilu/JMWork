@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 ============================================================
@@ -35,7 +35,7 @@ DATA_ROOT = r'D:\software\heiweilu\workspace\xgimi\code\202602027_dlp_auto'
 #   'raw_1deg'  - 原始1度完整数据（需先转换为 TXT）
 #   'raw_05deg' - 原始0.5度完整数据（需先转换为 TXT）
 #   'raw_01deg' - 原始0.1度完整数据（需先转换为 TXT）
-DATA_MODE = 'quadrant'
+DATA_MODE = 'raw_1deg'
 
 # DATA_MODE = 'quadrant' 时选择象限文件：
 #   quadrant_1_left_top.txt / quadrant_2_right_top.txt
@@ -171,6 +171,7 @@ def _in_range(yaw, pitch, test_range, step):
 def _count_data_lines(txt_path):
     """快速统计数据行数（仅计行，不解析），用于 ETA 估算。"""
     if not os.path.exists(txt_path):
+        print("Warning: Data file does not exist: {}".format(txt_path))
         return 0
     with open(txt_path, 'rb') as f:
         content = f.read()
@@ -201,16 +202,25 @@ def stream_test_data(txt_path, step, test_range):
     lines  = content.decode('utf-8-sig', errors='ignore').split('\n')
     header = None
 
+    delim = None  # 延迟到读到表头行时自动检测
+
     for raw_line in lines:
         line = raw_line.strip()
         if not line or line.startswith('#'):
             continue
         if header is None:
-            header = [h.strip().lstrip('\ufeff') for h in line.split('\t')]
-            print("  Data header: {}".format(header))
+            # 自动检测分隔符：有制表符用 '\t'，否则用空白分割
+            if '\t' in line:
+                delim = '\t'
+                header = [h.strip().lstrip('\ufeff') for h in line.split('\t')]
+            else:
+                delim = None  # None → str.split() 按任意空白分割
+                header = line.lstrip('\ufeff').split()
+            print("  Delimiter: {}  Data header: {}".format(
+                repr(delim) if delim else 'whitespace', header))
             continue
         try:
-            vals = line.split('\t')
+            vals = line.split(delim) if delim else line.split()
             if len(vals) < len(header):
                 continue
             row   = {header[i]: vals[i] for i in range(len(header))}
@@ -451,9 +461,12 @@ def main():
     print("=" * 80)
     print("Executed: {}  Skipped: {}  (file rows seen: {})".format(
         total_exec, skipped, row_idx))
-    print("PASS: {} ({:.1f}%)  FAIL: {} ({:.1f}%)".format(
-        passed, passed * 100.0 / total_exec if total_exec else 0,
-        failed, failed * 100.0 / total_exec if total_exec else 0))
+    if total_exec > 0:
+        print("PASS: {} ({:.1f}%)  FAIL: {} ({:.1f}%)".format(
+            passed, passed * 100.0 / total_exec,
+            failed, failed * 100.0 / total_exec))
+    else:
+        print("PASS: 0 (0.0%)  FAIL: 0 (0.0%)")
     print("Elapsed: {:.2f}s ({:.2f}min)".format(elapsed, elapsed / 60))
     print("Output: {}".format(txt_out))
     print("=" * 80)
