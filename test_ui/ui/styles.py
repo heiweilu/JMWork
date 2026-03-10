@@ -94,16 +94,21 @@ QPushButton#btn_primary {
     border: 1px solid #2471A3;
     border-bottom: 2px solid #1A5276;
     font-weight: bold;
+    letter-spacing: 0.5px;
 }
 
 QPushButton#btn_primary:hover {
-    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #5DADE2, stop:1 #2E86C1);
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #74B9FF, stop:1 #0984E3);
+    border: 1px solid #0652DD;
+    border-bottom: 3px solid #023ED4;
+    color: #FFFFFF;
+    font-weight: bold;
 }
 
 QPushButton#btn_primary:pressed {
-    background-color: #21618C;
-    border-top: 2px solid #154360;
-    border-bottom: 1px solid #154360;
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1A5276, stop:1 #154360);
+    border-top: 2px solid #0D3349;
+    border-bottom: 1px solid #0D3349;
     padding-top: 7px;
     padding-bottom: 5px;
 }
@@ -114,10 +119,13 @@ QPushButton#btn_danger {
     color: #FFFFFF;
     border: 1px solid #A93226;
     border-bottom: 2px solid #7B241C;
+    font-weight: bold;
 }
 
 QPushButton#btn_danger:hover {
-    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #EC7063, stop:1 #CB4335);
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FF7675, stop:1 #D63031);
+    border: 1px solid #C0392B;
+    border-bottom: 3px solid #A10000;
 }
 
 QPushButton#btn_danger:pressed {
@@ -370,11 +378,22 @@ QStatusBar {
 
 /* === 工具提示 === */
 QToolTip {
-    background-color: #2C3E50;
-    color: #ECF0F1;
-    border: 1px solid #1A252F;
-    padding: 6px 10px;
+    background-color: #1E2A38;
+    color: #E8F0FE;
+    border: 1px solid #3D5A80;
+    border-left: 3px solid #4FC3F7;
+    padding: 8px 12px;
     border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* === 文内展示(描述区域) === */
+QTextBrowser {
+    background-color: transparent;
+    border: none;
+    color: #2C3E50;
+    selection-background-color: #D4E6F1;
     font-size: 12px;
 }
 """

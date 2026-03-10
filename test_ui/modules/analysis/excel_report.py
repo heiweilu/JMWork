@@ -21,6 +21,8 @@ MODULE_INFO = {
     "input_description": "角度测试结果CSV，需含 Yaw, Pitch, Result, WriteCoords 列。\n"
                          "留空则自动搜索最新结果文件。",
     "output_type": "excel",
+    "script_file": "excel_report.py",
+    "reference_output_desc": "输出Excel报表，包含角度测试汇总表、Yaw/Pitch各登山数据PASS分布、Delta差异分析、各模块单元格式化结果。",
     "params": [],
 }
 

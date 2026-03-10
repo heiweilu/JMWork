@@ -7,8 +7,9 @@
 
 from PyQt6.QtWidgets import (QWidget, QFormLayout, QLineEdit, QSpinBox,
                               QDoubleSpinBox, QCheckBox, QComboBox,
-                              QLabel, QGroupBox, QVBoxLayout)
+                              QLabel, QGroupBox, QVBoxLayout, QHBoxLayout)
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont
 from typing import Any, Dict, List
 
 
@@ -31,7 +32,11 @@ class ParamEditor(QWidget):
         self._params_def: List[dict] = []
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(0)
         self._form_layout = QFormLayout()
+        self._form_layout.setSpacing(10)
+        self._form_layout.setContentsMargins(4, 4, 4, 4)
+        self._form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         self._layout.addLayout(self._form_layout)
         self._layout.addStretch()
 
@@ -50,13 +55,30 @@ class ParamEditor(QWidget):
 
         for param in params_def:
             key = param['key']
-            label = param.get('label', key)
+            label_text = param.get('label', key)
             ptype = param.get('type', 'string')
             default = param.get('default', '')
+            tooltip = param.get('tooltip', '')
 
             widget = self._create_widget(param)
+
+            # 为控件设置 tooltip
+            if tooltip and hasattr(widget, 'setToolTip'):
+                widget.setToolTip(tooltip)
+
+            # 构建标签：如有 tooltip 则显示提示图标
+            if tooltip:
+                label_widget = QLabel(
+                    f"{label_text} <span style='color:#2196F3; font-size:10px'>ⓘ</span>:"
+                )
+                label_widget.setTextFormat(Qt.TextFormat.RichText)
+                label_widget.setToolTip(tooltip)
+                self._form_layout.addRow(label_widget, widget)
+            else:
+                self._form_layout.addRow(f"{label_text}:", widget)
             self._widgets[key] = widget
-            self._form_layout.addRow(f"{label}:", widget)
+
+        self.adjustSize()
 
     def _create_widget(self, param: dict) -> QWidget:
         """根据参数类型创建控件"""
@@ -104,7 +126,7 @@ class ParamEditor(QWidget):
         elif ptype == 'tuple':
             # 两个输入框表示范围
             container = QWidget()
-            layout = __import__('PyQt6.QtWidgets', fromlist=['QHBoxLayout']).QHBoxLayout(container)
+            layout = QHBoxLayout(container)
             layout.setContentsMargins(0, 0, 0, 0)
             w1 = QDoubleSpinBox()
             w1.setRange(-999, 999)
@@ -161,10 +183,11 @@ class ParamEditor(QWidget):
         return result
 
     def _clear(self):
-        """清除所有控件"""
+        """清除所有控件（立即删除，避免 deleteLater 异步导致显示异常）"""
         while self._form_layout.count():
             item = self._form_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            w = item.widget()
+            if w:
+                w.setParent(None)  # 立即移除，而非 deleteLater
         self._widgets.clear()
         self._params_def.clear()

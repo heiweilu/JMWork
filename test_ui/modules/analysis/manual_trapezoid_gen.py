@@ -30,14 +30,21 @@ MODULE_INFO = {
     "input_description": "plot/plot_circle/plot_grid模式: 梯形测试结果TXT（Tab分隔）\n"
                          "gen/gen_circle/gen_grid模式: 无需输入文件（留空即可）",
     "output_type": "image",
+    "script_file": "manual_trapezoid_gen.py",
+    "reference_output_desc": "生成梯形校正测试数据，输出包括CSV测试点坐标集和预览可视化图，包含樱形樀/网格模式的投射区域分布。",
     "params": [
         {"key": "run_mode", "label": "运行模式", "type": "choice",
          "choices": ["gen", "plot", "gen_circle", "plot_circle", "gen_grid", "plot_grid"],
-         "default": "gen_grid"},
-        {"key": "screen_w", "label": "屏幕宽度", "type": "int", "default": 3839},
-        {"key": "screen_h", "label": "屏幕高度", "type": "int", "default": 2159},
-        {"key": "points_per_corner", "label": "每角点坐标数(gen)", "type": "int", "default": 600},
-        {"key": "grid_cell_size", "label": "网格格子尺寸(grid)", "type": "int", "default": 350},
+         "default": "gen_grid",
+         "tooltip": "gen=生成坐标数据\nplot=绘制轨迹图\ngen_circle=生成圆形轨迹\ngen_grid=生成网格点(推荐)"},
+        {"key": "screen_w", "label": "屏幕宽度", "type": "int", "default": 3839,
+         "tooltip": "屏幕水平分辨率（像素），4K屏幕为 3840，通常设为 3839（坐标最大索引）"},
+        {"key": "screen_h", "label": "屏幕高度", "type": "int", "default": 2159,
+         "tooltip": "屏幕垂直分辨率（像素），4K屏幕为 2160，通常设为 2159（坐标最大索引）"},
+        {"key": "points_per_corner", "label": "每角点坐标数(gen)", "type": "int", "default": 600,
+         "tooltip": "gen/gen_circle 模式：每个角点随机生成的测试坐标数量，数值越大覆盖范围越全"},
+        {"key": "grid_cell_size", "label": "网格格子尺寸(grid)", "type": "int", "default": 350,
+         "tooltip": "gen_grid 模式：网格划分的格子边长（像素），值越小网格越密"},
     ],
 }
 

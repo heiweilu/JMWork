@@ -19,8 +19,11 @@ MODULE_INFO = {
     "input_type": "csv",
     "input_description": "isKstValid测试结果CSV，需含列: Yaw, Pitch, OriginalErrorCode, isKstValid",
     "output_type": "image",
+    "script_file": "kst_valid_vis.py",
+    "reference_image": "kst_valid_vis.png",
     "params": [
-        {"key": "dpi", "label": "输出DPI", "type": "int", "default": 180, "min": 72, "max": 600},
+        {"key": "dpi", "label": "输出DPI", "type": "int", "default": 180, "min": 72, "max": 600,
+         "tooltip": "输出图片分辨率。\n72=屏幕浏览\n96-150=日常使用\n300=印刷质量"},
     ],
 }
 

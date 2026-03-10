@@ -19,10 +19,15 @@ MODULE_INFO = {
     "input_type": "csv",
     "input_description": "角度测试结果CSV，需含 WriteCoords, ErrorCode, Delta, Yaw, Pitch 列",
     "output_type": "image",
+    "script_file": "errorcode1_vis.py",
+    "reference_image": "errorcode1_vis.png",
     "params": [
-        {"key": "screen_w", "label": "屏幕宽度", "type": "int", "default": 3840},
-        {"key": "screen_h", "label": "屏幕高度", "type": "int", "default": 2160},
-        {"key": "dpi", "label": "输出DPI", "type": "int", "default": 220, "min": 72, "max": 600},
+        {"key": "screen_w", "label": "屏幕宽度", "type": "int", "default": 3840,
+         "tooltip": "屏幕水平分辨率（像素），默认3840即标准4K宽度"},
+        {"key": "screen_h", "label": "屏幕高度", "type": "int", "default": 2160,
+         "tooltip": "屏幕垂直分辨率（像素），默认2160即标准4K高度"},
+        {"key": "dpi", "label": "输出DPI", "type": "int", "default": 220, "min": 72, "max": 600,
+         "tooltip": "输出图片分辨率。\n72=屏幕浏览\n96-150=日常使用\n300=印刷质量"},
     ],
 }
 

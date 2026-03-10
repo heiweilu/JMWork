@@ -19,12 +19,18 @@ MODULE_INFO = {
     "input_type": "csv",
     "input_description": "梯形坐标测试结果CSV/TXT，每行含8个坐标值(TL_x,TL_y,...,BR_x,BR_y)",
     "output_type": "image",
+    "script_file": "trajectory_drawing.py",
+    "reference_image": "trajectory_drawing.png",
     "params": [
         {"key": "point_name", "label": "角点名称", "type": "choice",
-         "choices": ["左上", "右上", "左下", "右下"], "default": "右下"},
-        {"key": "screen_w", "label": "屏幕宽度", "type": "int", "default": 3839},
-        {"key": "screen_h", "label": "屏幕高度", "type": "int", "default": 2159},
-        {"key": "dpi", "label": "输出DPI", "type": "int", "default": 100, "min": 72, "max": 600},
+         "choices": ["左上", "右上", "左下", "右下"], "default": "右下",
+         "tooltip": "选择要绘制轨迹的角点，对应梯形四个角"},
+        {"key": "screen_w", "label": "屏幕宽度", "type": "int", "default": 3839,
+         "tooltip": "屏幕水平分辨率（像素），4K屏幕为 3840，通常设为 3839（坐标最大索引）"},
+        {"key": "screen_h", "label": "屏幕高度", "type": "int", "default": 2159,
+         "tooltip": "屏幕垂直分辨率（像素），4K屏幕为 2160，通常设为 2159（坐标最大索引）"},
+        {"key": "dpi", "label": "输出DPI", "type": "int", "default": 100, "min": 72, "max": 600,
+         "tooltip": "输出图片分辨率。\n72=屏幕浏览\n96-150=日常使用\n300=印刷质量\n600=极高清(\u6587件较大)"},
     ],
 }
 

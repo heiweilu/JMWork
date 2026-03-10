@@ -19,6 +19,7 @@ from ui.pages.preprocessing_page import PreprocessingPage
 from ui.pages.config_page import ConfigPage
 from ui.pages.history_page import HistoryPage
 from ui.pages.test_page import TestPage
+from ui.pages.docs_page import DocsPage
 from core.config_manager import ConfigManager
 from ui.animations import UIAnimator
 
@@ -29,6 +30,7 @@ NAV_ITEMS = [
     {"name": "数据预处理", "icon": "📁", "enabled": True},
     {"name": "配置管理",   "icon": "⚙",  "enabled": True},
     {"name": "历史浏览",   "icon": "📋", "enabled": True},
+    {"name": "开发文档",   "icon": "📖", "enabled": True},
     {"name": "硬件测试",   "icon": "🔧", "enabled": False},
 ]
 
@@ -144,6 +146,8 @@ class MainWindow(QMainWindow):
         self.page_stack.addWidget(self.preprocessing_page)
         self.page_stack.addWidget(self.config_page)
         self.page_stack.addWidget(self.history_page)
+        self.docs_page = DocsPage()
+        self.page_stack.addWidget(self.docs_page)
         self.page_stack.addWidget(self.test_page)
 
         self.splitter.addWidget(self.page_stack_container)

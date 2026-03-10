@@ -8,8 +8,10 @@ Analysis 功能页
 import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                               QComboBox, QLabel, QPushButton, QGroupBox,
-                              QMessageBox, QFileDialog, QScrollArea)
+                              QMessageBox, QFileDialog, QScrollArea,
+                              QTabWidget, QSizePolicy, QTextBrowser, QFrame)
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap
 
 from ui.widgets.file_selector import FileSelector
 from ui.widgets.param_editor import ParamEditor
@@ -48,10 +50,16 @@ class AnalysisPage(QWidget):
         self.combo_type.currentIndexChanged.connect(self._on_type_changed)
         type_layout.addWidget(self.combo_type)
 
-        self.lbl_description = QLabel("")
-        self.lbl_description.setWordWrap(True)
-        self.lbl_description.setStyleSheet("color: #666; font-size: 12px;")
-        type_layout.addWidget(self.lbl_description)
+        # 模块描述信息（富文本卡片）
+        self.txt_description = QTextBrowser()
+        self.txt_description.setReadOnly(True)
+        self.txt_description.setOpenExternalLinks(False)
+        self.txt_description.setFrameShape(QFrame.Shape.NoFrame)
+        self.txt_description.setFixedHeight(150)
+        self.txt_description.setStyleSheet(
+            "QTextBrowser { background: transparent; border: none; }"
+        )
+        type_layout.addWidget(self.txt_description)
         left_layout.addWidget(type_group)
 
         # 输入文件选择
@@ -64,15 +72,21 @@ class AnalysisPage(QWidget):
         file_layout.addWidget(self.file_selector)
         left_layout.addWidget(file_group)
 
-        # 参数配置
+        # 参数配置（可展开填充剩余空间）
         param_group = QGroupBox("参数配置")
+        param_group.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         param_scroll = QScrollArea()
         param_scroll.setWidgetResizable(True)
+        param_scroll.setMinimumHeight(80)
+        param_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.param_editor = ParamEditor()
         param_scroll.setWidget(self.param_editor)
         param_layout = QVBoxLayout(param_group)
+        param_layout.setContentsMargins(8, 4, 8, 8)
         param_layout.addWidget(param_scroll)
-        left_layout.addWidget(param_group)
+        left_layout.addWidget(param_group, 1)  # stretch=1，填充剩余空间
 
         # 执行按钮
         btn_layout = QHBoxLayout()
@@ -99,14 +113,43 @@ class AnalysisPage(QWidget):
         self.progress = ProgressWidget()
         left_layout.addWidget(self.progress)
 
-        left_layout.addStretch()
         left_panel.setMaximumWidth(420)
 
-        # ======= 右侧图表显示区 =======
+        # ======= 右侧: Tab(参考结果 | 分析结果) =======
+        self.right_tabs = QTabWidget()
+        self.right_tabs.setStyleSheet(
+            "QTabBar::tab { padding: 6px 18px; font-size: 12px; }"
+            "QTabBar::tab:selected { font-weight: bold; color: #1565C0; }"
+        )
+
+        # Tab0: 参考结果
+        self.ref_scroll = QScrollArea()
+        self.ref_scroll.setWidgetResizable(True)
+        self.ref_scroll.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.ref_content = QWidget()
+        self.ref_layout = QVBoxLayout(self.ref_content)
+        self.ref_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.ref_image_label = QLabel()
+        self.ref_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.ref_image_label.setScaledContents(False)
+        self.ref_text_label = QLabel()
+        self.ref_text_label.setWordWrap(True)
+        self.ref_text_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.ref_text_label.setStyleSheet(
+            "font-size: 13px; color: #444; padding: 16px; line-height: 1.8;"
+        )
+        self.ref_layout.addWidget(self.ref_image_label)
+        self.ref_layout.addWidget(self.ref_text_label)
+        self.ref_layout.addStretch()
+        self.ref_scroll.setWidget(self.ref_content)
+        self.right_tabs.addTab(self.ref_scroll, "📷  参考结果")
+
+        # Tab1: 分析结果
         self.plot_widget = PlotWidget()
+        self.right_tabs.addTab(self.plot_widget, "📈  分析结果")
 
         splitter.addWidget(left_panel)
-        splitter.addWidget(self.plot_widget)
+        splitter.addWidget(self.right_tabs)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
 
@@ -114,6 +157,12 @@ class AnalysisPage(QWidget):
 
         # 模块ID列表（与 combo 索引对应）
         self._module_ids = []
+
+    # 参考图所在目录
+    ASSETS_DIR = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        'assets', 'reference_images'
+    )
 
     def refresh_modules(self):
         """刷新模块列表（从 task_registry 获取）"""
@@ -123,11 +172,64 @@ class AnalysisPage(QWidget):
         modules = task_registry.get_modules('analysis')
         for mid, mdata in modules.items():
             info = mdata['info']
-            self.combo_type.addItem(info['name'])
+            script = info.get('script_file', '')
+            # 显示格式："模块名  -  script.py"
+            label = f"{info['name']}  —  {script}" if script else info['name']
+            self.combo_type.addItem(label)
             self._module_ids.append(mid)
 
         if not self._module_ids:
             self.combo_type.addItem("（无可用分析模块）")
+        else:
+            # 触发初始模块的描述及参数显示
+            self._on_type_changed(0)
+
+    def _build_desc_html(self, info: dict) -> str:
+        """将模块信息构建为富文本 HTML"""
+        desc = info.get('description', '').replace('\n', '<br>')
+        input_type = info.get('input_type', 'N/A').upper()
+        input_desc = info.get('input_description', '').replace('\n', '<br>')
+        output_type = info.get('output_type', 'N/A').upper()
+        script = info.get('script_file', '')
+
+        output_colors = {
+            'IMAGE': ('#E8F5E9', '#4CAF50', '#2E7D32', '#1B5E20'),
+            'CSV': ('#FFF8E1', '#FF8F00', '#E65100', '#BF360C'),
+            'EXCEL': ('#F3E5F5', '#9C27B0', '#6A1B9A', '#4A148C'),
+            'HTML': ('#FCE4EC', '#E91E63', '#880E4F', '#880E4F'),
+        }
+        oc = output_colors.get(output_type, ('#E3F2FD', '#2196F3', '#0D47A1', '#1565C0'))
+
+        script_html = ''
+        if script:
+            script_html = (
+                f"<div style='background:#F8F9FA; border-left:3px solid #9E9E9E; "
+                f"border-radius:3px; padding:4px 10px; margin:4px 0;'>"
+                f"<span style='color:#546E7A; font-size:11px;'>💻 脚本文件: "
+                f"<b>{script}</b></span></div>"
+            )
+
+        return (
+            f"<div style='font-family:\"Microsoft YaHei\",sans-serif; padding:4px 0;'>"
+            f"<p style='color:#1565C0; font-size:13px; font-weight:bold; margin:0 0 6px 0;'>"
+            f"📋 模块说明</p>"
+            f"<p style='color:#37474F; font-size:12px; line-height:1.65; margin:0 0 8px 0;'>"
+            f"{desc}</p>"
+            f"<div style='background:#E8F5E9; border-left:3px solid #4CAF50; "
+            f"border-radius:3px; padding:5px 10px; margin:3px 0;'>"
+            f"<span style='color:#2E7D32; font-weight:bold; font-size:12px;'>📂 输入格式: "
+            f"<span style='background:#C8E6C9; border-radius:3px; padding:1px 5px;'>{input_type}</span></span>"
+            f"<br><span style='color:#388E3C; font-size:11px;'>{input_desc}</span>"
+            f"</div>"
+            f"<div style='background:{oc[0]}; border-left:3px solid {oc[1]}; "
+            f"border-radius:3px; padding:5px 10px; margin:3px 0;'>"
+            f"<span style='color:{oc[2]}; font-weight:bold; font-size:12px;'>📊 输出格式: "
+            f"<span style='background:{oc[0]}; border-radius:3px; padding:1px 5px; "
+            f"color:{oc[3]};'>{output_type}</span></span>"
+            f"</div>"
+            f"{script_html}"
+            f"</div>"
+        )
 
     def _on_type_changed(self, index):
         """分析类型切换"""
@@ -141,13 +243,11 @@ class AnalysisPage(QWidget):
 
         info = mdata['info']
 
-        # 更新描述
-        self.lbl_description.setText(
-            f"{info.get('description', '')}\n\n"
-            f"输入格式: {info.get('input_type', 'N/A').upper()}\n"
-            f"{info.get('input_description', '')}\n\n"
-            f"输出格式: {info.get('output_type', 'N/A').upper()}"
-        )
+        # 更新描述（富文本 HTML）
+        self.txt_description.setHtml(self._build_desc_html(info))
+
+        # 更新参考结果面板
+        self._update_reference_panel(info)
 
         # 更新文件选择器过滤
         input_type = info.get('input_type', 'csv')
@@ -162,6 +262,64 @@ class AnalysisPage(QWidget):
         # 更新参数表单
         params = info.get('params', [])
         self.param_editor.set_params(params)
+
+    def _update_reference_panel(self, info: dict):
+        """根据模块信息更新参考结果面板"""
+        ref_img = info.get('reference_image', '')
+        ref_desc = info.get('reference_output_desc', '')
+
+        # 隐藏两个元素
+        self.ref_image_label.clear()
+        self.ref_image_label.hide()
+        self.ref_text_label.clear()
+        self.ref_text_label.hide()
+
+        if ref_img:
+            img_path = os.path.join(self.ASSETS_DIR, ref_img)
+            if os.path.exists(img_path):
+                pixmap = QPixmap(img_path)
+                # 自适应缩放：限制最大宽/高为 900x600
+                pixmap = pixmap.scaled(
+                    900, 600,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                self.ref_image_label.setPixmap(pixmap)
+                self.ref_image_label.show()
+                # 显示图片来源说明
+                script = info.get('script_file', '')
+                hint = f"参考图来自历史分析结果，对应脚本: {script}" if script else "参考图"
+                self.ref_text_label.setText(hint)
+                self.ref_text_label.setStyleSheet(
+                    "font-size: 11px; color: #888; padding: 4px 16px;"
+                )
+                self.ref_text_label.show()
+            else:
+                self.ref_text_label.setText(f"未找到参考图\n路径: {img_path}")
+                self.ref_text_label.setStyleSheet(
+                    "font-size: 12px; color: #999; padding: 24px;"
+                )
+                self.ref_text_label.show()
+        elif ref_desc:
+            script = info.get('script_file', '')
+            output_type = info.get('output_type', '').upper()
+            text = (
+                f"📄  输出类型: {output_type}\n\n"
+                f"📝  预期结果说明:\n{ref_desc}"
+            )
+            if script:
+                text += f"\n\n💻  对应脚本: {script}"
+            self.ref_text_label.setText(text)
+            self.ref_text_label.setStyleSheet(
+                "font-size: 13px; color: #444; padding: 24px; line-height: 1.8;"
+            )
+            self.ref_text_label.show()
+        else:
+            self.ref_text_label.setText("该模块暂无参考结果图")
+            self.ref_text_label.setStyleSheet(
+                "font-size: 12px; color: #aaa; padding: 24px;"
+            )
+            self.ref_text_label.show()
 
     def _on_execute(self):
         """执行分析"""
@@ -244,11 +402,12 @@ class AnalysisPage(QWidget):
         if status == 'success':
             self.progress.set_success()
 
-            # 显示图表
+            # 显示图表，并自动切换到"分析结果" Tab
             fig = result.get('figure')
             if fig:
                 self.plot_widget.display_figure(fig)
                 self.btn_export.setEnabled(True)
+                self.right_tabs.setCurrentIndex(1)  # 切到"分析结果"Tab
 
             output_path = result.get('output_path', '')
             if self._log_panel:

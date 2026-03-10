@@ -20,10 +20,15 @@ MODULE_INFO = {
     "input_description": "象限角度测试结果CSV（TL/TR/BL/BR），含 Yaw/Pitch/Result/ErrorCode/Delta 列。\n"
                          "可选择单文件或包含多个象限CSV的目录。",
     "output_type": "image",
+    "script_file": "degree_01_visualization.py",
+    "reference_image": "degree_01_visualization.png",
     "params": [
-        {"key": "yaw_range", "label": "Yaw轴范围", "type": "tuple", "default": (-42, 42)},
-        {"key": "pitch_range", "label": "Pitch轴范围", "type": "tuple", "default": (-42, 42)},
-        {"key": "dpi", "label": "输出DPI", "type": "int", "default": 180, "min": 72, "max": 600},
+        {"key": "yaw_range", "label": "Yaw轴范围", "type": "tuple", "default": (-42, 42),
+         "tooltip": "图表横轴(Yaw）的显示范围（度），默认覆盖设备全部可动角度"},
+        {"key": "pitch_range", "label": "Pitch轴范围", "type": "tuple", "default": (-42, 42),
+         "tooltip": "图表纵轴(Pitch)的显示范围（度），默认覆盖设备全部可动角度"},
+        {"key": "dpi", "label": "输出DPI", "type": "int", "default": 180, "min": 72, "max": 600,
+         "tooltip": "输出图片分辨率。\n72=屏幕浏览\n96-150=日常使用\n300=印刷质量\n600=极高清(文件较大)"},
     ],
 }
 

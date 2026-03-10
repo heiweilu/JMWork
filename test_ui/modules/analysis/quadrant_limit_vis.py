@@ -19,12 +19,18 @@ MODULE_INFO = {
     "input_type": "csv",
     "input_description": "角度测试结果CSV，需含 Yaw, Pitch, Result, WriteCoords 列",
     "output_type": "image",
+    "script_file": "quadrant_limit_vis.py",
+    "reference_image": "quadrant_limit_vis.png",
     "params": [
-        {"key": "screen_w", "label": "屏幕宽度", "type": "int", "default": 3839},
-        {"key": "screen_h", "label": "屏幕高度", "type": "int", "default": 2159},
+        {"key": "screen_w", "label": "屏幕宽度", "type": "int", "default": 3839,
+         "tooltip": "屏幕水平分辨率（像素），4K屏幕为 3840，通常设为 3839（坐标最大索引）"},
+        {"key": "screen_h", "label": "屏幕高度", "type": "int", "default": 2159,
+         "tooltip": "屏幕垂直分辨率（像素），4K屏幕为 2160，通常设为 2159（坐标最大索引）"},
         {"key": "corner_ratio", "label": "四角范围比例", "type": "float", "default": 0.40,
-         "min": 0.1, "max": 1.0, "decimals": 2},
-        {"key": "dpi", "label": "输出DPI", "type": "int", "default": 120, "min": 72, "max": 600},
+         "min": 0.1, "max": 1.0, "decimals": 2,
+         "tooltip": "定义屏幕四角区域的占屏幕比例\n0.4 = 屏幕宽高䁀10%区域\n影响坐标范围判断标准"},
+        {"key": "dpi", "label": "输出DPI", "type": "int", "default": 120, "min": 72, "max": 600,
+         "tooltip": "输出图片分辨率。\n72=屏幕浏览\n96-150=日常使用\n300=印刷质量"},
     ],
 }
 

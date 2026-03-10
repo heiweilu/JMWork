@@ -20,6 +20,8 @@ MODULE_INFO = {
     "input_type": "csv",
     "input_description": "角度测试结果CSV，需含列: VerticalAngle(Yaw), HorizontalAngle(Pitch), Result",
     "output_type": "excel",
+    "script_file": "angle_boundary_stats.py",
+    "reference_output_desc": "输出Excel报表，包含各角度点的Pass/Fail统计、边界角度分布、单角度确认表、组合角度边界表。",
     "params": [],
 }
 

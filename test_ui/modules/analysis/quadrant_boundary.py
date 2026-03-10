@@ -20,6 +20,8 @@ MODULE_INFO = {
     "input_type": "csv",
     "input_description": "角度测试结果CSV，需含 Yaw, Pitch, Result 列",
     "output_type": "csv",
+    "script_file": "quadrant_boundary.py",
+    "reference_output_desc": "输出CSV文件，每个象限对应一个文件，提取各象限边界坐标点（Yaw_min/max、Pitch_min/max）用于后续可视化分析。",
     "params": [],
 }
 
