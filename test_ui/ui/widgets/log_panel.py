@@ -14,12 +14,12 @@ from datetime import datetime
 
 # 日志级别颜色映射
 LEVEL_COLORS = {
-    'DEBUG':    '#888888',
-    'INFO':     '#D4D4D4',
-    'SUCCESS':  '#4EC94E',
-    'WARNING':  '#E5C07B',
-    'ERROR':    '#E06C75',
-    'CRITICAL': '#FF0000',
+    'DEBUG':    '#8091A9',
+    'INFO':     '#4B6387',
+    'SUCCESS':  '#17A673',
+    'WARNING':  '#D38B14',
+    'ERROR':    '#E0566B',
+    'CRITICAL': '#C62828',
 }
 
 
@@ -48,18 +48,18 @@ class LogPanel(QWidget):
         self.text_edit.setFont(QFont('Consolas', 10))
         self.text_edit.setStyleSheet("""
             QTextEdit {
-                background-color: #161A22;
-                color: #CFD8DC;
-                border: 1px solid #2B3342;
-                border-radius: 8px;
+                background-color: #FFFFFF;
+                color: #35517A;
+                border: 1px solid rgba(97, 128, 171, 0.18);
+                border-radius: 12px;
                 padding: 6px;
-                selection-background-color: #3498DB;
+                selection-background-color: rgba(79, 140, 255, 0.22);
             }
             QTextEdit QScrollBar:vertical {
                 background: transparent; width: 6px; margin: 0px;
             }
             QTextEdit QScrollBar::handle:vertical {
-                background: #4A5568; border-radius: 3px;
+                background: rgba(144, 177, 221, 0.9); border-radius: 3px;
             }
         """)
         self.text_edit.setMinimumHeight(80)
@@ -68,25 +68,25 @@ class LogPanel(QWidget):
         # 日志面板局部暗色样式
         self.setStyleSheet("""
             QPushButton {
-                background-color: #2A303C;
-                color: #A0AAB2;
-                border: 1px solid #3B4252;
-                border-radius: 4px;
+                background-color: #F4F8FF;
+                color: #53719E;
+                border: 1px solid rgba(97, 128, 171, 0.14);
+                border-radius: 8px;
                 padding: 4px 10px;
                 min-height: 24px;
             }
             QPushButton:hover {
-                background-color: #3B4252;
-                color: #FFFFFF;
-                border: 1px solid #4C566A;
+                background-color: #EAF2FF;
+                color: #2458C5;
+                border: 1px solid rgba(79, 140, 255, 0.22);
             }
             QPushButton:pressed {
-                background-color: #4C566A;
+                background-color: #DDEBFF;
             }
             QPushButton:disabled {
                 background-color: transparent;
                 border: none;
-                color: #4C566A;
+                color: #99AAC2;
             }
         """)
 

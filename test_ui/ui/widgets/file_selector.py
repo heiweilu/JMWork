@@ -56,7 +56,7 @@ class FileSelector(QWidget):
         # 标签行
         if label:
             lbl = QLabel(label)
-            lbl.setStyleSheet("font-weight: bold; color: #333;")
+            lbl.setStyleSheet("font-weight: bold; color: #2E538D;")
             main_layout.addWidget(lbl)
 
         # 输入框 + 按钮行
@@ -96,7 +96,7 @@ class FileSelector(QWidget):
         if description:
             hint_text = f"{description}\n{hint_text}"
         desc_label = QLabel(hint_text)
-        desc_label.setStyleSheet("color: #888; font-size: 11px;")
+        desc_label.setStyleSheet("color: #87A0C3; font-size: 11px;")
         desc_label.setWordWrap(True)
         main_layout.addWidget(desc_label)
 
@@ -114,9 +114,15 @@ class FileSelector(QWidget):
     def _on_text_changed(self, text: str):
         """输入框文字改变"""
         if os.path.exists(text):
-            self.path_edit.setStyleSheet("border: 1px solid #4EC94E;")
+            self.path_edit.setStyleSheet(
+                "border: 1px solid rgba(73, 205, 171, 0.9);"
+                "background-color: rgba(244, 255, 252, 0.95);"
+            )
         elif text.strip():
-            self.path_edit.setStyleSheet("border: 1px solid #E06C75;")
+            self.path_edit.setStyleSheet(
+                "border: 1px solid rgba(244, 108, 122, 0.82);"
+                "background-color: rgba(255, 247, 248, 0.96);"
+            )
         else:
             self.path_edit.setStyleSheet("")
         self.file_selected.emit(text.strip())

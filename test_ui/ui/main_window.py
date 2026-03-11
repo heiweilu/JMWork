@@ -2,12 +2,13 @@
 """
 主窗口
 
-布局: 左侧导航栏 + 右侧 QStackedWidget 页面区 + 底部日志面板
+布局: 左侧导航栏 + 中间页面区 + 右侧可隐藏日志面板
 """
 
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                               QListWidget, QListWidgetItem, QStackedWidget,
-                              QSplitter, QStatusBar, QMessageBox, QFrame)
+                              QSplitter, QStatusBar, QMessageBox, QFrame,
+                              QLabel, QPushButton)
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QIcon, QFont
 
@@ -44,6 +45,10 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._config_mgr = config_mgr
         self._current_animation = None  # 初始化，避免 hasattr 检查
+        self._log_panel_animation = None
+        self._log_fade_animation = None
+        self._log_panel_visible = True
+        self._last_log_width = 360
         self.setWindowTitle("DLP 自动化测试系统")
         self.setMinimumSize(1200, 750)
         self.resize(1400, 900)
@@ -88,8 +93,8 @@ class MainWindow(QMainWindow):
         right_layout.setContentsMargins(10, 10, 10, 10)
         right_layout.setSpacing(10)
 
-        # 上下分割: 页面 + 日志
-        self.splitter = QSplitter(Qt.Orientation.Vertical)
+        # 左右分割: 页面 + 日志
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
         
         # 页面堆栈容器 — 用 CSS 模拟卡片阴影效果，不用 QGraphicsEffect
         # （QGraphicsDropShadowEffect 会把整个容器放入离屏缓冲区，
@@ -98,13 +103,24 @@ class MainWindow(QMainWindow):
         self.page_stack_container.setObjectName("page_stack_container")
         self.page_stack_container.setStyleSheet(
             "QFrame#page_stack_container { "
-            "background-color: #FFFFFF; "
-            "border-radius: 12px; "
-            "border: 1px solid rgba(0,0,0,0.08); "
+            "background-color: rgba(255, 255, 255, 0.92); "
+            "border-radius: 14px; "
+            "border: 1px solid rgba(106, 168, 255, 0.12); "
             "}")
         
         container_layout = QVBoxLayout(self.page_stack_container)
         container_layout.setContentsMargins(15, 15, 15, 15)
+        container_layout.setSpacing(10)
+
+        page_glow_wrap = QHBoxLayout()
+        page_glow_wrap.setContentsMargins(0, 0, 0, 0)
+        self._page_glow_bar = QFrame()
+        self._page_glow_bar.setObjectName("card_top_glow")
+        self._page_glow_bar.setFixedHeight(4)
+        self._page_glow_bar.setMaximumWidth(160)
+        page_glow_wrap.addWidget(self._page_glow_bar)
+        page_glow_wrap.addStretch(1)
+        container_layout.addLayout(page_glow_wrap)
 
         # 页面堆栈
         self.page_stack = QStackedWidget()
@@ -113,19 +129,52 @@ class MainWindow(QMainWindow):
         # 日志面板容器 — 同样用 CSS，不用 QGraphicsEffect
         self.log_panel_container = QFrame()
         self.log_panel_container.setObjectName("log_panel_container")
+        self.log_panel_container.setMinimumWidth(300)
         self.log_panel_container.setStyleSheet(
             "QFrame#log_panel_container { "
-            "background-color: #1E222D; "
-            "border-radius: 10px; "
-            "border: 1px solid rgba(0,0,0,0.15); "
+            "background-color: rgba(255, 255, 255, 0.88); "
+            "border-radius: 14px; "
+            "border: 1px solid rgba(106, 168, 255, 0.14); "
             "}")
         
         log_layout = QVBoxLayout(self.log_panel_container)
-        log_layout.setContentsMargins(5, 5, 5, 5)
+        log_layout.setContentsMargins(10, 10, 10, 10)
+        log_layout.setSpacing(8)
+
+        log_glow_wrap = QHBoxLayout()
+        log_glow_wrap.setContentsMargins(0, 0, 0, 0)
+        self._log_glow_bar = QFrame()
+        self._log_glow_bar.setObjectName("log_top_glow")
+        self._log_glow_bar.setFixedHeight(4)
+        self._log_glow_bar.setMaximumWidth(120)
+        log_glow_wrap.addWidget(self._log_glow_bar)
+        log_glow_wrap.addStretch(1)
+        log_layout.addLayout(log_glow_wrap)
+
+        log_header = QFrame()
+        log_header.setObjectName("log_dock_header")
+        log_header_layout = QHBoxLayout(log_header)
+        log_header_layout.setContentsMargins(10, 8, 10, 8)
+
+        log_title = QLabel("系统日志中心")
+        log_title.setObjectName("log_dock_title")
+        log_header_layout.addWidget(log_title)
+        log_header_layout.addStretch(1)
+
+        self._btn_toggle_log = QPushButton("隐藏")
+        self._btn_toggle_log.setObjectName("btn_log_toggle")
+        self._btn_toggle_log.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_toggle_log.clicked.connect(self._toggle_log_panel)
+        log_header_layout.addWidget(self._btn_toggle_log)
+
+        log_layout.addWidget(log_header)
 
         # 日志面板
         self.log_panel = LogPanel()
         log_layout.addWidget(self.log_panel)
+
+        UIAnimator.add_soft_shadow(self.page_stack_container, blur_radius=32, x_offset=0, y_offset=8, alpha=18)
+        UIAnimator.add_soft_shadow(self.log_panel_container, blur_radius=26, x_offset=0, y_offset=8, alpha=15)
 
         # 创建各页面
         self.analysis_page = AnalysisPage(
@@ -158,13 +207,16 @@ class MainWindow(QMainWindow):
         self.splitter.addWidget(self.log_panel_container)
         self.splitter.setHandleWidth(8)
 
-        # 设置分割比例 (页面区 : 日志区 = 7 : 2)
+        # 设置分割比例 (页面区 : 日志区 = 5 : 2)
         self.splitter.setStretchFactor(0, 7)
         self.splitter.setStretchFactor(1, 2)
-        self.splitter.setSizes([600, 150])
+        self.splitter.setSizes([980, self._last_log_width])
 
         right_layout.addWidget(self.splitter)
         main_layout.addWidget(right_panel)
+
+        for button in self.findChildren(QPushButton):
+            UIAnimator.install_button_hover(button)
 
     def _init_status_bar(self):
         """初始化状态栏"""
@@ -172,27 +224,63 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("就绪")
 
+        self._status_toggle_log = QPushButton("收起日志")
+        self._status_toggle_log.setObjectName("btn_status_log_toggle")
+        self._status_toggle_log.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._status_toggle_log.clicked.connect(self._toggle_log_panel)
+        self.status_bar.addPermanentWidget(self._status_toggle_log)
+        UIAnimator.install_button_hover(self._status_toggle_log)
+
         # 全局进度条
         self.global_progress = ProgressWidget()
         self.status_bar.addPermanentWidget(self.global_progress)
 
-    def _on_nav_changed(self, index: int):
-        """导航切换（直接切换，不使用 GraphicsEffect 动画，避免离屏缓冲导致重叠）"""
-        if 0 <= index < self.page_stack.count():
-            # 清理残留动画引用
-            if self._current_animation is not None:
-                try:
-                    self._current_animation.stop()
-                except RuntimeError:
-                    pass
-                self._current_animation = None
-                # 清除可能残留的 effect
-                for i in range(self.page_stack.count()):
-                    w = self.page_stack.widget(i)
-                    if w is not None:
-                        w.setGraphicsEffect(None)
+    def _toggle_log_panel(self):
+        """切换右侧日志面板显示状态"""
+        sizes = self.splitter.sizes()
+        if self._log_panel_visible:
+            if len(sizes) > 1 and sizes[1] > 0:
+                self._last_log_width = sizes[1]
+            current_width = max(self.log_panel_container.width(), self._last_log_width)
+            self.log_panel_container.setMinimumWidth(0)
+            self._log_panel_animation = UIAnimator.animate_width(
+                self.log_panel_container, current_width, 0, duration=220)
 
+            def _finish_hide():
+                self.log_panel_container.hide()
+                self.splitter.setSizes([sum(self.splitter.sizes()), 0])
+                self.log_panel_container.setMaximumWidth(16777215)
+
+            self._log_panel_animation.finished.connect(_finish_hide)
+            self._btn_toggle_log.setText("展开")
+            self._status_toggle_log.setText("展开日志")
+            self._log_panel_visible = False
+        else:
+            target_width = max(300, self._last_log_width)
+            self.log_panel_container.show()
+            self.log_panel_container.setMinimumWidth(0)
+            self.log_panel_container.setMaximumWidth(0)
+            total = max(self.width() - 220, 900)
+            self.splitter.setSizes([max(620, total - target_width), target_width])
+            self._log_panel_animation = UIAnimator.animate_width(
+                self.log_panel_container, 0, target_width, duration=260)
+
+            def _finish_show():
+                self.log_panel_container.setMaximumWidth(16777215)
+                self.log_panel_container.setMinimumWidth(300)
+
+            self._log_panel_animation.finished.connect(_finish_show)
+            self._log_fade_animation = UIAnimator.fade_in(self.log_panel_container, duration=220)
+            UIAnimator.pulse_widget(self._log_glow_bar, duration=260)
+            self._btn_toggle_log.setText("隐藏")
+            self._status_toggle_log.setText("收起日志")
+            self._log_panel_visible = True
+
+    def _on_nav_changed(self, index: int):
+        """导航切换。"""
+        if 0 <= index < self.page_stack.count():
             self.page_stack.setCurrentIndex(index)
+            self._current_animation = UIAnimator.pulse_widget(self._page_glow_bar, duration=240)
 
             name = NAV_ITEMS[index]['name'] if index < len(NAV_ITEMS) else ''
             self.status_bar.showMessage(f"当前: {name}")

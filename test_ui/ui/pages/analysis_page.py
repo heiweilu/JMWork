@@ -58,7 +58,9 @@ class AnalysisPage(QWidget):
         self.txt_description.setFrameShape(QFrame.Shape.NoFrame)
         self.txt_description.setFixedHeight(150)
         self.txt_description.setStyleSheet(
-            "QTextBrowser { background: transparent; border: none; }"
+            "QTextBrowser { background: rgba(248, 251, 255, 0.72);"
+            "border: 1px solid rgba(123, 168, 228, 0.10);"
+            "border-radius: 12px; padding: 8px; }"
         )
         type_layout.addWidget(self.txt_description)
         left_layout.addWidget(type_group)
@@ -129,7 +131,7 @@ class AnalysisPage(QWidget):
         self.right_tabs = QTabWidget()
         self.right_tabs.setStyleSheet(
             "QTabBar::tab { padding: 6px 18px; font-size: 12px; }"
-            "QTabBar::tab:selected { font-weight: bold; color: #1565C0; }"
+            "QTabBar::tab:selected { font-weight: bold; color: #2A64D6; }"
         )
 
         # Tab0: 参考结果
@@ -146,7 +148,7 @@ class AnalysisPage(QWidget):
         self.ref_text_label.setWordWrap(True)
         self.ref_text_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self.ref_text_label.setStyleSheet(
-            "font-size: 13px; color: #444; padding: 16px; line-height: 1.8;"
+            "font-size: 13px; color: #4B6387; padding: 16px; line-height: 1.8;"
         )
         self.ref_layout.addWidget(self.ref_image_label)
         self.ref_layout.addWidget(self.ref_text_label)

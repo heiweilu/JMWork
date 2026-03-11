@@ -46,12 +46,15 @@ class TestPage(QWidget):
         conn_group.setStyleSheet("""
             QGroupBox {
                 font-size: 14px; font-weight: bold;
-                border: 1px solid #ddd; border-radius: 8px;
+                color: #294469;
+                background-color: #FBFDFF;
+                border: 1px solid rgba(79, 140, 255, 0.14); border-radius: 12px;
                 margin-top: 10px; padding-top: 18px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 12px; padding: 0 6px;
+                color: #2A64D6;
             }
         """)
         conn_layout = QHBoxLayout(conn_group)
@@ -65,7 +68,7 @@ class TestPage(QWidget):
 
         # 设备信息
         self._device_label = QLabel("未连接")
-        self._device_label.setStyleSheet("color: #666; font-size: 13px;")
+        self._device_label.setStyleSheet("color: #617A9D; font-size: 13px;")
         conn_layout.addWidget(self._device_label, 1)
 
         # 连接/断开按钮
@@ -116,7 +119,7 @@ class TestPage(QWidget):
         main_layout.addWidget(conn_group)
 
         # ========== 2. 主内容区 ==========
-        content_splitter = QSplitter(Qt.Orientation.Horizontal)
+        content_splitter = QSplitter(Qt.Orientation.Vertical)
 
         # ---- 左侧: 测试配置 ----
         left_panel = QWidget()
@@ -142,11 +145,12 @@ class TestPage(QWidget):
         self._desc_browser.setOpenExternalLinks(False)
         self._desc_browser.setStyleSheet("""
             QTextBrowser {
-                background-color: #F8F9FA;
-                border: 1px solid #E0E0E0;
-                border-radius: 6px;
+                background-color: #F8FBFF;
+                border: 1px solid rgba(79, 140, 255, 0.12);
+                border-radius: 12px;
                 padding: 8px;
                 font-size: 12px;
+                color: #294469;
             }
         """)
         left_layout.addWidget(self._desc_browser)
@@ -182,7 +186,7 @@ class TestPage(QWidget):
         out_group = QGroupBox("输出目录")
         out_layout = QHBoxLayout(out_group)
         self._output_label = QLabel("")
-        self._output_label.setStyleSheet("color: #555; font-size: 12px;")
+        self._output_label.setStyleSheet("color: #617A9D; font-size: 12px;")
         self._output_label.setWordWrap(True)
         out_layout.addWidget(self._output_label, 1)
         btn_browse = QPushButton("浏览")
@@ -248,48 +252,52 @@ class TestPage(QWidget):
 
         content_splitter.addWidget(left_scroll)
 
-        # ---- 右侧: 实时日志 ----
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
+        # ---- 底部: 实时日志 ----
+        bottom_panel = QWidget()
+        bottom_layout = QVBoxLayout(bottom_panel)
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_layout.setSpacing(8)
 
         log_header = QLabel("📋 测试日志")
-        log_header.setStyleSheet("font-size: 14px; font-weight: bold; color: #333;")
-        right_layout.addWidget(log_header)
+        log_header.setStyleSheet("font-size: 14px; font-weight: bold; color: #32598E;")
+        bottom_layout.addWidget(log_header)
 
         self._log_browser = QTextBrowser()
         self._log_browser.setStyleSheet("""
             QTextBrowser {
-                background-color: #1E222D;
-                color: #C8D6E5;
+                background-color: #FFFFFF;
+                color: #35517A;
                 font-family: 'Consolas', 'Courier New', monospace;
                 font-size: 12px;
-                border: 1px solid #333;
-                border-radius: 6px;
+                border: 1px solid rgba(79, 140, 255, 0.14);
+                border-radius: 12px;
                 padding: 8px;
             }
         """)
-        right_layout.addWidget(self._log_browser)
+        self._log_browser.setMinimumHeight(180)
+        bottom_layout.addWidget(self._log_browser, 1)
 
         # 结果摘要
         self._result_label = QLabel("")
         self._result_label.setWordWrap(True)
         self._result_label.setStyleSheet("""
             QLabel {
-                background-color: #F0F0F0;
-                border-radius: 6px;
+                background-color: #F8FBFF;
+                color: #294469;
+                border: 1px solid rgba(79, 140, 255, 0.12);
+                border-radius: 12px;
                 padding: 10px;
                 font-size: 13px;
             }
         """)
         self._result_label.setVisible(False)
-        right_layout.addWidget(self._result_label)
+        bottom_layout.addWidget(self._result_label)
 
-        content_splitter.addWidget(right_panel)
+        content_splitter.addWidget(bottom_panel)
         content_splitter.setChildrenCollapsible(False)
-        content_splitter.setStretchFactor(0, 5)
-        content_splitter.setStretchFactor(1, 5)
-        content_splitter.setSizes([680, 680])
+        content_splitter.setStretchFactor(0, 7)
+        content_splitter.setStretchFactor(1, 3)
+        content_splitter.setSizes([620, 250])
 
         main_layout.addWidget(content_splitter, 1)
 
@@ -354,13 +362,13 @@ class TestPage(QWidget):
 
         html = f"""
         <div style="font-family: 'Microsoft YaHei'; line-height: 1.6;">
-            <div style="color: #2D3436; font-size: 13px; margin-bottom: 8px;">{desc}</div>
+            <div style="color: #294469; font-size: 13px; margin-bottom: 8px;">{desc}</div>
             <div style="margin-top: 6px;">
-                <span style="background: #DFE6E9; color: #2D3436; padding: 2px 8px;
+                <span style="background: #EEF5FF; color: #3561A8; padding: 2px 8px;
                        border-radius: 4px; font-size: 11px;">
                     📥 输入: {inp or '无'}
                 </span>
-                <span style="background: #DFE6E9; color: #2D3436; padding: 2px 8px;
+                <span style="background: #EEF5FF; color: #3561A8; padding: 2px 8px;
                        border-radius: 4px; font-size: 11px; margin-left: 6px;">
                     📤 输出: {out_type.upper()}
                 </span>
