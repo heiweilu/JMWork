@@ -265,13 +265,28 @@ class TestPage(QWidget):
         self._log_browser = QTextBrowser()
         self._log_browser.setStyleSheet("""
             QTextBrowser {
-                background-color: #FFFFFF;
-                color: #35517A;
+                background-color: #0D1117;
+                color: #C8D6E5;
                 font-family: 'Consolas', 'Courier New', monospace;
                 font-size: 12px;
-                border: 1px solid rgba(79, 140, 255, 0.14);
+                border: 1px solid rgba(56, 139, 253, 0.25);
                 border-radius: 12px;
                 padding: 8px;
+            }
+            QScrollBar:vertical {
+                background: #161B22;
+                width: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background: #30363D;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #484F58;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
             }
         """)
         self._log_browser.setMinimumHeight(180)

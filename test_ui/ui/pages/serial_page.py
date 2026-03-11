@@ -55,6 +55,70 @@ _CUSTOM_CMDS_PATH = os.path.join(
     'config', 'serial_quick_cmds.json'
 )
 
+# ──────────────── 主题配色 ────────────────
+_DARK = {
+    'bar_bg':        '#1E222D',
+    'bar_label':     '#8A98A5',
+    'combo_bg':      '#2A303C',
+    'combo_text':    '#FFFFFF',
+    'terminal_bg':   '#0D1117',
+    'terminal_text': '#C9D1D9',
+    'terminal_bdr':  '#30363D',
+    'terminal_sel':  '#264F78',
+    'input_bg':      '#161B22',
+    'input_text':    '#C9D1D9',
+    'input_bdr':     '#30363D',
+    'input_focus':   '#388BFD',
+    'nl_bg':         '#161B22',
+    'nl_text':       '#cccccc',
+    'nl_bdr':        '#30363D',
+    'rx':            '#C9D1D9',
+    'tx':            '#56D364',
+    'sys':           '#F0C040',
+    'sys_err':       '#FF6B6B',
+    'scroll_bg':     '#0D1117',
+    'grp_bg':        '#161B22',
+    'grp_bdr':       '#30363D',
+    'grp_title':     '#7A8895',
+    'btn_bg':        '#1C2128',
+    'btn_text':      '#C9D1D9',
+    'btn_bdr':       '#30363D',
+    'btn_hover':     '#21262D',
+    'btn_hover_bdr': '#58A6FF',
+    'util_lbl':      '#546E7A',
+}
+_LIGHT = {
+    'bar_bg':        '#DDE6F0',
+    'bar_label':     '#475569',
+    'combo_bg':      '#FFFFFF',
+    'combo_text':    '#1E293B',
+    'terminal_bg':   '#FAFBFC',
+    'terminal_text': '#24292F',
+    'terminal_bdr':  '#C8D1DB',
+    'terminal_sel':  '#B6D7FF',
+    'input_bg':      '#FFFFFF',
+    'input_text':    '#24292F',
+    'input_bdr':     '#C8D1DB',
+    'input_focus':   '#0969DA',
+    'nl_bg':         '#F6F8FA',
+    'nl_text':       '#24292F',
+    'nl_bdr':        '#C8D1DB',
+    'rx':            '#1F2328',
+    'tx':            '#0550AE',
+    'sys':           '#7D4E00',
+    'sys_err':       '#CF222E',
+    'scroll_bg':     '#EEF2F7',
+    'grp_bg':        '#FFFFFF',
+    'grp_bdr':       '#C8D1DB',
+    'grp_title':     '#475569',
+    'btn_bg':        '#F0F4F8',
+    'btn_text':      '#1E293B',
+    'btn_bdr':       '#C8D1DB',
+    'btn_hover':     '#E2EAF4',
+    'btn_hover_bdr': '#0969DA',
+    'util_lbl':      '#475569',
+}
+
 # ──────────────── 默认自定义命令 ────────────────
 _DEFAULT_CUSTOM_CMDS = [
     {"name": "打印GM调试日志",     "cmd": "logcat | grep GM_DISP_DBG"},
@@ -134,6 +198,13 @@ class SerialPage(QWidget):
         self._auto_scroll = True
         self._log_lines = []            # 纯文本日志缓存
         self._custom_cmds = self._load_custom_cmds()
+        # 主题状态
+        self._dark_mode = True
+        self._rx_color    = _DARK['rx']
+        self._tx_color    = _DARK['tx']
+        self._sys_color   = _DARK['sys']
+        self._sys_err_color = _DARK['sys_err']
+        self._port_bar_labels = []   # 端口栏标签引用（主题更新用）
         self._init_ui()
         self._refresh_ports()
 
@@ -166,49 +237,47 @@ class SerialPage(QWidget):
         term_layout.addWidget(self._build_input_bar())
 
         # 右：快捷指令区
-        right_scroll = QScrollArea()
-        right_scroll.setWidgetResizable(True)
-        right_scroll.setMinimumWidth(300)
-        right_scroll.setMaximumWidth(380)
-        right_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        right_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._right_scroll = QScrollArea()
+        self._right_scroll.setWidgetResizable(True)
+        self._right_scroll.setMinimumWidth(300)
+        self._right_scroll.setMaximumWidth(380)
+        self._right_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._right_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         right_content = self._build_quick_panel()
-        right_scroll.setWidget(right_content)
+        self._right_scroll.setWidget(right_content)
 
         splitter.addWidget(terminal_widget)
-        splitter.addWidget(right_scroll)
+        splitter.addWidget(self._right_scroll)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 0)
         main_layout.addWidget(splitter, stretch=1)
 
+        self._apply_theme()  # 所有控件创建完毕后初始化样式
+
     def _build_port_bar(self) -> QWidget:
         bar = QFrame()
         bar.setObjectName("port_bar")
-        bar.setStyleSheet(
-            "QFrame#port_bar { background: #1E222D; border-radius: 8px; padding: 4px; }"
-        )
+        self._port_bar = bar
         layout = QHBoxLayout(bar)
         layout.setContentsMargins(10, 6, 10, 6)
         layout.setSpacing(8)
 
         def _lbl(text):
             l = QLabel(text)
-            l.setStyleSheet("color:#8A98A5; font-size:12px;")
+            self._port_bar_labels.append(l)
             return l
 
         # 串口号
         layout.addWidget(_lbl("端口:"))
         self.combo_port = QComboBox()
         self.combo_port.setMinimumWidth(90)
-        self.combo_port.setStyleSheet("color:#fff; background:#2A303C;")
         layout.addWidget(self.combo_port)
 
-        btn_refresh = QToolButton()
-        btn_refresh.setText("🔄")
-        btn_refresh.setToolTip("刷新可用串口列表")
-        btn_refresh.clicked.connect(self._refresh_ports)
-        btn_refresh.setStyleSheet("color:#fff; background:#2A303C; border:none; font-size:14px; padding:2px 4px;")
-        layout.addWidget(btn_refresh)
+        self._btn_refresh = QToolButton()
+        self._btn_refresh.setText("🔄")
+        self._btn_refresh.setToolTip("刷新可用串口列表")
+        self._btn_refresh.clicked.connect(self._refresh_ports)
+        layout.addWidget(self._btn_refresh)
 
         # 波特率
         layout.addWidget(_lbl("波特率:"))
@@ -216,7 +285,6 @@ class SerialPage(QWidget):
         for b in ["9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600"]:
             self.combo_baud.addItem(b)
         self.combo_baud.setCurrentText("115200")
-        self.combo_baud.setStyleSheet("color:#fff; background:#2A303C;")
         layout.addWidget(self.combo_baud)
 
         # 数据位
@@ -225,21 +293,18 @@ class SerialPage(QWidget):
         for d in ["5", "6", "7", "8"]:
             self.combo_data.addItem(d)
         self.combo_data.setCurrentText("8")
-        self.combo_data.setStyleSheet("color:#fff; background:#2A303C;")
         layout.addWidget(self.combo_data)
 
         # 校验位
         layout.addWidget(_lbl("校验:"))
         self.combo_parity = QComboBox()
         self.combo_parity.addItems(["None", "Even", "Odd", "Mark", "Space"])
-        self.combo_parity.setStyleSheet("color:#fff; background:#2A303C;")
         layout.addWidget(self.combo_parity)
 
         # 停止位
         layout.addWidget(_lbl("停止位:"))
         self.combo_stop = QComboBox()
         self.combo_stop.addItems(["1", "1.5", "2"])
-        self.combo_stop.setStyleSheet("color:#fff; background:#2A303C;")
         layout.addWidget(self.combo_stop)
 
         layout.addStretch()
@@ -247,19 +312,21 @@ class SerialPage(QWidget):
         # 自动滚动
         self.chk_autoscroll = QCheckBox("自动滚动")
         self.chk_autoscroll.setChecked(True)
-        self.chk_autoscroll.setStyleSheet("color:#8A98A5; font-size:12px;")
         self.chk_autoscroll.toggled.connect(lambda v: setattr(self, '_auto_scroll', v))
         layout.addWidget(self.chk_autoscroll)
 
         # 清空
-        btn_clear = QPushButton("清空")
-        btn_clear.setFixedWidth(52)
-        btn_clear.setStyleSheet(
-            "QPushButton{color:#ccc;background:#2A303C;border:1px solid #444;border-radius:4px;padding:3px 6px;}"
-            "QPushButton:hover{background:#3A404C;}"
-        )
-        btn_clear.clicked.connect(self._on_clear)
-        layout.addWidget(btn_clear)
+        self._btn_clear = QPushButton("清空")
+        self._btn_clear.setFixedWidth(52)
+        self._btn_clear.clicked.connect(self._on_clear)
+        layout.addWidget(self._btn_clear)
+
+        # 主题切换
+        self._btn_theme = QToolButton()
+        self._btn_theme.setToolTip("切换浅色/深色主题")
+        self._btn_theme.setFixedWidth(32)
+        self._btn_theme.clicked.connect(self._toggle_theme)
+        layout.addWidget(self._btn_theme)
 
         # 连接/断开
         self.btn_connect = QPushButton("  连接  ")
@@ -269,7 +336,6 @@ class SerialPage(QWidget):
 
         # 状态指示
         self.lbl_status = QLabel("● 未连接")
-        self.lbl_status.setStyleSheet("color:#E74C3C; font-size:12px; font-weight:bold;")
         layout.addWidget(self.lbl_status)
 
         return bar
@@ -278,16 +344,6 @@ class SerialPage(QWidget):
         self.terminal = QTextEdit()
         self.terminal.setReadOnly(True)
         self.terminal.setFont(QFont("Consolas", 10))
-        self.terminal.setStyleSheet(
-            "QTextEdit {"
-            "  background-color: #0D1117;"
-            "  color: #C9D1D9;"
-            "  border: 1px solid #30363D;"
-            "  border-radius: 6px;"
-            "  padding: 6px;"
-            "  selection-background-color: #264F78;"
-            "}"
-        )
         self.terminal.setMinimumHeight(300)
         return self.terminal
 
@@ -301,11 +357,6 @@ class SerialPage(QWidget):
         self.input_line.setPlaceholderText("输入指令，按 Enter 发送...")
         self.input_line.setFont(QFont("Consolas", 10))
         self.input_line.returnPressed.connect(self._on_send)
-        self.input_line.setStyleSheet(
-            "QLineEdit{background:#161B22;color:#C9D1D9;border:1px solid #30363D;"
-            "border-radius:6px;padding:6px 10px;}"
-            "QLineEdit:focus{border:1px solid #388BFD;}"
-        )
         layout.addWidget(self.input_line, stretch=1)
 
         # 换行模式（发送时带 \r\n 还是只 \n）
@@ -314,24 +365,18 @@ class SerialPage(QWidget):
         self.combo_newline.setCurrentText("\\r\\n")
         self.combo_newline.setToolTip("发送时附加的换行符")
         self.combo_newline.setFixedWidth(64)
-        self.combo_newline.setStyleSheet("color:#ccc;background:#161B22;border:1px solid #30363D;border-radius:6px;padding:2px;")
         layout.addWidget(self.combo_newline)
 
-        btn_send = QPushButton("发送")
-        btn_send.setObjectName("btn_primary")
-        btn_send.setFixedWidth(60)
-        btn_send.clicked.connect(self._on_send)
-        layout.addWidget(btn_send)
+        self._btn_send = QPushButton("发送")
+        self._btn_send.setObjectName("btn_primary")
+        self._btn_send.setFixedWidth(60)
+        self._btn_send.clicked.connect(self._on_send)
+        layout.addWidget(self._btn_send)
 
-        btn_log = QPushButton("💾 下载日志")
-        btn_log.setToolTip("将终端内容保存为 .log 文件")
-        btn_log.clicked.connect(self._on_save_log)
-        btn_log.setStyleSheet(
-            "QPushButton{color:#ccc;background:#1C2128;border:1px solid #30363D;"
-            "border-radius:6px;padding:5px 10px;}"
-            "QPushButton:hover{background:#2D333B;border-color:#58A6FF;}"
-        )
-        layout.addWidget(btn_log)
+        self._btn_log = QPushButton("💾 下载日志")
+        self._btn_log.setToolTip("将终端内容保存为 .log 文件")
+        self._btn_log.clicked.connect(self._on_save_log)
+        layout.addWidget(self._btn_log)
 
         return bar
 
@@ -636,6 +681,7 @@ class SerialPage(QWidget):
             self._reader_thread = None
 
     def _set_connected(self, connected: bool):
+        self._connected = connected
         if connected:
             self.btn_connect.setText("  断开  ")
             self.btn_connect.setObjectName("btn_danger")
@@ -671,7 +717,7 @@ class SerialPage(QWidget):
             for line_bytes in lines[:-1]:
                 line = line_bytes.decode('utf-8', errors='replace')
                 if line:  # 跳过空行
-                    self._append_terminal(line, color='#C9D1D9')
+                    self._append_terminal(line, color=self._rx_color)
                     self._log_lines.append(f"[RX] {line}")
             # 将未完成的残余写回 buffer
             remainder = lines[-1]
@@ -680,12 +726,12 @@ class SerialPage(QWidget):
             self._rx_buffer = bytearray(normalized)
 
     def _flush_rx_buffer(self):
-        """\u5b9a\u671f\u5c06 buffer \u4e2d\u6ca1\u6709\u6362\u884c\u5b57\u7b26\u7684\u5185\u5bb9\u5237\u5165\u7ec8\u7aef\uff08\u5982 shell \u63d0\u793a\u7b26\uff09"""
+        """定期将 buffer 中没有换行字符的内容刷入终端（如 shell 提示符）"""
         if self._rx_buffer:
             line = self._rx_buffer.decode('utf-8', errors='replace')
             self._rx_buffer.clear()
             if line.strip():
-                self._append_terminal(line, color='#C9D1D9')
+                self._append_terminal(line, color=self._rx_color)
                 self._log_lines.append(f"[RX] {line}")
 
     def _on_send(self):
@@ -702,7 +748,7 @@ class SerialPage(QWidget):
         if self._serial and self._serial.is_open:
             try:
                 self._serial.write(cmd.encode('utf-8') + nl)
-                self._append_terminal(f"▶ {cmd}", color='#56D364')  # 绿色：发送
+                self._append_terminal(f"▶ {cmd}", color=self._tx_color)
                 self._log_lines.append(f"[TX] {cmd}")
             except Exception as e:
                 self._sys_msg(f"发送失败: {e}", error=True)
@@ -712,6 +758,117 @@ class SerialPage(QWidget):
     # ──────────────────────────────────────────────────────────────────────────
     #  终端输出
     # ──────────────────────────────────────────────────────────────────────────
+    # ──────────────────────────────────────────────────────────────────────────
+    #  主题切换
+    # ──────────────────────────────────────────────────────────────────────────
+    def _toggle_theme(self):
+        self._dark_mode = not self._dark_mode
+        self._apply_theme()
+
+    def _apply_theme(self):
+        t = _DARK if self._dark_mode else _LIGHT
+        # 更新运行时颜色
+        self._rx_color      = t['rx']
+        self._tx_color      = t['tx']
+        self._sys_color     = t['sys']
+        self._sys_err_color = t['sys_err']
+
+        # 端口栏
+        self._port_bar.setStyleSheet(
+            f"QFrame#port_bar {{ background: {t['bar_bg']}; border-radius: 8px; padding: 4px; }}"
+        )
+        for lbl in self._port_bar_labels:
+            lbl.setStyleSheet(f"color:{t['bar_label']}; font-size:12px;")
+        _combo_qss = (f"color:{t['combo_text']}; background:{t['combo_bg']};"
+                      f" border:1px solid {t['btn_bdr']}; border-radius:4px; padding:2px 4px;")
+        for cb in (self.combo_port, self.combo_baud, self.combo_data,
+                   self.combo_parity, self.combo_stop):
+            cb.setStyleSheet(_combo_qss)
+        self._btn_refresh.setStyleSheet(
+            f"color:{t['combo_text']}; background:{t['combo_bg']}; border:none; font-size:14px; padding:2px 4px;"
+        )
+        self._btn_clear.setStyleSheet(
+            f"QPushButton{{color:{t['btn_text']};background:{t['btn_bg']};"
+            f"border:1px solid {t['btn_bdr']};border-radius:4px;padding:3px 6px;}}"
+            f"QPushButton:hover{{background:{t['btn_hover']};}}"
+        )
+        self.chk_autoscroll.setStyleSheet(f"color:{t['bar_label']}; font-size:12px;")
+        self._btn_theme.setText("☀️" if self._dark_mode else "🌙")
+        self._btn_theme.setStyleSheet(
+            f"color:{t['combo_text']}; background:{t['combo_bg']}; border:none; font-size:14px;"
+        )
+        self.lbl_status.setStyleSheet(
+            f"color:#E74C3C; font-size:12px; font-weight:bold;"
+            if not getattr(self, '_connected', False) else
+            f"color:#4CAF50; font-size:12px; font-weight:bold;"
+        )
+
+        # 终端
+        self.terminal.setStyleSheet(
+            f"QTextEdit {{"
+            f"  background-color: {t['terminal_bg']};"
+            f"  color: {t['terminal_text']};"
+            f"  border: 1px solid {t['terminal_bdr']};"
+            f"  border-radius: 6px;"
+            f"  padding: 6px;"
+            f"  selection-background-color: {t['terminal_sel']};"
+            f"}}"
+        )
+
+        # 输入行
+        self.input_line.setStyleSheet(
+            f"QLineEdit{{background:{t['input_bg']};color:{t['input_text']};"
+            f"border:1px solid {t['input_bdr']};border-radius:6px;padding:6px 10px;}}"
+            f"QLineEdit:focus{{border:1px solid {t['input_focus']};}}"
+        )
+        self.combo_newline.setStyleSheet(
+            f"color:{t['nl_text']};background:{t['nl_bg']};"
+            f"border:1px solid {t['nl_bdr']};border-radius:6px;padding:2px;"
+        )
+        self._btn_log.setStyleSheet(
+            f"QPushButton{{color:{t['btn_text']};background:{t['btn_bg']};"
+            f"border:1px solid {t['btn_bdr']};border-radius:6px;padding:5px 10px;}}"
+            f"QPushButton:hover{{background:{t['btn_hover']};border-color:{t['btn_hover_bdr']};}}"
+        )
+
+        # 右侧面板：更新滚动区域及其 QGroupBox 样式
+        self._right_scroll.setStyleSheet(
+            f"QScrollArea {{ background: {t['scroll_bg']}; border: none; }}"
+            f"QGroupBox {{"
+            f"  background: {t['grp_bg']};"
+            f"  border: 1px solid {t['grp_bdr']};"
+            f"  border-radius: 6px;"
+            f"  margin-top: 8px;"
+            f"  font-weight: bold; color: {t['grp_title']};"
+            f"}}"
+            f"QGroupBox::title {{"
+            f"  subcontrol-origin: margin; left: 8px; padding: 0 4px;"
+            f"  color: {t['grp_title']};"
+            f"}}"
+        )
+        # 快捷指令面板内所有按钮（不含 btn_primary/btn_danger，它们通过全局 qss 设置）
+        _btn_qss = (
+            f"QPushButton{{background:{t['btn_bg']};color:{t['btn_text']};"
+            f"border:1px solid {t['btn_bdr']};border-radius:5px;"
+            f"padding:5px 8px;font-size:12px;text-align:left;}}"
+            f"QPushButton:hover{{background:{t['btn_hover']};"
+            f"border-color:{t['btn_hover_bdr']};color:{t['combo_text']};}}"
+            f"QPushButton:pressed{{padding-top:6px;}}"
+        )
+        right_widget = self._right_scroll.widget()
+        if right_widget:
+            for btn in right_widget.findChildren(QPushButton):
+                nm = btn.objectName()
+                if nm not in ('btn_primary', 'btn_danger'):
+                    btn.setStyleSheet(_btn_qss)
+            for lbl in right_widget.findChildren(QLabel):
+                lbl.setStyleSheet(
+                    f"font-size:11px; color:{t['util_lbl']};"
+                )
+        right_widget and right_widget.setStyleSheet(
+            f"background: {t['scroll_bg']};"
+        )
+
     def _append_terminal(self, text: str, color: str = '#C9D1D9'):
         cursor = self.terminal.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
@@ -724,8 +881,8 @@ class SerialPage(QWidget):
             self.terminal.ensureCursorVisible()
 
     def _sys_msg(self, text: str, error: bool = False):
-        """系统消息（黄色提示 / 红色错误）"""
-        color = '#FF6B6B' if error else '#F0C040'
+        """系统消息（提示 / 错误，颜色跟随当前主题）"""
+        color = self._sys_err_color if error else self._sys_color
         self._append_terminal(f"  {text}", color=color)
         self._log_lines.append(f"[SYS{'_ERR' if error else ''}] {text}")
 
@@ -803,10 +960,13 @@ class SerialPage(QWidget):
             if item.widget():
                 item.widget().setParent(None)
 
+        t = _DARK if self._dark_mode else _LIGHT
         _STYLE = (
-            "QPushButton{background:#1C2128;color:#C9D1D9;border:1px solid #30363D;"
-            "border-radius:5px;padding:4px 8px;font-size:12px;text-align:left;}"
-            "QPushButton:hover{background:#21262D;border-color:#388BFD;color:#fff;}"
+            f"QPushButton{{background:{t['btn_bg']};color:{t['btn_text']};"
+            f"border:1px solid {t['btn_bdr']};border-radius:5px;"
+            f"padding:4px 8px;font-size:12px;text-align:left;}}"
+            f"QPushButton:hover{{background:{t['btn_hover']};"
+            f"border-color:{t['btn_hover_bdr']};color:{t['combo_text']};}}"
         )
 
         for i, item in enumerate(self._custom_cmds):
@@ -824,7 +984,7 @@ class SerialPage(QWidget):
             btn_edit = QToolButton()
             btn_edit.setText("✏")
             btn_edit.setToolTip("编辑")
-            btn_edit.setStyleSheet("color:#8A98A5;background:transparent;border:none;font-size:12px;")
+            btn_edit.setStyleSheet(f"color:{t['grp_title']};background:transparent;border:none;font-size:12px;")
             btn_edit.clicked.connect(lambda checked, idx=i: self._on_edit_custom(idx))
             row.addWidget(btn_edit)
 
@@ -841,7 +1001,7 @@ class SerialPage(QWidget):
 
         if not self._custom_cmds:
             lbl = QLabel("暂无自定义指令，点击「＋ 添加」新建")
-            lbl.setStyleSheet("color:#4A5568;font-size:11px;padding:4px;")
+            lbl.setStyleSheet(f"color:{t['grp_title']};font-size:11px;padding:4px;")
             self._custom_btns_layout.addWidget(lbl)
 
     def _on_add_custom(self):

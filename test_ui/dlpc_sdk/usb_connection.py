@@ -8,7 +8,7 @@ USB Bulk 通信层
 协议参数 (与 TI connection.py 保持一致):
   - InsertByteLength = True
   - InsertChecksum   = False
-  - RequestACK       = True
+    - RequestACK       = False
   - Timeout          = 2000 ms
   - VID  = 0x0451 (Texas Instruments)
   - PID  = 0x8430 (DLPC8430)
@@ -35,7 +35,7 @@ EP_IN = 0x81   # Device → Host
 # Protocol settings (匹配 TI connection.py)
 INSERT_BYTE_LENGTH = True
 INSERT_CHECKSUM = False
-REQUEST_ACK = True
+REQUEST_ACK = False
 USB_TIMEOUT_MS = 2000
 
 
@@ -235,7 +235,10 @@ class USBBulkConnection:
             except Exception as e:
                 if self._is_device_gone(e):
                     self._connected = False
-                raise USBConnectionError(f"USB 读取失败: {e}")
+                err_msg = f"USB 读取失败 opcode=0x{writebytes[0]:02X}: {e}"
+                logger.warning(err_msg)
+                self._emit_log(err_msg, "WARNING")
+                raise USBConnectionError(err_msg)
 
             # 解析响应 — 提取有效数据
             data = self._parse_read_response(raw, read_length)
@@ -311,13 +314,16 @@ class USBBulkConnection:
         """
         构建命令字节
 
-        Bit 7-6: Destination (0=broadcast, 1=controller, 4=composer)
-        Bit 5:   R/W (0=write, 1=read)
-        Bit 4-0: Flags (reserved)
+        Bit 7-6: Destination (0=broadcast, 1=controller)
+        Bit 7:   R/W overlay — TI 协议: read=0xC0(1=1,dest=1), write=0x40(1=0,dest=1)
+        即: write_byte = (dest << 6), read_byte = (dest << 6) | 0x80
+
+        0x40 = write to controller  (已验证可用)
+        0xC0 = read  from controller
         """
-        cmd = (destination & 0x07) << 6
+        cmd = (destination & 0x03) << 6
         if is_read:
-            cmd |= 0x20  # bit 5 = read
+            cmd |= 0x80  # bit 7 flags read
         return cmd
 
     def _parse_read_response(self, raw, expected_length):
