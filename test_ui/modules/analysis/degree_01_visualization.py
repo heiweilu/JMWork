@@ -27,6 +27,7 @@ MODULE_INFO = {
     ),
     "output_type": "image",
     "script_file": "0.1_degree_precision_visualization.py",
+    "reference_image": "degree_01_visualization.png",
     "params": [
         {"key": "tl_path", "label": "TL(左上)文件路径",
          "type": "string", "default": "",

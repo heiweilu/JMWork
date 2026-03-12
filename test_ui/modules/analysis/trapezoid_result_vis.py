@@ -21,6 +21,7 @@ from collections import OrderedDict
 MODULE_INFO = {
     "name": "梯形测试结果可视化",
     "script_file": "gen_manual_trapezoid_test_data.py",
+    "reference_image": "gen_manual_trapezoid_test_data.png",
     "category": "analysis",
     "description": (
         "读取梯形坐标测试结果 TXT，按角点组合绘制 PASS/FAIL 散点图。\n"

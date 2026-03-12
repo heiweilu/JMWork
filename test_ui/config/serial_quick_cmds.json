@@ -30,5 +30,21 @@
   {
     "name": "关风控",
     "cmd": "stop xgimi_middle;\ncri temperature_bypass true;  \nreboot"
+  },
+  {
+    "name": "set dlp_bypass",
+    "cmd": "cri set dlp_bypass 1"
+  },
+  {
+    "name": "get dlp_bypass",
+    "cmd": "cri get dlp_bypass"
+  },
+  {
+    "name": "reset",
+    "cmd": "reset"
+  },
+  {
+    "name": "reboot",
+    "cmd": "reboot"
   }
 ]

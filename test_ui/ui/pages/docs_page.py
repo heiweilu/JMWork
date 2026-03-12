@@ -189,7 +189,7 @@ if name.startswith('_'):
 <h3>修改参考结果图</h3>
 <ol>
 <li>替换 <code>assets/reference_images/xxx.png</code></li>
-<li>或修改 <code>MODULE_INFO["reference_image"]</code> 指向新文件名</li>
+<li>或修改对应脚本的 <code>MODULE_INFO["reference_image"]</code> 指向新文件名</li>
 </ol>
 
 <h3>修改输出路径逻辑</h3>
