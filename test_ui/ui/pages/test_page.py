@@ -8,6 +8,7 @@ DLP 硬件连接 + 角度测试 / 梯形坐标测试
 
 import os
 import time
+import datetime
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                               QGroupBox, QPushButton, QComboBox, QTextBrowser,
                               QSplitter, QFileDialog, QMessageBox, QFrame,
@@ -45,16 +46,17 @@ class TestPage(QWidget):
         conn_group = QGroupBox("🔌 DLP 设备连接")
         conn_group.setStyleSheet("""
             QGroupBox {
-                font-size: 14px; font-weight: bold;
+                font-size: 13px; font-weight: bold;
                 color: #294469;
                 background-color: #FBFDFF;
                 border: 1px solid rgba(79, 140, 255, 0.14); border-radius: 12px;
-                margin-top: 10px; padding-top: 18px;
+                margin-top: 22px; padding-top: 20px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 12px; padding: 0 6px;
-                color: #2A64D6;
+                left: 12px; top: 2px; padding: 3px 8px;
+                color: #2A64D6; background-color: #FBFDFF;
+                border: 1px solid rgba(79,140,255,0.18); border-radius: 6px;
             }
         """)
         conn_layout = QHBoxLayout(conn_group)
@@ -258,9 +260,21 @@ class TestPage(QWidget):
         bottom_layout.setContentsMargins(0, 0, 0, 0)
         bottom_layout.setSpacing(8)
 
+        log_header_row = QHBoxLayout()
         log_header = QLabel("📋 测试日志")
         log_header.setStyleSheet("font-size: 14px; font-weight: bold; color: #32598E;")
-        bottom_layout.addWidget(log_header)
+        log_header_row.addWidget(log_header)
+        log_header_row.addStretch()
+        btn_save_log = QPushButton("💾 保存日志")
+        btn_save_log.setToolTip("将当前测试日志保存为 .txt 文件")
+        btn_save_log.setStyleSheet(
+            "QPushButton{background:#1C2128;color:#8B9AB5;border:1px solid #30363D;"
+            "border-radius:5px;padding:3px 10px;font-size:11px;}"
+            "QPushButton:hover{background:#21262D;color:#C9D1D9;border-color:#58A6FF;}"
+        )
+        btn_save_log.clicked.connect(self._on_save_test_log)
+        log_header_row.addWidget(btn_save_log)
+        bottom_layout.addLayout(log_header_row)
 
         self._log_browser = QTextBrowser()
         self._log_browser.setStyleSheet("""
@@ -717,3 +731,21 @@ class TestPage(QWidget):
         # 滚动到底部
         bar = self._log_browser.verticalScrollBar()
         bar.setValue(bar.maximum())
+
+    def _on_save_test_log(self):
+        """将当前测试日志保存为 txt 文件"""
+        ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        default_name = f'test_log_{ts}.txt'
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, '保存测试日志', default_name,
+            '文本文件 (*.txt);;All (*)'
+        )
+        if not filepath:
+            return
+        try:
+            html = self._log_browser.toPlainText()
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(html)
+            self._log_msg(f'日志已保存: {filepath}', 'SUCCESS')
+        except Exception as e:
+            self._log_msg(f'保存失败: {e}', 'ERROR')

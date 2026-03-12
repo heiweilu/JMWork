@@ -32,6 +32,7 @@
 """
 
 import os
+import re
 import json
 import datetime
 from PyQt6.QtWidgets import (
@@ -41,7 +42,7 @@ from PyQt6.QtWidgets import (
     QCheckBox, QSpinBox, QDoubleSpinBox, QFrame, QTabWidget, QToolButton,
     QInputDialog
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSlot
+from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QColor, QTextCursor, QFont, QTextCharFormat
 
 # ──────────────── 配置文件路径 ────────────────
@@ -185,6 +186,130 @@ class CmdEditDialog(QDialog):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  可折叠面板组件
+# ══════════════════════════════════════════════════════════════════════════════
+class _CollapsibleSection(QFrame):
+    """带平滑动画的可折叠面板，替代 QGroupBox 用于串口调试右侧快捷面板"""
+
+    def __init__(self, title: str, collapsed: bool = False, parent=None):
+        super().__init__(parent)
+        self._collapsed = collapsed
+        self._anim = None
+        self.setObjectName("cs_outer")
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 2)
+        outer.setSpacing(0)
+
+        # ─── 标题栏（点击折叠 / 展开）
+        self._header = QFrame()
+        self._header.setObjectName("cs_header")
+        self._header.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._header.setFixedHeight(36)
+        h_lay = QHBoxLayout(self._header)
+        h_lay.setContentsMargins(10, 0, 6, 0)
+        h_lay.setSpacing(6)
+
+        self._arrow = QLabel("▶" if collapsed else "▼")
+        self._arrow.setFixedWidth(14)
+        h_lay.addWidget(self._arrow)
+
+        self._title_lbl = QLabel(title)
+        h_lay.addWidget(self._title_lbl, stretch=1)
+        outer.addWidget(self._header)
+
+        # ─── 分隔线
+        self._sep = QFrame()
+        self._sep.setObjectName("cs_sep")
+        self._sep.setFrameShape(QFrame.Shape.HLine)
+        self._sep.setFixedHeight(1)
+        if collapsed:
+            self._sep.setVisible(False)
+        outer.addWidget(self._sep)
+
+        # ─── 内容体
+        self._body = QFrame()
+        self._body.setObjectName("cs_body")
+        self.body_layout = QVBoxLayout(self._body)
+        self.body_layout.setContentsMargins(8, 8, 8, 10)
+        self.body_layout.setSpacing(6)
+        outer.addWidget(self._body)
+
+        if collapsed:
+            self._body.setMaximumHeight(0)
+            self._body.setVisible(False)
+
+        self._header.mousePressEvent = lambda _e: self.toggle()
+
+    def toggle(self):
+        if self._collapsed:
+            self._do_expand()
+        else:
+            self._do_collapse()
+
+    def _do_expand(self):
+        self._collapsed = False
+        self._arrow.setText("▼")
+        self._sep.setVisible(True)
+        self._body.setVisible(True)
+        self._body.setMaximumHeight(0)
+        # 激活布局计算正确目标高度，避免 sizeHint 返回 0 导致卡顿
+        layout = self._body.layout()
+        if layout:
+            layout.activate()
+            target = layout.totalSizeHint().height()
+        else:
+            self._body.adjustSize()
+            target = self._body.sizeHint().height()
+        target = max(target, 48)
+        # OutBack 缓动产生弹簧过冲感
+        anim = QPropertyAnimation(self._body, b"maximumHeight", self._body)
+        anim.setDuration(360)
+        anim.setStartValue(0)
+        anim.setEndValue(target)
+        anim.setEasingCurve(QEasingCurve.Type.OutBack)
+        anim.finished.connect(lambda: self._body.setMaximumHeight(16_777_215))
+        anim.start()
+        self._anim = anim
+
+    def _do_collapse(self):
+        self._collapsed = True
+        self._arrow.setText("▶")
+        cur = self._body.height()
+        anim = QPropertyAnimation(self._body, b"maximumHeight", self._body)
+        anim.setDuration(220)
+        anim.setStartValue(cur)
+        anim.setEndValue(0)
+        anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+
+        def _done():
+            self._body.setVisible(False)
+            self._sep.setVisible(False)
+
+        anim.finished.connect(_done)
+        anim.start()
+        self._anim = anim
+
+    def apply_colors(self, hdr_bg: str, hdr_bdr: str, body_bg: str,
+                     body_bdr: str, title_c: str, sep_c: str, arrow_c: str):
+        self.setStyleSheet("QFrame#cs_outer { background: transparent; }")
+        self._header.setStyleSheet(
+            f"QFrame#cs_header {{ background: {hdr_bg}; border: 1px solid {hdr_bdr}; "
+            f"border-radius: 6px 6px 0 0; }}"
+            f"QFrame#cs_header:hover {{ background: {hdr_bg}; border-color: {arrow_c}; }}"
+        )
+        self._title_lbl.setStyleSheet(
+            f"color: {title_c}; font-weight: bold; font-size: 13px;"
+        )
+        self._arrow.setStyleSheet(f"color: {arrow_c}; font-size: 11px;")
+        self._sep.setStyleSheet(f"background: {sep_c};")
+        self._body.setStyleSheet(
+            f"QFrame#cs_body {{ background: {body_bg}; border: 1px solid {body_bdr}; "
+            f"border-top: none; border-radius: 0 0 6px 6px; }}"
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  串口页面主体
 # ══════════════════════════════════════════════════════════════════════════════
 class SerialPage(QWidget):
@@ -205,6 +330,45 @@ class SerialPage(QWidget):
         self._sys_color   = _DARK['sys']
         self._sys_err_color = _DARK['sys_err']
         self._port_bar_labels = []   # 端口栏标签引用（主题更新用）
+        # 命令历史与 Tab 补全
+        self._cmd_history   = []   # 历史列表（第 0 = 最早）
+        self._history_idx   = -1   # 浏览中的位置，-1 表示未在历史模式
+        self._live_input    = ''   # 历史导航前用户正在输入的内容
+        self._tab_candidates = []  # Tab 待选列表
+        self._tab_idx       = -1   # 当前 Tab 候选索引
+        self._pre_tab_text  = ''   # 按 Tab 前的原始文本
+        self._highlight_rx  = True # RX 内容高亮开关
+        self._rx_path_cache: list = []   # 从终端输出中收集的 Unix 路径（Tab 补全用）
+        # 可编辑快捷指令
+        self._upgrade_steps  = [list(s) for s in _UPGRADE_STEPS]    # 可变副本
+        self._fw_step_buttons: list = []                             # 固件升级按钮引用
+        self._scan_cmd_template = (
+            'gmpfUnit externDisplay kst_dev batchGetDisplayPointByAngle '
+            '"yaw;pitch;0;-40;40;-40;40;{step};/data/vendor"'
+        )
+        self._copy_csv_cmd = 'cp /data/vendor/ak_scan_*.csv /mnt/media_rw/0182-0265/'
+        # 系统工具指令（可编辑）
+        self._sysutil_tools: list = [
+            ["📜 监听 GM 调试日志",
+             "logcat | grep GM_DISP_DBG",
+             "实时监听 GM_DISP_DBG 标签的 Logcat 日志（Ctrl+C 停止）"],
+            ["🔒 关闭 AVB 验证",
+             "avb init 0;avb set-devicestate 0;avb set-verity disable;save;reset",
+             "关闭 Android Verified Boot，允许修改系统分区\n执行后设备会自动重启"],
+            ["⏱ 调整休眠时间(24h)",
+             "settings put system screen_off_timeout 86400000",
+             "将屏幕休眠时间设为 24 小时（86400000 毫秒），测试时防止屏幕熄灭"],
+            ["📂 查看 U 盘挂载",
+             "ls /mnt/media_rw/",
+             "列出 U 盘挂载目录，确认 U 盘 UUID"],
+            ["📁 查看 vendor lib",
+             "ls /vendor/lib/ | grep xgimi",
+             "查看 /vendor/lib 中的 xgimi 相关动态库"],
+            ["🔍 查看设备信息",
+             "getprop ro.product.model && getprop ro.build.version.release",
+             "打印设备型号和 Android 版本"],
+        ]
+        self._sysutil_btns: list = []  # QPushButton 引用列表
         self._init_ui()
         self._refresh_ports()
 
@@ -239,8 +403,8 @@ class SerialPage(QWidget):
         # 右：快捷指令区
         self._right_scroll = QScrollArea()
         self._right_scroll.setWidgetResizable(True)
-        self._right_scroll.setMinimumWidth(300)
-        self._right_scroll.setMaximumWidth(380)
+        self._right_scroll.setMinimumWidth(320)
+        self._right_scroll.setMaximumWidth(440)
         self._right_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._right_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         right_content = self._build_quick_panel()
@@ -328,6 +492,13 @@ class SerialPage(QWidget):
         self._btn_theme.clicked.connect(self._toggle_theme)
         layout.addWidget(self._btn_theme)
 
+        # RX 高亮开关
+        self.chk_highlight = QCheckBox("🎨 高亮")
+        self.chk_highlight.setChecked(True)
+        self.chk_highlight.setToolTip("根据关键字对接收内容高亮显示")
+        self.chk_highlight.toggled.connect(lambda v: setattr(self, '_highlight_rx', v))
+        layout.addWidget(self.chk_highlight)
+
         # 连接/断开
         self.btn_connect = QPushButton("  连接  ")
         self.btn_connect.setObjectName("btn_primary")
@@ -354,9 +525,10 @@ class SerialPage(QWidget):
         layout.setSpacing(6)
 
         self.input_line = QLineEdit()
-        self.input_line.setPlaceholderText("输入指令，按 Enter 发送...")
+        self.input_line.setPlaceholderText("输入指令，按 Enter 发送 | ↑↓ 历史 | Tab 补全...")
         self.input_line.setFont(QFont("Consolas", 10))
         self.input_line.returnPressed.connect(self._on_send)
+        self.input_line.installEventFilter(self)   # Tab/上下键拦截
         layout.addWidget(self.input_line, stretch=1)
 
         # 换行模式（发送时带 \r\n 还是只 \n）
@@ -402,16 +574,15 @@ class SerialPage(QWidget):
         layout.addStretch()
         return panel
 
-    def _build_firmware_group(self) -> QGroupBox:
+    def _build_firmware_group(self) -> _CollapsibleSection:
         """固件升级流程区"""
-        grp = QGroupBox("📦 固件升级流程")
-        layout = QVBoxLayout(grp)
-        layout.setSpacing(6)
+        sec = _CollapsibleSection("📦 固件升级流程")
+        layout = sec.body_layout
 
         # 说明
         hint = QLabel(
             "<html><body style='font-size:11px;color:#546E7A;'>"
-            "升级前准备：将 <b>libxgimi.so</b> 放入 U 盘根目录，"
+            "升级前准备：<br>将 <b>libxgimi_MTK9660_GTV_4K.so</b> 或者 <b>libxgimi_MTK9660_AOSP.so</b> 放入 U 盘根目录，并把名称修改为 <b>libxgimi.so</b>（已内置于 assets/firmware/）。"
             "U 盘插入投影仪，连接串口后依次点击以下按钮："
             "</body></html>"
         )
@@ -423,7 +594,7 @@ class SerialPage(QWidget):
         fw_exists = os.path.exists(_FIRMWARE_PATH)
         fw_color = '#4CAF50' if fw_exists else '#E74C3C'
         fw_icon = '✅' if fw_exists else '❌'
-        fw_path_text = 'assets/firmware/libxgimi.so' if fw_exists else '未找到，请手动放置'
+        fw_path_text = 'assets/firmware/libxgimi_MTK9660_GTV_4K.so' if fw_exists else '未找到，请手动放置'
         fw_label = QLabel(
             f"<span style='color:{fw_color};font-size:11px;'>"
             f"{fw_icon} 内置 so 文件: {fw_path_text}</span>"
@@ -431,14 +602,14 @@ class SerialPage(QWidget):
         fw_label.setTextFormat(Qt.TextFormat.RichText)
         layout.addWidget(fw_label)
 
-        # 按钮网格（每行2个）
-        for i, (btn_text, cmd, tip) in enumerate(_UPGRADE_STEPS):
+        self._fw_step_buttons = []
+        for i, step in enumerate(self._upgrade_steps):
+            btn_text, cmd, tip = step[0], step[1], step[2]
             row = QHBoxLayout()
             btn = QPushButton(btn_text)
             btn.setToolTip(f"<b>指令:</b> <code>{cmd}</code><br><br>{tip}")
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
-            # 特殊颜色：reboot 用红色
             if "reboot" in cmd:
                 btn.setObjectName("btn_danger")
             else:
@@ -450,17 +621,42 @@ class SerialPage(QWidget):
                     "QPushButton:pressed{background:#1E253A;padding-top:6px;}"
                 )
 
-            btn.clicked.connect(lambda checked, c=cmd: self._send_command(c))
-            row.addWidget(btn)
+            btn.clicked.connect(lambda checked, idx=i: self._send_command(self._upgrade_steps[idx][1]))
+            self._fw_step_buttons.append(btn)
+            row.addWidget(btn, stretch=1)
+
+            btn_edit = QToolButton()
+            btn_edit.setText("✏")
+            btn_edit.setToolTip("编辑该步骤的指令内容")
+            btn_edit.setFixedWidth(26)
+            btn_edit.setStyleSheet(
+                "QToolButton{color:#8A98A5;background:transparent;"
+                "border:1px solid #444;border-radius:4px;font-size:11px;}"
+                "QToolButton:hover{color:#fff;border-color:#58A6FF;}"
+            )
+            btn_edit.clicked.connect(lambda checked, idx=i: self._on_edit_fw_step(idx))
+            row.addWidget(btn_edit)
+
             layout.addLayout(row)
 
-        return grp
+        return sec
 
-    def _build_angle_test_group(self) -> QGroupBox:
+    def _on_edit_fw_step(self, idx: int):
+        step = self._upgrade_steps[idx]
+        new_cmd, ok = QInputDialog.getText(
+            self, f"编辑固件准备步骤 [{step[0]}]",
+            "指令内容：",
+            text=step[1]
+        )
+        if ok:
+            self._upgrade_steps[idx][1] = new_cmd
+            btn = self._fw_step_buttons[idx]
+            btn.setToolTip(f"<b>指令:</b> <code>{new_cmd}</code><br><br>{step[2]}")
+
+    def _build_angle_test_group(self) -> _CollapsibleSection:
         """角度采集测试区"""
-        grp = QGroupBox("🧪 角度采集测试")
-        layout = QVBoxLayout(grp)
-        layout.setSpacing(7)
+        sec = _CollapsibleSection("🧪 角度采集测试")
+        layout = sec.body_layout
 
         # 说明
         desc = QLabel(
@@ -493,91 +689,134 @@ class SerialPage(QWidget):
         layout.addLayout(step_row)
 
         # 发送采集指令
+        scan_row = QHBoxLayout()
         btn_scan = QPushButton("▶ 发送角度采集指令")
         btn_scan.setObjectName("btn_primary")
         btn_scan.setToolTip(
             "<b>执行角度坐标批量采集</b><br>"
-            "指令格式:<br>"
-            "<code>gmpfUnit externDisplay kst_dev batchGetDisplayPointByAngle</code><br>"
-            "<code>&quot;yaw;pitch;0;-40;40;-40;40;{step};/data/vendor&quot;</code><br><br>"
-            "参数说明:<br>"
-            "• axis1=yaw, axis2=pitch（二维扫描轴）<br>"
-            "• fixed=0（Roll 固定为 0°）<br>"
-            "• [-40,40] × [-40,40]（扫描范围，度）<br>"
-            "• step（步进间隔，由上方选择框决定）<br>"
-            "• /data/vendor（CSV 输出目录）"
+            "指令模板:<br>"
+            "<code>" + self._scan_cmd_template.replace('{step}', '{step}') + "</code><br><br>"
+            "点击 ✏ 可编辑模板"
         )
         btn_scan.clicked.connect(self._on_send_scan_cmd)
-        layout.addWidget(btn_scan)
+        self._btn_scan = btn_scan
+        scan_row.addWidget(btn_scan, stretch=1)
+
+        btn_edit_scan = QToolButton()
+        btn_edit_scan.setText("✏")
+        btn_edit_scan.setToolTip("编辑采集指令模板（{step} 会被当前步进值替换）")
+        btn_edit_scan.setFixedWidth(26)
+        btn_edit_scan.setStyleSheet(
+            "QToolButton{color:#8A98A5;background:transparent;"
+            "border:1px solid #444;border-radius:4px;font-size:11px;}"
+            "QToolButton:hover{color:#fff;border-color:#58A6FF;}"
+        )
+        btn_edit_scan.clicked.connect(self._on_edit_scan_cmd)
+        scan_row.addWidget(btn_edit_scan)
+        layout.addLayout(scan_row)
 
         # 拷贝数据到 U 盘
+        copy_row = QHBoxLayout()
         btn_copy = QPushButton("📋 拷贝 CSV 到 U 盘")
-        btn_copy.setToolTip(
-            "将设备内 /data/vendor/ak_scan_*.csv 拷贝到 U 盘:\n"
-            "cp /data/vendor/ak_scan_*.csv /mnt/media_rw/0182-0265/"
-        )
+        btn_copy.setToolTip(self._copy_csv_cmd)
         btn_copy.setStyleSheet(
             "QPushButton{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
             "stop:0 #1D3557,stop:1 #152744);color:#90CAF9;border:1px solid #1565C0;"
             "border-radius:5px;padding:5px 8px;}"
             "QPushButton:hover{background:#1A4480;border-color:#42A5F5;color:#fff;}"
         )
-        btn_copy.clicked.connect(
-            lambda: self._send_command("cp /data/vendor/ak_scan_*.csv /mnt/media_rw/0182-0265/")
+        btn_copy.clicked.connect(lambda: self._send_command(self._copy_csv_cmd))
+        self._btn_copy = btn_copy
+        copy_row.addWidget(btn_copy, stretch=1)
+
+        btn_edit_copy = QToolButton()
+        btn_edit_copy.setText("✏")
+        btn_edit_copy.setToolTip("编辑 CSV 拷贝命令")
+        btn_edit_copy.setFixedWidth(26)
+        btn_edit_copy.setStyleSheet(
+            "QToolButton{color:#8A98A5;background:transparent;"
+            "border:1px solid #444;border-radius:4px;font-size:11px;}"
+            "QToolButton:hover{color:#fff;border-color:#58A6FF;}"
         )
-        layout.addWidget(btn_copy)
+        btn_edit_copy.clicked.connect(self._on_edit_copy_cmd)
+        copy_row.addWidget(btn_edit_copy)
+        layout.addLayout(copy_row)
 
-        return grp
+        return sec
 
-    def _build_sysutil_group(self) -> QGroupBox:
-        """系统工具区"""
-        grp = QGroupBox("🔧 系统工具")
-        layout = QVBoxLayout(grp)
-        layout.setSpacing(5)
+    def _on_edit_scan_cmd(self):
+        new_tpl, ok = QInputDialog.getText(
+            self, "编辑角度采集指令模板",
+            "模板内容（{step} 会被当前步进替换）：",
+            text=self._scan_cmd_template
+        )
+        if ok and new_tpl.strip():
+            self._scan_cmd_template = new_tpl.strip()
+            self._btn_scan.setToolTip(
+                "<b>指令模板:</b><br><code>" + self._scan_cmd_template + "</code>"
+            )
 
-        tools = [
-            ("📜 监听 GM 调试日志",
-             "logcat | grep GM_DISP_DBG",
-             "实时监听 GM_DISP_DBG 标签的 Logcat 日志（Ctrl+C 停止）"),
-            ("🔒 关闭 AVB 验证",
-             "avb init 0;avb set-devicestate 0;avb set-verity disable;save;reset",
-             "关闭 Android Verified Boot，允许修改系统分区\n执行后设备会自动重启"),
-            ("⏱ 调整休眠时间(24h)",
-             "settings put system screen_off_timeout 86400000",
-             "将屏幕休眠时间设为 24 小时（86400000 毫秒），测试时防止屏幕熄灭"),
-            ("📂 查看 U 盘挂载",
-             "ls /mnt/media_rw/",
-             "列出 U 盘挂载目录，确认 U 盘 UUID"),
-            ("📁 查看 vendor lib",
-             "ls /vendor/lib/ | grep xgimi",
-             "查看 /vendor/lib 中的 xgimi 相关动态库"),
-            ("🔍 查看设备信息",
-             "getprop ro.product.model && getprop ro.build.version.release",
-             "打印设备型号和 Android 版本"),
-        ]
+    def _on_edit_copy_cmd(self):
+        new_cmd, ok = QInputDialog.getText(
+            self, "编辑 CSV 拷贝命令",
+            "指令内容：",
+            text=self._copy_csv_cmd
+        )
+        if ok and new_cmd.strip():
+            self._copy_csv_cmd = new_cmd.strip()
+            self._btn_copy.setToolTip(self._copy_csv_cmd)
 
-        _TOOL_STYLE = (
-            "QPushButton{background:#1C2128;color:#C9D1D9;border:1px solid #30363D;"
-            "border-radius:5px;padding:5px 8px;font-size:12px;text-align:left;}"
-            "QPushButton:hover{background:#21262D;border-color:#58A6FF;color:#fff;}"
-            "QPushButton:pressed{background:#161B22;}"
+    def _build_sysutil_group(self) -> _CollapsibleSection:
+        """系统工具区（指令可手动编辑）"""
+        sec = _CollapsibleSection("🔧 系统工具")
+        layout = sec.body_layout
+        self._sysutil_btns = []
+
+        _EDIT_BTN_QSS = (
+            "QToolButton{color:#8A98A5;background:transparent;"
+            "border:1px solid #444;border-radius:4px;font-size:11px;}"
+            "QToolButton:hover{color:#fff;border-color:#58A6FF;}"
         )
 
-        for name, cmd, tip in tools:
+        for i, tool in enumerate(self._sysutil_tools):
+            name, cmd, tip = tool[0], tool[1], tool[2]
+            row = QHBoxLayout()
             btn = QPushButton(f"  {name}")
             btn.setToolTip(f"<b>指令:</b><br><code>{cmd}</code><br><br>{tip}")
-            btn.setStyleSheet(_TOOL_STYLE)
-            btn.clicked.connect(lambda checked, c=cmd: self._send_command(c))
-            layout.addWidget(btn)
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            btn.clicked.connect(lambda checked, idx=i: self._send_command(self._sysutil_tools[idx][1]))
+            self._sysutil_btns.append(btn)
+            row.addWidget(btn, stretch=1)
 
-        return grp
+            btn_edit = QToolButton()
+            btn_edit.setText("✏")
+            btn_edit.setToolTip("编辑该工具指令")
+            btn_edit.setFixedWidth(26)
+            btn_edit.setStyleSheet(_EDIT_BTN_QSS)
+            btn_edit.clicked.connect(lambda checked, idx=i: self._on_edit_sysutil(idx))
+            row.addWidget(btn_edit)
+            layout.addLayout(row)
 
-    def _build_custom_group(self) -> QGroupBox:
+        return sec
+
+    def _on_edit_sysutil(self, idx: int):
+        tool = self._sysutil_tools[idx]
+        new_cmd, ok = QInputDialog.getText(
+            self, f"编辑系统工具指令 [{tool[0]}]",
+            "指令内容：",
+            text=tool[1]
+        )
+        if ok:
+            self._sysutil_tools[idx][1] = new_cmd
+            self._sysutil_btns[idx].setToolTip(
+                f"<b>指令:</b><br><code>{new_cmd}</code><br><br>{tool[2]}"
+            )
+
+    def _build_custom_group(self) -> _CollapsibleSection:
         """自定义快捷指令区"""
-        grp = QGroupBox("📝 自定义快捷指令")
-        self._custom_group = grp
-        layout = QVBoxLayout(grp)
-        layout.setSpacing(5)
+        sec = _CollapsibleSection("📝 自定义快捷指令")
+        self._custom_group = sec
+        layout = sec.body_layout
 
         # 工具栏
         tool_row = QHBoxLayout()
@@ -600,7 +839,7 @@ class SerialPage(QWidget):
         layout.addWidget(self._custom_btns_widget)
 
         self._refresh_custom_buttons()
-        return grp
+        return sec
 
     # ──────────────────────────────────────────────────────────────────────────
     #  串口操作
@@ -717,7 +956,7 @@ class SerialPage(QWidget):
             for line_bytes in lines[:-1]:
                 line = line_bytes.decode('utf-8', errors='replace')
                 if line:  # 跳过空行
-                    self._append_terminal(line, color=self._rx_color)
+                    self._append_terminal(line, color=self._detect_rx_color(line))
                     self._log_lines.append(f"[RX] {line}")
             # 将未完成的残余写回 buffer
             remainder = lines[-1]
@@ -731,14 +970,22 @@ class SerialPage(QWidget):
             line = self._rx_buffer.decode('utf-8', errors='replace')
             self._rx_buffer.clear()
             if line.strip():
-                self._append_terminal(line, color=self._rx_color)
+                self._append_terminal(line, color=self._detect_rx_color(line))
                 self._log_lines.append(f"[RX] {line}")
 
     def _on_send(self):
-        cmd = self.input_line.text().strip()
-        if not cmd:
-            return
+        # 不移除内容，支持发送空白行
+        cmd = self.input_line.text()
         self._send_command(cmd)
+        # 加入历史（不记录纯空白、不重复尾部）
+        cmd_stripped = cmd.strip()
+        if cmd_stripped:
+            if not self._cmd_history or self._cmd_history[-1] != cmd_stripped:
+                self._cmd_history.append(cmd_stripped)
+        # 重置历史导航和 Tab 状态
+        self._history_idx   = -1
+        self._tab_candidates = []
+        self._tab_idx       = -1
         self.input_line.clear()
 
     def _send_command(self, cmd: str):
@@ -748,12 +995,252 @@ class SerialPage(QWidget):
         if self._serial and self._serial.is_open:
             try:
                 self._serial.write(cmd.encode('utf-8') + nl)
-                self._append_terminal(f"▶ {cmd}", color=self._tx_color)
+                self._append_terminal(f"▶ {cmd}" if cmd else "▶ ␍", color=self._tx_color)
                 self._log_lines.append(f"[TX] {cmd}")
             except Exception as e:
                 self._sys_msg(f"发送失败: {e}", error=True)
         else:
             self._sys_msg("⚠ 串口未连接，无法发送指令", error=True)
+
+    # ──────────────────────────────────────────────────────────────────────────
+    #  输入框事件拦截（Tab补全 / 上下键历史）
+    # ──────────────────────────────────────────────────────────────────────────
+    def eventFilter(self, obj, event):
+        from PyQt6.QtCore import QEvent
+        if obj is self.input_line and event.type() == QEvent.Type.KeyPress:
+            key = event.key()
+            modifiers = event.modifiers()
+
+            # ── Ctrl+字母 → 直接发送控制字符 ──
+            if modifiers == Qt.KeyboardModifier.ControlModifier:
+                _CTRL_MAP = {
+                    Qt.Key.Key_C:          ('\x03', 'Ctrl+C  (中断)'),
+                    Qt.Key.Key_Z:          ('\x1a', 'Ctrl+Z  (挂起)'),
+                    Qt.Key.Key_D:          ('\x04', 'Ctrl+D  (EOF)'),
+                    Qt.Key.Key_L:          ('\x0c', 'Ctrl+L  (清屏)'),
+                    Qt.Key.Key_Backslash:  ('\x1c', 'Ctrl+\\  (SIGQUIT)'),
+                    Qt.Key.Key_X:          ('\x18', 'Ctrl+X'),
+                    Qt.Key.Key_A:          ('\x01', 'Ctrl+A  (行首)'),
+                    Qt.Key.Key_E:          ('\x05', 'Ctrl+E  (行尾)'),
+                    Qt.Key.Key_K:          ('\x0b', 'Ctrl+K  (剔除到行尾)'),
+                    Qt.Key.Key_U:          ('\x15', 'Ctrl+U  (剔除到行首)'),
+                }
+                if key in _CTRL_MAP:
+                    char, label = _CTRL_MAP[key]
+                    # Ctrl+C 有选中文本时不拦截（允许复制）
+                    if key == Qt.Key.Key_C and self.input_line.hasSelectedText():
+                        return super().eventFilter(obj, event)
+                    if self._serial and self._serial.is_open:
+                        try:
+                            self._serial.write(char.encode('latin-1'))
+                            self._append_terminal(f'  [{label}]', color=self._sys_color)
+                            self._log_lines.append(f'[CTRL] {label}')
+                        except Exception as e:
+                            self._sys_msg(f'发送失败: {e}', error=True)
+                    else:
+                        self._sys_msg('⚠ 串口未连接', error=True)
+                    return True
+
+            if key == Qt.Key.Key_Tab:
+                self._on_tab_complete()
+                return True          # 阻止焦点跳转
+            elif key == Qt.Key.Key_Up:
+                self._history_prev()
+                return True
+            elif key == Qt.Key.Key_Down:
+                self._history_next()
+                return True
+            else:
+                # 任意其他键重置 Tab 候选（但不重置历史导航）
+                self._tab_candidates = []
+                self._tab_idx = -1
+        return super().eventFilter(obj, event)
+
+    def _on_tab_complete(self):
+        current = self.input_line.text()
+
+        # 首次按 Tab：构建候选列表
+        if not self._tab_candidates:
+            self._pre_tab_text = current
+
+            # 分析当前输入：拳陔最后一个「词」作为补全前缀
+            # 例： "ls /vendor/li" → prefix_word="/vendor/li"， base="ls "
+            parts = current.rsplit(' ', 1)
+            if len(parts) == 2:
+                base_text   = parts[0] + ' '   # 保留前半段
+                prefix_word = parts[1].lower()  # 要补全的尾巴
+            else:
+                base_text   = ''
+                prefix_word = current.lower()
+
+            seen: set = set()
+            candidates = []
+
+            def _add(text: str, keep_base: bool):
+                """insert candidate; keep_base=True 表示返回 base_text + text"""
+                full = (base_text + text) if keep_base else text
+                if full not in seen:
+                    seen.add(full)
+                    candidates.append(full)
+
+            # 1. 尾巴匹配路径缓存（优先）
+            if prefix_word.startswith('/'):
+                for p in self._rx_path_cache:
+                    if p.lower().startswith(prefix_word):
+                        _add(p, keep_base=True)
+
+            # 2. 尾巴匹配历史指令 —— 如果 base 为空，则作为完整指令匹配
+            all_cmds = self._get_all_known_cmds()
+            for c in all_cmds:
+                if base_text == '':
+                    # 全匹配模式（无空格前缀）
+                    if c.lower().startswith(prefix_word):
+                        _add(c, keep_base=False)
+                else:
+                    # 指令结尾词匹配模式
+                    c_last = c.split(' ')[-1] if ' ' in c else c
+                    if c_last.lower().startswith(prefix_word) and c_last not in seen:
+                        _add(c_last, keep_base=True)
+                    # 就整个历史指令匹配
+                    if c.lower().startswith(current.lower()):
+                        _add(c, keep_base=False)
+
+            if not candidates:
+                return
+            self._tab_candidates = candidates
+            self._tab_idx = -1
+
+        # 循环切换候选
+        self._tab_idx = (self._tab_idx + 1) % len(self._tab_candidates)
+        candidate = self._tab_candidates[self._tab_idx]
+        self.input_line.setText(candidate)
+        self.input_line.setCursorPosition(len(candidate))
+
+    def _get_all_known_cmds(self) -> list:
+        """返回所有可用于 Tab 补全的命令（历史优先，再加内置快捷命令）"""
+        cmds = list(reversed(self._cmd_history))   # 最近的在前
+        # 追加内置升级步骤
+        for step in self._upgrade_steps:
+            cmds.append(step[1])
+        # 追加系统工具指令
+        for tool in self._sysutil_tools:
+            cmds.append(tool[1])
+        # 追加角度采集命令
+        step_val = getattr(self, 'combo_step', None)
+        step_str = step_val.currentText() if step_val else '0.1'
+        cmds.append(self._scan_cmd_template.replace('{step}', step_str))
+        cmds.append(self._copy_csv_cmd)
+        # 追加自定义命令
+        for item in self._custom_cmds:
+            cmds.append(item['cmd'])
+        return cmds
+
+    def _history_prev(self):
+        """上键：向更早的历史移动"""
+        if not self._cmd_history:
+            return
+        if self._history_idx == -1:
+            self._live_input = self.input_line.text()
+            self._history_idx = len(self._cmd_history) - 1
+        elif self._history_idx > 0:
+            self._history_idx -= 1
+        cmd = self._cmd_history[self._history_idx]
+        self.input_line.setText(cmd)
+        self.input_line.setCursorPosition(len(cmd))
+
+    def _history_next(self):
+        """下键：向更新的历史移动，回到末尾时恢复实时输入"""
+        if self._history_idx == -1:
+            return
+        self._history_idx += 1
+        if self._history_idx >= len(self._cmd_history):
+            self._history_idx = -1
+            self.input_line.setText(self._live_input)
+            self.input_line.setCursorPosition(len(self._live_input))
+        else:
+            cmd = self._cmd_history[self._history_idx]
+            self.input_line.setText(cmd)
+            self.input_line.setCursorPosition(len(cmd))
+
+    # ──────────────────────────────────────────────────────────────────────────
+    #  RX 内容颜色检测（语法高亮）
+    # ──────────────────────────────────────────────────────────────────────────
+    # Android 日志级别颜色表（深色主题）
+    _LOGCAT_COLORS_DARK = {
+        'V': '#8A8A8A',   # Verbose  → 灰
+        'D': '#74B9FF',   # Debug    → 淡蓝
+        'I': '#C9D1D9',   # Info     → 默认白
+        'W': '#F0C040',   # Warning  → 黄
+        'E': '#FF6B6B',   # Error    → 红
+        'F': '#FF4757',   # Fatal    → 深红
+    }
+    _LOGCAT_COLORS_LIGHT = {
+        'V': '#888888',
+        'D': '#0550AE',
+        'I': '#1F2328',
+        'W': '#7D4E00',
+        'E': '#CF222E',
+        'F': '#A40000',
+    }
+
+    # 关键词规则列表：(颜色_dark, 颜色_light, [关键词...])
+    _KW_RULES = [
+        ('#FF6B6B', '#CF222E', [
+            'error', 'err:', ' err ', 'fail', 'failed', 'failure',
+            'fatal', 'exception', 'crash', 'panic', 'abort', 'assert',
+            'traceback', 'stacktrace', 'undefined', 'invalid', 'illegal',
+            'denied', 'permission denied', 'no such file', 'not found',
+            'cannot', "can't", 'unable to', 'refused', 'rejected',
+            'segfault', 'sigsegv', 'killed', 'out of memory', 'oom',
+            'timed out', 'connection refused', 'bad address',
+        ]),
+        ('#F0C040', '#7D4E00', [
+            'warn', 'warning', 'deprecated', 'caution', 'attention',
+            'skip', 'timeout', 'retry', 'slow', 'skipped',
+            'incomplete', 'partial', 'miss', 'not support', 'fallback',
+            'deprecated', 'disabled', 'offline',
+        ]),
+        ('#56D364', '#1A7F37', [
+            'success', 'succeed', 'completed', 'done', 'finish', 'ok:',
+            'passed', '[ ok ]', '[  ok  ]', 'started', 'ready',
+            'connected', 'enabled', 'loaded', 'initialized', 'mount',
+            'install', 'update complete', 'write ok', 'read ok',
+        ]),
+        ('#74B9FF', '#0550AE', [
+            'info:', 'debug:', 'verbose:', 'notice:', '>>> ', '<<< ',
+            'i/', 'd/', 'v/', 'begin', 'start', 'init', 'open',
+            'sending', 'receiving', 'connecting',
+        ]),
+        ('#BD93F9', '#6F4297', [
+            'gmpfunit', 'externDisplay', 'kst_dev', 'batchget',
+            'ak_scan', '/data/vendor', '/mnt/media_rw',
+        ]),
+        ('#FFB86C', '#C2410C', [
+            'reboot', 'poweroff', 'shutdown', 'reset', 'factory reset',
+            'wipe', 'format', 'erase', 'delete', 'remove', 'rm -rf',
+        ]),
+    ]
+
+    def _detect_rx_color(self, line: str) -> str:
+        """根据行内容推断高亮颜色（高亮关闭时返回默认 RX 颜色）"""
+        if not self._highlight_rx:
+            return self._rx_color
+        t_lc = self._LOGCAT_COLORS_DARK if self._dark_mode else self._LOGCAT_COLORS_LIGHT
+        # ── logcat: "MM-DD HH:MM:SS.sss  pid  tid  L/Tag:" (verbose logcat)
+        m = re.match(r'^\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+\s+\d+\s+\d+\s+([VDIWEF])\s', line)
+        if m:
+            return t_lc.get(m.group(1), self._rx_color)
+        # ── logcat: "L/Tag: msg"  or "L Tag : msg"
+        m = re.match(r'^([VDIWEF])/\S', line)
+        if m:
+            return t_lc.get(m.group(1), self._rx_color)
+        # ── 通用关键词匹配
+        ll = line.lower()
+        kw_rules = self._KW_RULES
+        for dark_c, light_c, keywords in kw_rules:
+            if any(kw in ll for kw in keywords):
+                return dark_c if self._dark_mode else light_c
+        return self._rx_color
 
     # ──────────────────────────────────────────────────────────────────────────
     #  终端输出
@@ -793,6 +1280,7 @@ class SerialPage(QWidget):
             f"QPushButton:hover{{background:{t['btn_hover']};}}"
         )
         self.chk_autoscroll.setStyleSheet(f"color:{t['bar_label']}; font-size:12px;")
+        self.chk_highlight.setStyleSheet(f"color:{t['bar_label']}; font-size:12px;")
         self._btn_theme.setText("☀️" if self._dark_mode else "🌙")
         self._btn_theme.setStyleSheet(
             f"color:{t['combo_text']}; background:{t['combo_bg']}; border:none; font-size:14px;"
@@ -831,21 +1319,11 @@ class SerialPage(QWidget):
             f"QPushButton:hover{{background:{t['btn_hover']};border-color:{t['btn_hover_bdr']};}}"
         )
 
-        # 右侧面板：更新滚动区域及其 QGroupBox 样式
+        # 右侧面板：更新滚动区域及可折叠区块样式
         self._right_scroll.setStyleSheet(
             f"QScrollArea {{ background: {t['scroll_bg']}; border: none; }}"
-            f"QGroupBox {{"
-            f"  background: {t['grp_bg']};"
-            f"  border: 1px solid {t['grp_bdr']};"
-            f"  border-radius: 6px;"
-            f"  margin-top: 8px;"
-            f"  font-weight: bold; color: {t['grp_title']};"
-            f"}}"
-            f"QGroupBox::title {{"
-            f"  subcontrol-origin: margin; left: 8px; padding: 0 4px;"
-            f"  color: {t['grp_title']};"
-            f"}}"
         )
+        _arrow_c = '#58A6FF' if self._dark_mode else '#0969DA'
         # 快捷指令面板内所有按钮（不含 btn_primary/btn_danger，它们通过全局 qss 设置）
         _btn_qss = (
             f"QPushButton{{background:{t['btn_bg']};color:{t['btn_text']};"
@@ -865,6 +1343,14 @@ class SerialPage(QWidget):
                 lbl.setStyleSheet(
                     f"font-size:11px; color:{t['util_lbl']};"
                 )
+            # 可折叠区块标题/背景（覆盖上面的通用 label 样式）
+            for sec in right_widget.findChildren(_CollapsibleSection):
+                sec.apply_colors(
+                    hdr_bg=t['grp_bg'], hdr_bdr=t['grp_bdr'],
+                    body_bg=t['grp_bg'], body_bdr=t['grp_bdr'],
+                    title_c=t['grp_title'], sep_c=t['grp_bdr'],
+                    arrow_c=_arrow_c,
+                )
         right_widget and right_widget.setStyleSheet(
             f"background: {t['scroll_bg']};"
         )
@@ -879,6 +1365,13 @@ class SerialPage(QWidget):
         if self._auto_scroll:
             self.terminal.setTextCursor(cursor)
             self.terminal.ensureCursorVisible()
+        # 从接收行中提取路径（Unix 绝对路径）缓入补全库
+        if text and not text.startswith('▶') and not text.startswith('  ['):
+            for tok in re.split(r'[\s,;]+', text):
+                if len(tok) > 2 and tok.startswith('/') and tok not in self._rx_path_cache:
+                    self._rx_path_cache.append(tok)
+                    if len(self._rx_path_cache) > 400:
+                        self._rx_path_cache = self._rx_path_cache[-400:]
 
     def _sys_msg(self, text: str, error: bool = False):
         """系统消息（提示 / 错误，颜色跟随当前主题）"""
@@ -910,10 +1403,7 @@ class SerialPage(QWidget):
     # ──────────────────────────────────────────────────────────────────────────
     def _on_send_scan_cmd(self):
         step = self.combo_step.currentText()
-        cmd = (
-            f'gmpfUnit externDisplay kst_dev batchGetDisplayPointByAngle '
-            f'"yaw;pitch;0;-40;40;-40;40;{step};/data/vendor"'
-        )
+        cmd = self._scan_cmd_template.replace('{step}', step)
         self._send_command(cmd)
 
     # ──────────────────────────────────────────────────────────────────────────

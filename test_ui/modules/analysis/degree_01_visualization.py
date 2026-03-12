@@ -20,7 +20,7 @@ MODULE_INFO = {
         "可通过 input_path 选择目录或单文件，\n"
         "也可在下方4个路径参数中直接指定各象限文件（优先使用）。"
     ),
-    "input_type": "csv",
+    "input_type": "optional",
     "input_description": (
         "象限角度测试结果CSV（TL/TR/BL/BR），含 Yaw/Pitch/Result/ErrorCode/Delta 列。\n"
         "若下方象限路径参数有填写，则优先使用各象限路径参数。"
@@ -188,14 +188,20 @@ def run(input_path: str, output_dir: str, params: dict,
         from core.plot_style import setup_style
         setup_style("Agg")
 
-        fig = plt.figure(figsize=(26, 22))
+        # 深色背景 —— 半透明 PASS 绿点在白底上几乎不可见，改为暗调背景
+        plt.style.use("dark_background")
+
+        fig = plt.figure(figsize=(26, 22), facecolor="#0d1117")
         gs = GridSpec(2, 1, height_ratios=[13, 1.5], hspace=0.05)
         ax      = fig.add_subplot(gs[0])
         ax_text = fig.add_subplot(gs[1])
         ax_text.axis("off")
+        ax.set_facecolor("#161b22")
+        ax_text.set_facecolor("#0d1117")
 
+        # PASS 点：白底下 s=12 alpha=0.35 几乎为白；深底下加大至 s=18 alpha=0.55
         ax.scatter(df[pass_mask]["Yaw"], df[pass_mask]["Pitch"],
-                   c="#2ecc71", marker="o", s=12, alpha=0.35,
+                   c="#2ecc71", marker="o", s=18, alpha=0.55,
                    label=f"PASS  {pass_cnt:,} 个")
         ax.scatter(df[fail_ec1_major_mask]["Yaw"], df[fail_ec1_major_mask]["Pitch"],
                    c="#3498db", marker="s", s=50, alpha=0.85,

@@ -52,11 +52,21 @@ def detect_separator(filepath: str) -> str:
     """
     自动检测文件分隔符（逗号 or 制表符）。
 
-    读取前5行，统计逗号和Tab出现次数判断。
+    策略：优先看表头行是否包含 Tab。
+    戏拟中总適合用 Tab 做隔山符的文件，表头行必然含 Tab；
+    而表头行内的逗号是列名中的内嵌正文，不计入。
     """
     with open(filepath, 'r', encoding='utf-8-sig', errors='replace') as f:
-        sample = ''.join(f.readline() for _ in range(5))
-    tab_count = sample.count('\t')
+        header_line = f.readline()
+        rest_lines  = ''.join(f.readline() for _ in range(4))
+
+    # 表头行包含 Tab → 强列 Tab 为分隔符（就算数据行逗号更多也一样）
+    if '\t' in header_line:
+        return '\t'
+
+    # header 无 Tab 时再统计全文
+    sample = header_line + rest_lines
+    tab_count   = sample.count('\t')
     comma_count = sample.count(',')
     return '\t' if tab_count > comma_count else ','
 
@@ -143,6 +153,24 @@ def load_angle_test_result(filepath: str,
 
     if col_map:
         df = df.rename(columns=col_map)
+
+    # ── 兼容新格式：拆分坐标列 → 重组为 WriteCoords / ReadCoords ──
+    cols_lower = {c.lower().replace(' ', '_'): c for c in df.columns}
+    _W_PARTS = ['write_tl_x', 'write_tl_y', 'write_tr_x', 'write_tr_y',
+                'write_bl_x', 'write_bl_y', 'write_br_x', 'write_br_y']
+    _R_PARTS = ['read_tl_x', 'read_tl_y', 'read_tr_x', 'read_tr_y',
+                'read_bl_x', 'read_bl_y', 'read_br_x', 'read_br_y']
+
+    if 'WriteCoords' not in df.columns and all(p in cols_lower for p in _W_PARTS):
+        w_actual = [cols_lower[p] for p in _W_PARTS]
+        df['WriteCoords'] = df[w_actual].apply(
+            lambda r: ','.join(str(int(v)) if str(v).replace('-', '').isdigit() else str(v)
+                               for v in r), axis=1)
+    if 'ReadCoords' not in df.columns and all(p in cols_lower for p in _R_PARTS):
+        r_actual = [cols_lower[p] for p in _R_PARTS]
+        df['ReadCoords'] = df[r_actual].apply(
+            lambda r: ','.join(str(int(v)) if str(v).replace('-', '').isdigit() else str(v)
+                               for v in r), axis=1)
 
     # 数值转换（容错）
     for col in ['Yaw', 'Pitch', 'ErrorCode', 'Delta']:

@@ -16,7 +16,7 @@ env/
 # 日志与报告（运行时生成）
 logs/*.log
 logs/*.txt
-reports/
+# reports/
 
 # 临时文件
 temp/

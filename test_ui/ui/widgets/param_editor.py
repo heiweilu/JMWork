@@ -8,9 +8,68 @@
 from PyQt6.QtWidgets import (QWidget, QFormLayout, QLineEdit, QSpinBox,
                               QDoubleSpinBox, QCheckBox, QComboBox,
                               QLabel, QVBoxLayout, QHBoxLayout,
-                              QPlainTextEdit)
+                              QPlainTextEdit, QToolButton, QFileDialog)
 from PyQt6.QtCore import Qt
 from typing import Any, Dict, List
+
+
+class _PathWidget(QWidget):
+    """文件/目录路径输入控件，支持拖拽 + 浏览按钮。"""
+
+    def __init__(self, default: str = '', is_dir: bool = False, parent=None):
+        super().__init__(parent)
+        self._is_dir = is_dir
+        self.setAcceptDrops(True)
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(4)
+
+        self._edit = QLineEdit(str(default) if default else '')
+        if is_dir:
+            self._edit.setPlaceholderText('拖入目录或点击 📂 浏览…')
+        else:
+            self._edit.setPlaceholderText('拖入文件或点击 📂 浏览…')
+        lay.addWidget(self._edit, stretch=1)
+
+        btn = QToolButton()
+        btn.setText('📂')
+        btn.setFixedWidth(30)
+        btn.setToolTip('浏览选择…')
+        btn.clicked.connect(self._browse)
+        lay.addWidget(btn)
+
+    # ----- 公共 API（模仿 QLineEdit） -----
+    def text(self) -> str:
+        return self._edit.text()
+
+    def setText(self, t: str):
+        self._edit.setText(t)
+
+    def setToolTip(self, tip: str):  # noqa: N802
+        self._edit.setToolTip(tip)
+
+    # ----- 浏览 -----
+    def _browse(self):
+        if self._is_dir:
+            p = QFileDialog.getExistingDirectory(self, '选择目录')
+        else:
+            p, _ = QFileDialog.getOpenFileName(
+                self, '选择文件', '',
+                'CSV / TXT (*.csv *.txt);;All Files (*)'
+            )
+        if p:
+            self._edit.setText(p.replace('\\', '/'))
+
+    # ----- 拖拽 -----
+    def dragEnterEvent(self, event):  # noqa: N802
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):  # noqa: N802
+        urls = event.mimeData().urls()
+        if urls:
+            self._edit.setText(urls[0].toLocalFile().replace('\\', '/'))
 
 
 class ParamEditor(QWidget):
@@ -146,7 +205,19 @@ class ParamEditor(QWidget):
             )
             return w
 
-        # string (default)
+        # string (default) —— 如果 key/tooltip 涉及路径，用 _PathWidget
+        key = param.get('key', '')
+        tooltip_lc = param.get('tooltip', '').lower()
+        is_path = (
+            key.endswith(('_path', '_file', '_dir'))
+            or param.get('subtype') in ('path', 'file', 'dir')
+            or '路径' in param.get('tooltip', '')
+            or 'path' in tooltip_lc
+            or 'file' in tooltip_lc
+        )
+        if is_path:
+            is_dir = key.endswith('_dir') or param.get('subtype') == 'dir'
+            return _PathWidget(default=str(default) if default else '', is_dir=is_dir)
         w = QLineEdit()
         w.setText(str(default))
         return w
@@ -184,6 +255,8 @@ class ParamEditor(QWidget):
                 result[key] = (widget._spin1.value(), widget._spin2.value())
             elif ptype == 'textarea':
                 result[key] = widget.toPlainText()
+            elif isinstance(widget, _PathWidget):
+                result[key] = widget.text()
             else:
                 result[key] = widget.text()
 

@@ -15,6 +15,7 @@ from PyQt6.QtGui import QIcon, QFont
 from ui.styles import MAIN_STYLE
 from ui.widgets.log_panel import LogPanel
 from ui.widgets.progress_bar import ProgressWidget
+from ui.widgets.particle_bg import ParticleBg
 from ui.pages.analysis_page import AnalysisPage
 from ui.pages.preprocessing_page import PreprocessingPage
 from ui.pages.config_page import ConfigPage
@@ -23,7 +24,7 @@ from ui.pages.test_page import TestPage
 from ui.pages.docs_page import DocsPage
 from ui.pages.serial_page import SerialPage
 from core.config_manager import ConfigManager
-from ui.animations import UIAnimator
+from ui.animations import UIAnimator, TypewriterEffect, NeonPulse
 
 
 # 导航项定义
@@ -58,13 +59,38 @@ class MainWindow(QMainWindow):
 
         self._init_ui()
         self._init_status_bar()
+        # 粒子背景层（置于最顶层䯕袍，WA_TransparentForMouseEvents 确保交互不受影响）
+        central = self.centralWidget()
+        self._particle_bg = ParticleBg(parent=central)
+        self._particle_bg.resize(central.size())
+        self._particle_bg.raise_()  # 置顶层覆盖全屏
+        # 导航栏霓虹脉冲光晕
+        self._nav_neon = NeonPulse(
+            self.nav_list,
+            r=37, g=99, b=235,
+            blur_min=4, blur_max=18,
+            alpha_min=12, alpha_max=55,
+            period=3000,
+        )
+        self._nav_neon.start()
+        # 页面容器顶部光条脉冲
+        self._glow_neon = NeonPulse(
+            self._page_glow_bar,
+            r=37, g=99, b=235,
+            blur_min=5, blur_max=16,
+            alpha_min=80, alpha_max=255,
+            period=1800,
+        )
+        self._glow_neon.start()
+        # 默认收起日志面板（无动画）
+        self._collapse_log_immediately()
 
     def _init_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = QHBoxLayout(central)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(14, 14, 14, 0)   # 边距让粒子背景在边缘可见
+        main_layout.setSpacing(6)
 
         # ====== 左侧导航栏 ======
         self.nav_list = QListWidget()
@@ -85,7 +111,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.nav_list)
         
         # 给导航栏添加立体阴影
-        UIAnimator.add_soft_shadow(self.nav_list, blur_radius=20, x_offset=2, y_offset=0, alpha=30)
+        UIAnimator.add_soft_shadow(self.nav_list, blur_radius=18, x_offset=2, y_offset=0, alpha=20)
 
         # ====== 右侧内容区 ======
         right_panel = QWidget()
@@ -103,9 +129,9 @@ class MainWindow(QMainWindow):
         self.page_stack_container.setObjectName("page_stack_container")
         self.page_stack_container.setStyleSheet(
             "QFrame#page_stack_container { "
-            "background-color: rgba(255, 255, 255, 0.92); "
+            "background-color: rgba(255,255,255,0.96); "
             "border-radius: 14px; "
-            "border: 1px solid rgba(106, 168, 255, 0.12); "
+            "border: 1px solid rgba(37,99,235,0.18); "
             "}")
         
         container_layout = QVBoxLayout(self.page_stack_container)
@@ -116,8 +142,8 @@ class MainWindow(QMainWindow):
         page_glow_wrap.setContentsMargins(0, 0, 0, 0)
         self._page_glow_bar = QFrame()
         self._page_glow_bar.setObjectName("card_top_glow")
-        self._page_glow_bar.setFixedHeight(4)
-        self._page_glow_bar.setMaximumWidth(160)
+        self._page_glow_bar.setFixedHeight(3)
+        self._page_glow_bar.setMaximumWidth(9999)  # 全宽霓虹光条
         page_glow_wrap.addWidget(self._page_glow_bar)
         page_glow_wrap.addStretch(1)
         container_layout.addLayout(page_glow_wrap)
@@ -132,9 +158,9 @@ class MainWindow(QMainWindow):
         self.log_panel_container.setMinimumWidth(300)
         self.log_panel_container.setStyleSheet(
             "QFrame#log_panel_container { "
-            "background-color: rgba(255, 255, 255, 0.88); "
+            "background-color: rgba(248,250,255,0.96); "
             "border-radius: 14px; "
-            "border: 1px solid rgba(106, 168, 255, 0.14); "
+            "border: 1px solid rgba(37,99,235,0.16); "
             "}")
         
         log_layout = QVBoxLayout(self.log_panel_container)
@@ -235,6 +261,17 @@ class MainWindow(QMainWindow):
         self.global_progress = ProgressWidget()
         self.status_bar.addPermanentWidget(self.global_progress)
 
+    def _collapse_log_immediately(self):
+        """首次启动时无动画收起日志面板"""
+        self.log_panel_container.setMinimumWidth(0)
+        self.log_panel_container.hide()
+        total = self.splitter.sizes()
+        all_width = sum(total)
+        self.splitter.setSizes([all_width, 0])
+        self._log_panel_visible = False
+        self._btn_toggle_log.setText("展开")
+        self._status_toggle_log.setText("展开日志")
+
     def _toggle_log_panel(self):
         """切换右侧日志面板显示状态"""
         sizes = self.splitter.sizes()
@@ -277,13 +314,27 @@ class MainWindow(QMainWindow):
             self._log_panel_visible = True
 
     def _on_nav_changed(self, index: int):
-        """导航切换。"""
+        """导航切换，附带淡入动效 + 打字机状态栏。"""
         if 0 <= index < self.page_stack.count():
             self.page_stack.setCurrentIndex(index)
-            self._current_animation = UIAnimator.pulse_widget(self._page_glow_bar, duration=240)
+            # 当前页面淡入
+            page = self.page_stack.currentWidget()
+            if page:
+                self._current_animation = UIAnimator.fade_in(page, duration=200)
+            # NeonPulse 已在 _page_glow_bar 上持续运行，不再额外 pulse_widget（避免 setGraphicsEffect 冲突）
 
             name = NAV_ITEMS[index]['name'] if index < len(NAV_ITEMS) else ''
-            self.status_bar.showMessage(f"当前: {name}")
+            msg = f"◈  当前模块: {name}"
+            self.status_bar.showMessage(msg)
+
+    def resizeEvent(self, event):  # noqa: N802
+        """窗口大小变化时同步调整粒子背景层"""
+        super().resizeEvent(event)
+        if hasattr(self, "_particle_bg"):
+            central = self.centralWidget()
+            if central:
+                self._particle_bg.resize(central.size())
+                self._particle_bg.raise_()  # 始终保持顶层
 
     def refresh_modules(self):
         """刷新所有页面的模块列表"""
