@@ -27,7 +27,7 @@ MODULE_INFO = {
     "name": "梯形坐标数据生成",
     "category": "preprocessing",
     "description": "生成梯形校正测试坐标数据文件（TXT）。\n"
-                   "支持网格模式、小圆模式、随机模式。\n"
+                   "支持网格模式（网格中心点笛卡尔积）、小圆模式、随机模式。\n"
                    "输出文件可直接用于硬件测试模块的文件模式。\n"
                    "输出首行: WriteCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)",
     "input_type": "none",
@@ -38,26 +38,32 @@ MODULE_INFO = {
         {"key": "run_mode", "label": "生成模式", "type": "combo",
          "options": ["gen_grid", "gen_circle", "gen_random"],
          "default": "gen_grid",
-         "tooltip": "gen_grid=网格覆盖(推荐)  gen_circle=小圆边界探测  gen_random=随机采样"},
+         "tooltip": "gen_grid=网格覆盖(网格中心点笛卡尔积)  gen_circle=以参考点为圆心生成小圆采样点  gen_random=在各角点范围内随机采样"},
         {"key": "screen_w", "label": "屏幕宽度", "type": "int", "default": 3839,
          "tooltip": "屏幕水平分辨率像素最大索引（4K = 3839）"},
         {"key": "screen_h", "label": "屏幕高度", "type": "int", "default": 2159,
          "tooltip": "屏幕垂直分辨率像素最大索引（4K = 2159）"},
         # ── gen_grid 参数 ──
         {"key": "grid_cell_size", "label": "网格格子尺寸(grid)", "type": "int", "default": 200,
-         "tooltip": "gen_grid: 网格划分的格子边长（像素），值越小点越密"},
+         "tooltip": "gen_grid: 网格划分的格子边长（像素），值越小点越密",
+         "visible_when": {"key": "run_mode", "values": ["gen_grid"]}},
         {"key": "grid_expand_steps", "label": "向内扩展层数(grid)", "type": "int", "default": 4,
-         "tooltip": "gen_grid: 从参考点向内扩展的层数，每层间距=格子尺寸"},
+         "tooltip": "gen_grid: 从参考点向内扩展的层数，每层间距=格子尺寸",
+         "visible_when": {"key": "run_mode", "values": ["gen_grid"]}},
         # ── gen_random 参数 ──
         {"key": "random_count", "label": "随机组合数(random)", "type": "int", "default": 1000,
-         "tooltip": "gen_random: 生成的随机坐标组合总数"},
+         "tooltip": "gen_random: 生成的随机坐标组合总数",
+         "visible_when": {"key": "run_mode", "values": ["gen_random"]}},
         # ── gen_circle 参数 ──
         {"key": "circle_radius", "label": "小圆半径(circle)", "type": "int", "default": 300,
-         "tooltip": "gen_circle: 以参考点为圆心的采样圆半径（像素）"},
+         "tooltip": "gen_circle: 以参考点为圆心的采样圆半径（像素）",
+         "visible_when": {"key": "run_mode", "values": ["gen_circle"]}},
         {"key": "circle_step", "label": "圆内采样步长(circle)", "type": "int", "default": 20,
-         "tooltip": "gen_circle: 圆内网格采样步长（像素），越小点越密"},
+         "tooltip": "gen_circle: 圆内网格采样步长（像素），越小点越密",
+         "visible_when": {"key": "run_mode", "values": ["gen_circle"]}},
         {"key": "circle_n_half", "label": "每组PASS/FAIL各N行(circle)", "type": "int", "default": 150,
-         "tooltip": "gen_circle: 每个3角组合生成的PASS/FAIL行数（各N行）"},
+         "tooltip": "gen_circle: 每个3角组合生成的PASS/FAIL行数（各N行）",
+         "visible_when": {"key": "run_mode", "values": ["gen_circle"]}},
         # ── 参考坐标（所有模式都用到）──
         {"key": "ref_corners_text", "label": "参考坐标（自动解析）", "type": "textarea",
          "default": "(0, 0) (3839, 0)\n(0, 2159) (3839, 2159)",

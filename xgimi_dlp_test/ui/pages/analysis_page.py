@@ -369,16 +369,15 @@ class AnalysisPage(QWidget):
                 return
 
         # 获取输出目录
+        # 始终以本工程（xgimi_dlp_test）为根目录，
+        # 避免因输入文件来自其他工程而把结果写到那个工程里
+        _app_root = os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__))))
         project_root = ''
         if self._config_mgr:
             project_root = self._config_mgr.get_project_root()
         if not project_root:
-            if input_path and os.path.exists(input_path):
-                project_root = os.path.dirname(os.path.dirname(input_path))
-            else:
-                # gen 模式无输入文件，使用默认工程目录
-                project_root = os.path.dirname(os.path.dirname(
-                    os.path.dirname(os.path.abspath(__file__))))
+            project_root = _app_root
 
         output_dir = os.path.join(project_root, 'reports')
 

@@ -16,8 +16,11 @@ from matplotlib.figure import Figure
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QComboBox, QScrollArea)
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import Qt, QPoint
+from PyQt6.QtGui import QPixmap, QWheelEvent, QMouseEvent
+
+# 缩放等级预设（倍率）
+_ZOOM_STEPS = [0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0, 6.0]
 
 
 class MatplotlibCanvas(FigureCanvasQTAgg):
@@ -65,6 +68,8 @@ class PlotWidget(QWidget):
         self._image_paths = []
         self._current_image_index = -1
         self._current_source_pixmap = None
+        self._zoom_factor = 0.0   # 0.0 = 适应窗口；>0 = 固定倍率
+        self._drag_start: QPoint | None = None  # 拖拽起始位置
 
         self._image_nav = QWidget(self)
         nav_layout = QHBoxLayout(self._image_nav)
@@ -84,12 +89,61 @@ class PlotWidget(QWidget):
         self._image_info.setStyleSheet("color: #666; font-size: 11px; padding-right: 6px;")
         nav_layout.addWidget(self._image_info)
 
+        # 缩放控制按钮 — 紧凑样式覆盖全局 QPushButton padding
+        _ZOOM_S = (
+            "QPushButton { font-size:12px; padding:3px 8px 4px 8px; "
+            "min-height:22px; min-width:28px; border-radius:6px; }"
+            "QPushButton:hover { padding:2px 8px 5px 8px; }"
+            "QPushButton:pressed { padding:5px 8px 2px 8px; }"
+        )
+
+        _btn_sep = QLabel("│")
+        _btn_sep.setStyleSheet("color:#ccc; font-size:16px;")
+        nav_layout.addWidget(_btn_sep)
+
+        self._btn_zoom_out = QPushButton("缩小 -")
+        self._btn_zoom_out.setStyleSheet(_ZOOM_S)
+        self._btn_zoom_out.setToolTip("缩小图片  (Ctrl + 滚轮↓)")
+        self._btn_zoom_out.clicked.connect(self._zoom_out)
+        nav_layout.addWidget(self._btn_zoom_out)
+
+        self._btn_zoom_fit = QPushButton("适应")
+        self._btn_zoom_fit.setStyleSheet(_ZOOM_S)
+        self._btn_zoom_fit.setToolTip("适应窗口大小（双击图片也可切换）")
+        self._btn_zoom_fit.clicked.connect(self._zoom_fit)
+        nav_layout.addWidget(self._btn_zoom_fit)
+
+        self._btn_zoom_100 = QPushButton("1:1")
+        self._btn_zoom_100.setStyleSheet(_ZOOM_S)
+        self._btn_zoom_100.setToolTip("原始大小 (100%)")
+        self._btn_zoom_100.clicked.connect(lambda: self._set_zoom(1.0))
+        nav_layout.addWidget(self._btn_zoom_100)
+
+        self._btn_zoom_in = QPushButton("放大 +")
+        self._btn_zoom_in.setStyleSheet(_ZOOM_S)
+        self._btn_zoom_in.setToolTip("放大图片  (Ctrl + 滚轮↑)")
+        self._btn_zoom_in.clicked.connect(self._zoom_in)
+        nav_layout.addWidget(self._btn_zoom_in)
+
+        self._zoom_label = QLabel("适应")
+        self._zoom_label.setStyleSheet(
+            "color:#555; font-size:11px; min-width:42px; text-align:center;"
+        )
+        self._zoom_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        nav_layout.addWidget(self._zoom_label)
+
         self._image_scroll = QScrollArea(self)
-        self._image_scroll.setWidgetResizable(True)
+        self._image_scroll.setWidgetResizable(False)   # 手动控制 label 大小以支持缩放滚动
         self._image_scroll.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._image_label = QLabel()
         self._image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._image_label.setStyleSheet("background: #FAFAFA; padding: 8px;")
+        self._image_label.setStyleSheet("background: #FAFAFA; padding: 0px;")
+        # 鼠标拖拽滚动
+        self._image_label.setMouseTracking(True)
+        self._image_label.mousePressEvent   = self._img_mouse_press
+        self._image_label.mouseMoveEvent    = self._img_mouse_move
+        self._image_label.mouseReleaseEvent = self._img_mouse_release
+        self._image_label.mouseDoubleClickEvent = self._img_double_click
         self._image_scroll.setWidget(self._image_label)
 
         layout.addWidget(self._toolbar)
@@ -140,6 +194,8 @@ class PlotWidget(QWidget):
         for p in self._image_paths:
             self._image_combo.addItem(os.path.basename(p), p)
         self._image_combo.blockSignals(False)
+        self._zoom_factor = 0.0          # 每次新图片重置为适应窗口
+        self._zoom_label.setText("适应")
         self._set_mode('image')
         if self._image_paths:
             self._show_image_at(0)
@@ -169,14 +225,116 @@ class PlotWidget(QWidget):
             self._image_label.setText("图片加载失败")
             self._image_label.setPixmap(QPixmap())
             return
-        viewport_size = self._image_scroll.viewport().size()
-        scaled = self._current_source_pixmap.scaled(
-            max(100, viewport_size.width() - 24),
-            max(100, viewport_size.height() - 24),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
-        )
+        pw = self._current_source_pixmap.width()
+        ph = self._current_source_pixmap.height()
+        vp = self._image_scroll.viewport().size()
+        vw = max(100, vp.width() - 4)
+        vh = max(100, vp.height() - 4)
+
+        if self._zoom_factor <= 0:
+            # 适应窗口模式：按比例缩放至视口
+            scaled = self._current_source_pixmap.scaled(
+                vw, vh,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            self._zoom_label.setText("适应")
+        else:
+            new_w = max(1, int(pw * self._zoom_factor))
+            new_h = max(1, int(ph * self._zoom_factor))
+            scaled = self._current_source_pixmap.scaled(
+                new_w, new_h,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            self._zoom_label.setText(f"{int(self._zoom_factor * 100)}%")
+
+        self._image_label.setFixedSize(scaled.size())
         self._image_label.setPixmap(scaled)
+
+    # ──────────────────── 缩放控制 ────────────────────
+
+    def _zoom_in(self):
+        """放大一级"""
+        cur = self._current_zoom_ratio()
+        for step in _ZOOM_STEPS:
+            if step > cur + 0.01:
+                self._set_zoom(step)
+                return
+        self._set_zoom(_ZOOM_STEPS[-1])
+
+    def _zoom_out(self):
+        """缩小一级"""
+        cur = self._current_zoom_ratio()
+        for step in reversed(_ZOOM_STEPS):
+            if step < cur - 0.01:
+                self._set_zoom(step)
+                return
+        self._set_zoom(_ZOOM_STEPS[0])
+
+    def _zoom_fit(self):
+        """切换为适应窗口模式"""
+        self._zoom_factor = 0.0
+        self._refresh_current_image()
+
+    def _set_zoom(self, factor: float):
+        """设置具体倍率并刷新"""
+        self._zoom_factor = factor
+        self._refresh_current_image()
+
+    def _current_zoom_ratio(self) -> float:
+        """返回当前实际缩放倍率（fit 模式下动态计算）"""
+        if self._zoom_factor > 0:
+            return self._zoom_factor
+        if self._current_source_pixmap and not self._current_source_pixmap.isNull():
+            pw = self._current_source_pixmap.width()
+            ph = self._current_source_pixmap.height()
+            vp = self._image_scroll.viewport().size()
+            vw = max(1, vp.width() - 4)
+            vh = max(1, vp.height() - 4)
+            return min(vw / pw, vh / ph)
+        return 1.0
+
+    # ──────────────────── 拖拽滚动 ────────────────────
+
+    def _img_mouse_press(self, event: QMouseEvent):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_start = event.globalPosition().toPoint()
+            self._image_label.setCursor(Qt.CursorShape.ClosedHandCursor)
+
+    def _img_mouse_move(self, event: QMouseEvent):
+        if self._drag_start is not None:
+            delta = event.globalPosition().toPoint() - self._drag_start
+            self._drag_start = event.globalPosition().toPoint()
+            hbar = self._image_scroll.horizontalScrollBar()
+            vbar = self._image_scroll.verticalScrollBar()
+            hbar.setValue(hbar.value() - delta.x())
+            vbar.setValue(vbar.value() - delta.y())
+
+    def _img_mouse_release(self, event: QMouseEvent):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_start = None
+            self._image_label.setCursor(Qt.CursorShape.ArrowCursor)
+
+    def _img_double_click(self, event: QMouseEvent):
+        """双击切换适应窗口 ↔ 100%"""
+        if self._zoom_factor <= 0:
+            self._set_zoom(1.0)
+        else:
+            self._zoom_fit()
+
+    # ──────────────────── 滚轮缩放 ────────────────────
+
+    def wheelEvent(self, event: QWheelEvent):
+        if (self._image_nav.isVisible() and
+                event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+            if event.angleDelta().y() > 0:
+                self._zoom_in()
+            else:
+                self._zoom_out()
+            event.accept()
+        else:
+            super().wheelEvent(event)
 
     def _show_prev_image(self):
         if self._current_image_index > 0:
@@ -193,9 +351,12 @@ class PlotWidget(QWidget):
         self._image_paths = []
         self._current_image_index = -1
         self._current_source_pixmap = None
+        self._zoom_factor = 0.0
         self._image_combo.clear()
         self._image_label.clear()
+        self._image_label.setFixedSize(self._image_scroll.viewport().size())
         self._image_info.clear()
+        self._zoom_label.setText("适应")
         self._set_mode('figure')
 
     def save_figure(self, filepath: str, dpi: int = 150):

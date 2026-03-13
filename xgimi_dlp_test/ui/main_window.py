@@ -229,6 +229,9 @@ class MainWindow(QMainWindow):
         self.page_stack.addWidget(self.serial_page)
         self.page_stack.addWidget(self.test_page)
 
+        # 预处理页"导入至梯形测试"信号 → 切换至硬件测试并设置文件
+        self.preprocessing_page.import_to_test.connect(self._on_import_to_test)
+
         self.splitter.addWidget(self.page_stack_container)
         self.splitter.addWidget(self.log_panel_container)
         self.splitter.setHandleWidth(8)
@@ -342,6 +345,16 @@ class MainWindow(QMainWindow):
         self.preprocessing_page.refresh_modules()
         self.test_page.refresh_modules()
         self.log_panel.append_log("模块列表已刷新", "SUCCESS")
+
+    def _on_import_to_test(self, file_path: str):
+        """预处理页导入信号 → 切换至硬件测试并设置梯形测试文件"""
+        # 找到"硬件测试"导航项索引（固定为 6）
+        hw_nav_index = next(
+            (i for i, item in enumerate(NAV_ITEMS) if item['name'] == '硬件测试'), 6)
+        self.nav_list.setCurrentRow(hw_nav_index)
+        self.test_page.set_input_file_for_trapezoid(file_path)
+        self.log_panel.append_log(
+            f"已导入坐标文件至梯形坐标测试: {file_path}", "INFO")
 
     def closeEvent(self, event):
         """关闭窗口确认"""

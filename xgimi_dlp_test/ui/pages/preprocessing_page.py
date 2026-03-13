@@ -9,7 +9,7 @@ import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QTabWidget, QGroupBox,
                               QPushButton, QLabel, QHBoxLayout, QMessageBox,
                               QScrollArea, QFrame)
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 
 from ui.widgets.file_selector import FileSelector
 from ui.widgets.param_editor import ParamEditor
@@ -21,6 +21,9 @@ from core import task_registry
 class PreprocessingCard(QWidget):
     """单个预处理功能卡片"""
 
+    # 用户点击【导入至梯形测试】按钮时发出，携带输出文件绝对路径
+    import_to_test = pyqtSignal(str)
+
     def __init__(self, module_id: str, module_info: dict, module_obj,
                  log_panel=None, config_mgr=None, parent=None):
         super().__init__(parent)
@@ -30,6 +33,7 @@ class PreprocessingCard(QWidget):
         self._log_panel = log_panel
         self._config_mgr = config_mgr
         self._worker = None
+        self._last_output_file = ''   # 记录最近一次成功输出文件路径
         self._init_ui()
 
     def _init_ui(self):
@@ -103,6 +107,15 @@ class PreprocessingCard(QWidget):
         btn_layout.addStretch()
         layout.addLayout(btn_layout)
 
+        # 快捷导入按钮（执行成功后才显示，仅梯形坐标生成模块使用）
+        self._btn_import = QPushButton("→  导入至梯形坐标测试")
+        self._btn_import.setObjectName("btn_success")
+        self._btn_import.setToolTip(
+            "将生成好的坐标文件快速导入到【硬件测试 → 梯形坐标测试】的输入文件中")
+        self._btn_import.clicked.connect(self._on_import_to_test)
+        self._btn_import.setVisible(False)
+        layout.addWidget(self._btn_import)
+
         # 进度条
         self.progress = ProgressWidget()
         layout.addWidget(self.progress)
@@ -116,20 +129,16 @@ class PreprocessingCard(QWidget):
             QMessageBox.warning(self, "输入错误", "请选择有效的输入文件或目录")
             return
 
+        # 始终以本工程目录为根，不随输入文件漂移
+        _app_root = os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__))))
         project_root = ''
         if self._config_mgr:
             project_root = self._config_mgr.get_project_root()
         if project_root:
             output_dir = os.path.join(project_root, 'data')
-        elif input_path:
-            output_dir = os.path.dirname(input_path)
         else:
-            # input_type=none 时使用应用目录下的 reports
-            output_dir = os.path.join(
-                os.path.dirname(os.path.dirname(
-                    os.path.dirname(os.path.abspath(__file__)))),
-                'reports', 'preprocessed'
-            )
+            output_dir = os.path.join(_app_root, 'data')
 
         params = self.param_editor.get_values() if self.param_editor else {}
         params['project_root'] = project_root
@@ -169,6 +178,27 @@ class PreprocessingCard(QWidget):
             if self._log_panel:
                 self._log_panel.append_log(
                     f"预处理完成: {result.get('output_path', '')}", "SUCCESS")
+
+            # 记录输出文件，尝试 output_path（文件）或目录中最新的 .txt
+            out = result.get('output_path', '')
+            if out and os.path.isfile(out):
+                self._last_output_file = out
+            elif out and os.path.isdir(out):
+                try:
+                    txts = sorted(
+                        [os.path.join(out, f) for f in os.listdir(out)
+                         if f.endswith('.txt')],
+                        key=os.path.getmtime, reverse=True
+                    )
+                    self._last_output_file = txts[0] if txts else ''
+                except Exception:
+                    self._last_output_file = ''
+            else:
+                self._last_output_file = ''
+
+            # 仅梯形坐标数据生成模块才显示"导入至梯形测试"按钮
+            is_trap_gen = 'trapezoid_gen' in self._module_id
+            self._btn_import.setVisible(is_trap_gen and bool(self._last_output_file))
         else:
             self.progress.set_error()
             self.status_indicator.setStyleSheet("color: #F44336; font-size: 18px;")
@@ -176,6 +206,15 @@ class PreprocessingCard(QWidget):
             if self._log_panel:
                 self._log_panel.append_log(
                     f"预处理失败: {result.get('message', '')}", "ERROR")
+
+    def _on_import_to_test(self):
+        """点击【导入至梯形坐标测试】按钮"""
+        if self._last_output_file and os.path.isfile(self._last_output_file):
+            self.import_to_test.emit(self._last_output_file)
+        else:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "导入失败",
+                                f"找不到输出文件:\n{self._last_output_file}")
 
     def _on_error(self, error_msg):
         self.btn_execute.setEnabled(True)
@@ -187,6 +226,9 @@ class PreprocessingCard(QWidget):
 
 class PreprocessingPage(QWidget):
     """数据预处理页面"""
+
+    # 转发来自各 Card 的导入请求信号
+    import_to_test = pyqtSignal(str)
 
     def __init__(self, log_panel=None, config_mgr=None, parent=None):
         super().__init__(parent)
@@ -223,6 +265,8 @@ class PreprocessingPage(QWidget):
                 log_panel=self._log_panel,
                 config_mgr=self._config_mgr,
             )
+            # 将 card 的导入信号转发给页面级信号，供 MainWindow 连接
+            card.import_to_test.connect(self.import_to_test)
             self.tab_widget.addTab(card, info['name'])
             self._cards.append(card)
 

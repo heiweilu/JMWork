@@ -74,6 +74,7 @@ hidden_imports = [
     'modules.analysis.quadrant_limit_vis',
     'modules.analysis.trajectory_drawing',
     'modules.analysis.errorcode1_vis',
+    'modules.analysis.trapezoid_coord_vis',
     'modules.preprocessing.csv_split_quadrant',
     'modules.preprocessing.csv_to_txt',
     'modules.preprocessing.extract_errorcode',

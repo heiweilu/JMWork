@@ -351,6 +351,39 @@ class TestPage(QWidget):
         if self._module_ids:
             self._on_type_changed(0)
 
+    def set_input_file_for_trapezoid(self, file_path: str):
+        """
+        从预处理页接收坐标文件并切换至梯形坐标测试 file 模式。
+
+        Args:
+            file_path: 坐标 TXT 文件的绝对路径
+        """
+        # 找到梯形坐标测试模块
+        trap_idx = next(
+            (i for i, mid in enumerate(self._module_ids)
+             if 'trapezoid_test' in mid), None)
+        if trap_idx is None:
+            self._log_msg("未找到梯形坐标测试模块", "WARNING")
+            return
+
+        # 切换测试类型
+        if self._combo_type.currentIndex() != trap_idx:
+            self._combo_type.setCurrentIndex(trap_idx)
+
+        # 设置输入文件路径
+        self._file_selector.set_path(file_path)
+        self._file_group.setVisible(True)
+
+        # 将 test_mode 切换为 file 模式
+        test_mode_widget = self._param_editor._widgets.get('test_mode')
+        if test_mode_widget and hasattr(test_mode_widget, 'setCurrentText'):
+            test_mode_widget.setCurrentText('file(文件模式)')
+            # 触发 visible_when 联动
+            self._param_editor._update_visibility('test_mode')
+
+        self._update_run_state()
+        self._log_msg(f"已导入梯形坐标文件: {file_path}", "INFO")
+
     def _on_type_changed(self, index):
         """切换测试类型"""
         if index < 0 or index >= len(self._module_ids):

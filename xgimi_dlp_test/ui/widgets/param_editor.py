@@ -84,12 +84,21 @@ class ParamEditor(QWidget):
     - bool     → QCheckBox
     - tuple    → 两个 QDoubleSpinBox（范围）
     - choice / combo → QComboBox
+
+    支持 visible_when 条件显隐:
+        {"key": "run_mode", "values": ["gen_grid", "gen_circle"]}
+        {"key": "run_mode", "value": "gen_grid"}  ← 单值写法
+    当被依赖的 QComboBox 值改变时，自动显示/隐藏对应行。
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._widgets: Dict[str, QWidget] = {}
         self._params_def: List[dict] = []
+        # key -> (label_widget, field_widget)
+        self._row_widgets: Dict[str, tuple] = {}
+        # trigger_key -> [(dep_key, allowed_values_list), ...]
+        self._visibility_deps: Dict[str, list] = {}
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
@@ -107,7 +116,8 @@ class ParamEditor(QWidget):
         Args:
             params_def: 参数定义列表，每项格式:
                 {"key": "name", "label": "显示名", "type": "float",
-                 "default": 1.0, "tooltip": "说明文字"}
+                 "default": 1.0, "tooltip": "说明文字",
+                 "visible_when": {"key": "mode", "values": ["a", "b"]}}
         """
         self._clear()
         # 使用副本，避免在切换模块时误修改原始 MODULE_INFO['params'] 列表
@@ -123,21 +133,73 @@ class ParamEditor(QWidget):
             if tooltip and hasattr(widget, 'setToolTip'):
                 widget.setToolTip(tooltip)
 
+            # 始终创建 QLabel 实体，以便后续可以控制其可见性
             if tooltip:
                 label_widget = QLabel(
                     f"{label_text} <span style='color:#2196F3; font-size:10px'>ⓘ</span>:"
                 )
                 label_widget.setTextFormat(Qt.TextFormat.RichText)
                 label_widget.setToolTip(tooltip)
-                self._form_layout.addRow(label_widget, widget)
             else:
-                self._form_layout.addRow(f"{label_text}:", widget)
+                label_widget = QLabel(f"{label_text}:")
 
+            self._form_layout.addRow(label_widget, widget)
             self._widgets[key] = widget
+            self._row_widgets[key] = (label_widget, widget)
+
+        # ── 注册 visible_when 依赖关系 ──
+        for param in self._params_def:
+            vw = param.get('visible_when')
+            if not vw:
+                continue
+            trigger_key = vw.get('key')
+            if not trigger_key:
+                continue
+            # 支持 "value" (单值) 和 "values" (列表) 两种写法
+            allowed = vw.get('values') or ([vw['value']] if 'value' in vw else [])
+            allowed = [str(v) for v in allowed]
+            if trigger_key not in self._visibility_deps:
+                self._visibility_deps[trigger_key] = []
+            self._visibility_deps[trigger_key].append((param['key'], allowed))
+
+        # ── 为触发 combo 连接信号 ──
+        for trigger_key in self._visibility_deps:
+            trigger_w = self._widgets.get(trigger_key)
+            if isinstance(trigger_w, QComboBox):
+                trigger_w.currentIndexChanged.connect(
+                    lambda _, k=trigger_key: self._update_visibility(k)
+                )
+
+        # ── 初始可见性 ──
+        for trigger_key in self._visibility_deps:
+            self._update_visibility(trigger_key)
 
         self.adjustSize()
         self.updateGeometry()
         self.repaint()
+
+    def _update_visibility(self, trigger_key: str):
+        """根据 trigger_key 对应 combo 的当前值，显示/隐藏依赖行。"""
+        trigger_w = self._widgets.get(trigger_key)
+        if trigger_w is None:
+            return
+        # 读取当前值（优先使用内部 _values 列表，保证与 get_values 一致）
+        if isinstance(trigger_w, QComboBox):
+            idx = trigger_w.currentIndex()
+            if hasattr(trigger_w, '_values') and 0 <= idx < len(trigger_w._values):
+                current_val = trigger_w._values[idx]
+            else:
+                current_val = trigger_w.currentText()
+        else:
+            return
+
+        for dep_key, allowed in self._visibility_deps.get(trigger_key, []):
+            visible = current_val in allowed
+            label_w, field_w = self._row_widgets.get(dep_key, (None, None))
+            if label_w is not None:
+                label_w.setVisible(visible)
+            if field_w is not None:
+                field_w.setVisible(visible)
 
     def _create_widget(self, param: dict) -> QWidget:
         """根据参数类型创建控件"""
@@ -268,3 +330,5 @@ class ParamEditor(QWidget):
             self._form_layout.removeRow(0)
         self._widgets.clear()
         self._params_def = []
+        self._row_widgets.clear()
+        self._visibility_deps.clear()
