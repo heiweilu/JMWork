@@ -25,6 +25,8 @@ from datetime import datetime
 
 # 工程根目录（输出路径自动定位，无需修改）
 DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+# 输出根目录：指向当前主工程 xgimi_dlp_test（与 202602027_dlp_auto 同级）
+OUTPUT_ROOT = os.path.normpath(os.path.join(DATA_ROOT, '..', 'xgimi_dlp_test'))
 
 # ==============================================================================
 # 【手动配置区】每次运行前修改此处
@@ -226,7 +228,7 @@ def visualize_angle_test_results(csv_path):
     # ── 保存 ─────────────────────────────────────────────────
     timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
     date_str   = datetime.now().strftime("%Y%m%d")
-    output_dir = os.path.join(DATA_ROOT, 'reports', 'Data_Analysis_Result', 'Angle', '1', date_str)
+    output_dir = os.path.join(OUTPUT_ROOT, 'reports', 'Data_Analysis_Result', 'Angle', '1', date_str)
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"angle_test_visualization_{timestamp}.png")
 

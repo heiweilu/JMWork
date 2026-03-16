@@ -439,9 +439,6 @@ def run(input_path: str, output_dir: str, params: dict,
                 angle_desc = _format_angle_name(yaw, pitch)
                 prog(i, total)
 
-                if i <= 5 or i % 100 == 0 or i == total:
-                    log(f"[{i}/{total}] 测试 {angle_desc}", "INFO")
-
                 # 始终从输入数据计算 write_coords，不依赖 result dict（防止 USB 失败时丢失坐标）
                 flat_write = [
                     int(points[0][0]), int(points[0][1]),
@@ -449,6 +446,10 @@ def run(input_path: str, output_dir: str, params: dict,
                     int(points[2][0]), int(points[2][1]),
                     int(points[3][0]), int(points[3][1]),
                 ]
+                _cstr = (
+                    f"TL=({flat_write[0]},{flat_write[1]}) TR=({flat_write[2]},{flat_write[3]}) "
+                    f"BL=({flat_write[4]},{flat_write[5]}) BR=({flat_write[6]},{flat_write[7]})"
+                )
 
                 # 坐标越界立即 FAIL，不发送 USB 命令（与原始脚本行为一致）
                 if any(c < 0 or c > 65535 for c in flat_write):
@@ -460,11 +461,18 @@ def run(input_path: str, output_dir: str, params: dict,
                     ))
                     txtfile.flush()
                     failed += 1
-                    if failed <= 20:
-                        log(f"  [FAIL] {angle_desc} 坐标越界: {flat_write}", "WARNING")
-                    executed = passed + failed
-                    if executed % 10 == 0 or _stopped():
-                        _log_progress(executed, total, passed, failed, start_time, force=True, start_offset=resume_offset)
+                    _done = passed + failed
+                    _es = max(0.0, time.time() - start_time)
+                    _rt = _es / _done if _done > 0 else 0
+                    _pct = passed * 100.0 / _done if _done > 0 else 0
+                    _eta = max(0, total - resume_offset - _done) * _rt / 60 if _done > 0 else 0
+                    log(
+                        f"[{resume_offset + _done}/{total}] {angle_desc} | {_cstr} "
+                        f"\u2192 FAIL EC=-1(越界) | "
+                        f"PASS:{passed} FAIL:{failed} ({_pct:.0f}%) | "
+                        f"Elapsed:{_es / 60:.1f}min | Rate:{_rt:.3f}s/test | ETA:{_eta:.1f}min",
+                        "WARNING"
+                    )
                     if _stopped():
                         break
                     continue
@@ -499,15 +507,19 @@ def run(input_path: str, output_dir: str, params: dict,
                     passed += 1
                 else:
                     failed += 1
-                    if i <= 20 or failed <= 10:
-                        err_detail = result.get('message', '')
-                        log(f"  [FAIL] {angle_desc} ErrorCode={ec} Delta={delta}px" +
-                            (f" ({err_detail})" if err_detail else ""), "WARNING")
 
                 executed = passed + failed
-                if executed % 10 == 0 or executed == total or _stopped():
-                    _log_progress(executed, total, passed, failed, start_time, force=True, start_offset=resume_offset)
-
+                _es = max(0.0, time.time() - start_time)
+                _rt = _es / executed if executed > 0 else 0
+                _pct = passed * 100.0 / executed if executed > 0 else 0
+                _eta = max(0, total - resume_offset - executed) * _rt / 60 if executed > 0 else 0
+                log(
+                    f"[{resume_offset + executed}/{total}] {angle_desc} | {_cstr} "
+                    f"\u2192 {'PASS' if ok else 'FAIL'} EC={ec} Delta={delta}px | "
+                    f"PASS:{passed} FAIL:{failed} ({_pct:.0f}%) | "
+                    f"Elapsed:{_es / 60:.1f}min | Rate:{_rt:.3f}s/test | ETA:{_eta:.1f}min",
+                    "INFO" if ok else "WARNING"
+                )
                 if _stopped():
                     break
 

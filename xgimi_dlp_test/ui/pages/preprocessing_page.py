@@ -57,11 +57,13 @@ class PreprocessingCard(QWidget):
         # 文件选择
         input_type = self._module_info.get('input_type', 'csv')
         filters_map = {
-            'csv':      "CSV文件 (*.csv);;所有文件 (*)",
-            'txt':      "文本文件 (*.txt);;所有文件 (*)",
-            'data':     "数据文件 (*.csv *.txt);;所有文件 (*)",
-            'optional': "数据文件 (*.csv *.txt);;所有文件 (*)",
-            'directory': "",
+            'csv':         "CSV文件 (*.csv);;所有文件 (*)",
+            'txt':         "文本文件 (*.txt);;所有文件 (*)",
+            'csv_or_txt':  "数据文件 (*.txt *.csv);;文本文件 (*.txt);;CSV文件 (*.csv);;所有文件 (*)",
+            'csv_or_dir':  "CSV文件 (*.csv);;所有文件 (*)",
+            'data':        "数据文件 (*.csv *.txt);;所有文件 (*)",
+            'optional':    "数据文件 (*.csv *.txt);;所有文件 (*)",
+            'directory':   "",
         }
         self._needs_file = input_type not in ('none',)
         if self._needs_file:
@@ -98,6 +100,12 @@ class PreprocessingCard(QWidget):
         self.btn_execute.setObjectName("btn_primary")
         self.btn_execute.clicked.connect(self._on_execute)
         btn_layout.addWidget(self.btn_execute)
+
+        self.btn_open_output = QPushButton("📂 打开输出位置")
+        self.btn_open_output.setToolTip("在文件管理器中打开输出文件所在目录")
+        self.btn_open_output.setEnabled(False)
+        self.btn_open_output.clicked.connect(self._on_open_output)
+        btn_layout.addWidget(self.btn_open_output)
 
         self.status_indicator = QLabel("●")
         self.status_indicator.setStyleSheet("color: #999; font-size: 18px;")
@@ -196,8 +204,12 @@ class PreprocessingCard(QWidget):
             else:
                 self._last_output_file = ''
 
-            # 仅梯形坐标数据生成模块才显示"导入至梯形测试"按钮
-            is_trap_gen = 'trapezoid_gen' in self._module_id
+            # 启用"打开输出位置"按钮
+            if self._last_output_file:
+                self.btn_open_output.setEnabled(True)
+            # 梯形坐标数据生成、角度扩圆坐标生成均可导入至梯形测试
+            is_trap_gen = ('trapezoid_gen' in self._module_id
+                           or 'angle_coord_expand' in self._module_id)
             self._btn_import.setVisible(is_trap_gen and bool(self._last_output_file))
         else:
             self.progress.set_error()
@@ -206,6 +218,17 @@ class PreprocessingCard(QWidget):
             if self._log_panel:
                 self._log_panel.append_log(
                     f"预处理失败: {result.get('message', '')}", "ERROR")
+
+    def _on_open_output(self):
+        """在文件管理器中打开输出文件所在目录"""
+        import subprocess
+        out = self._last_output_file
+        if not out:
+            return
+        if os.path.isfile(out):
+            subprocess.Popen(f'explorer /select,"{os.path.normpath(out)}"')
+        elif os.path.isdir(out):
+            subprocess.Popen(f'explorer "{os.path.normpath(out)}"')
 
     def _on_import_to_test(self):
         """点击【导入至梯形坐标测试】按钮"""
@@ -274,3 +297,15 @@ class PreprocessingPage(QWidget):
             placeholder = QLabel("暂无预处理模块")
             placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.tab_widget.addTab(placeholder, "无模块")
+
+    def set_module_input(self, module_name: str, file_path: str):
+        """导航到指定模块 Tab 并预填输入文件路径（供主窗口快捷跳转使用）"""
+        for i, card in enumerate(self._cards):
+            if module_name in card._module_info.get('name', ''):
+                self.tab_widget.setCurrentIndex(i)
+                if card.file_selector:
+                    card.file_selector.set_path(file_path)
+                if self._log_panel:
+                    self._log_panel.append_log(
+                        f"已切换到《{module_name}》并填入输入文件: {file_path}", "INFO")
+                return

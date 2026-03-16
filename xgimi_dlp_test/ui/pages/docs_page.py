@@ -7,9 +7,11 @@
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                               QLabel, QTextBrowser, QListWidget,
-                              QListWidgetItem, QSplitter, QFrame)
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
+                              QListWidgetItem, QSplitter, QFrame,
+                              QLineEdit, QTableWidget, QTableWidgetItem,
+                              QHeaderView, QStackedWidget, QAbstractItemView)
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QFont, QColor
 
 
 # ──────────────────────────────────────────────
@@ -387,6 +389,162 @@ cp /data/vendor/ak_scan_*.csv /mnt/media_rw/0182-0265/
 ]
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 错误码参考页面
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _ErrorCodeWidget(QWidget):
+    """错误码参考页：搜索 + 表格"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._all_rows: list = []   # [(code_int, name, desc), ...]
+        self._init_ui()
+        self._load_data()
+
+    def _init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 16, 20, 12)
+        layout.setSpacing(8)
+
+        # 标题
+        title = QLabel("🔢  错误码参考 (ErrorCode Reference)")
+        title.setFont(QFont("Microsoft YaHei", 12, QFont.Weight.Bold))
+        title.setStyleSheet("color:#1A237E; padding-bottom:4px;")
+        layout.addWidget(title)
+
+        # 搜索栏
+        search_row = QHBoxLayout()
+        search_row.setSpacing(8)
+        search_lbl = QLabel("🔍 搜索:")
+        search_lbl.setFixedWidth(52)
+        search_lbl.setStyleSheet("color:#555; font-size:13px;")
+        self._search_edit = QLineEdit()
+        self._search_edit.setPlaceholderText(
+            "输入错误码（数字）或名称关键词，实时过滤...")
+        self._search_edit.setStyleSheet(
+            "QLineEdit { border: 1px solid #C5CAE9; border-radius: 5px;"
+            " padding: 4px 8px; font-size: 13px; background:#FAFAFA; }")
+        self._search_edit.textChanged.connect(self._on_search)
+        search_row.addWidget(search_lbl)
+        search_row.addWidget(self._search_edit)
+        self._count_lbl = QLabel("")
+        self._count_lbl.setStyleSheet("color:#888; font-size:12px;")
+        self._count_lbl.setFixedWidth(100)
+        search_row.addWidget(self._count_lbl)
+        layout.addLayout(search_row)
+
+        # 表格
+        self._table = QTableWidget(0, 3)
+        self._table.setHorizontalHeaderLabels(["ErrorCode", "名称 (Name)", "说明 (Description)"])
+        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self._table.verticalHeader().setVisible(False)
+        self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self._table.setAlternatingRowColors(True)
+        self._table.setStyleSheet("""
+            QTableWidget {
+                border: 1px solid #C5CAE9;
+                border-radius: 4px;
+                font-size: 12px;
+                gridline-color: #E8EAF6;
+            }
+            QHeaderView::section {
+                background: #E8EAF6;
+                color: #283593;
+                font-weight: bold;
+                padding: 5px 8px;
+                border: none;
+                border-right: 1px solid #C5CAE9;
+            }
+            QTableWidget::item { padding: 4px 8px; }
+            QTableWidget::item:selected { background: #C5CAE9; color: #1A237E; }
+        """)
+        layout.addWidget(self._table)
+
+    def _load_data(self):
+        """从 assets/doc/ErrorCode.txt 解析错误码"""
+        import os, re
+        here = os.path.dirname(os.path.abspath(__file__))
+        ec_path = ""
+        for _ in range(6):
+            candidate = os.path.join(here, "assets", "doc", "ErrorCode.txt")
+            if os.path.isfile(candidate):
+                ec_path = candidate
+                break
+            here = os.path.dirname(here)
+
+        rows = []
+        if ec_path:
+            try:
+                with open(ec_path, "r", encoding="utf-8-sig", errors="replace") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line in ("ErrCodeT", "Top", "Members"):
+                            continue
+                        parts = re.split(r"\t", line)
+                        if len(parts) < 3 or parts[1].strip() != "=":
+                            continue
+                        try:
+                            code = int(parts[2].strip())
+                        except ValueError:
+                            continue
+                        name = parts[0].strip()
+                        desc = parts[3].lstrip("# ").strip() if len(parts) > 3 else ""
+                        rows.append((code, name, desc))
+            except Exception as e:
+                rows = [(0, "加载失败", str(e))]
+        else:
+            rows = [(0, "未找到", "assets/doc/ErrorCode.txt 不存在")]
+
+        # 按 code 排序，去重（同 code 保留第一条）
+        seen_codes: set = set()
+        unique_rows = []
+        for r in sorted(rows, key=lambda x: x[0]):
+            if r[0] not in seen_codes:
+                seen_codes.add(r[0])
+                unique_rows.append(r)
+            else:
+                # 同 code 多条：若已有的 desc 为空则替换
+                idx = next(i for i, x in enumerate(unique_rows) if x[0] == r[0])
+                if not unique_rows[idx][2] and r[2]:
+                    unique_rows[idx] = r
+        self._all_rows = unique_rows
+        self._populate_table(self._all_rows)
+
+    def _populate_table(self, rows: list):
+        self._table.setRowCount(0)
+        for code, name, desc in rows:
+            row_idx = self._table.rowCount()
+            self._table.insertRow(row_idx)
+            # ErrorCode：右对齐数字
+            code_item = QTableWidgetItem(str(code))
+            code_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            code_item.setForeground(QColor("#1565C0"))
+            self._table.setItem(row_idx, 0, code_item)
+            self._table.setItem(row_idx, 1, QTableWidgetItem(name))
+            desc_item = QTableWidgetItem(desc)
+            desc_item.setForeground(QColor("#555555" if desc else "#AAAAAA"))
+            self._table.setItem(row_idx, 2, desc_item)
+        self._count_lbl.setText(f"{len(rows)} 条")
+        self._table.resizeRowsToContents()
+
+    def _on_search(self, text: str):
+        kw = text.strip().lower()
+        if not kw:
+            self._populate_table(self._all_rows)
+            return
+        filtered = [
+            r for r in self._all_rows
+            if kw in str(r[0]) or kw in r[1].lower() or kw in r[2].lower()
+        ]
+        self._populate_table(filtered)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
 class DocsPage(QWidget):
     """开发文档页面"""
 
@@ -444,11 +602,16 @@ class DocsPage(QWidget):
         """)
         for doc in DOCS:
             self.toc_list.addItem(QListWidgetItem(doc["title"]))
+        # 错误码参考（特殊入口，不在 DOCS 列表中）
+        self.toc_list.addItem(QListWidgetItem("🔢 错误码参考"))
+        self._errorcode_nav_idx = len(DOCS)   # 最后一项的索引
 
         self.toc_list.currentRowChanged.connect(self._on_toc_changed)
         left_layout.addWidget(self.toc_list)
 
-        # ── 右侧内容 ──
+        # ── 右侧内容（QStackedWidget：0=浏览器，1=错误码页）──
+        self._right_stack = QStackedWidget()
+
         self.browser = QTextBrowser()
         self.browser.setOpenExternalLinks(True)
         self.browser.setStyleSheet("""
@@ -460,9 +623,13 @@ class DocsPage(QWidget):
                 padding: 20px 28px;
             }
         """)
+        self._right_stack.addWidget(self.browser)          # index 0
+
+        self._ec_widget = _ErrorCodeWidget()
+        self._right_stack.addWidget(self._ec_widget)       # index 1
 
         splitter.addWidget(left)
-        splitter.addWidget(self.browser)
+        splitter.addWidget(self._right_stack)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setHandleWidth(1)
@@ -473,7 +640,11 @@ class DocsPage(QWidget):
         self.toc_list.setCurrentRow(0)
 
     def _on_toc_changed(self, index: int):
-        if 0 <= index < len(DOCS):
+        if index == self._errorcode_nav_idx:
+            # 切换到错误码参考页面
+            self._right_stack.setCurrentIndex(1)
+        elif 0 <= index < len(DOCS):
+            self._right_stack.setCurrentIndex(0)
             self.browser.setHtml(_wrap_html(DOCS[index]["content"]))
             self.browser.verticalScrollBar().setValue(0)
 

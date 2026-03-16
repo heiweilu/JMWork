@@ -36,9 +36,9 @@ MODULE_INFO = {
     "enabled": True,
     "params": [
         {"key": "run_mode", "label": "生成模式", "type": "combo",
-         "options": ["gen_grid", "gen_circle", "gen_random"],
-         "default": "gen_grid",
-         "tooltip": "gen_grid=网格覆盖(网格中心点笛卡尔积)  gen_circle=以参考点为圆心生成小圆采样点  gen_random=在各角点范围内随机采样"},
+         "options": ["网格覆盖模式", "小圆采样模式", "随机采样模式"],
+         "default": "网格覆盖模式",
+         "tooltip": "网格覆盖模式: 以参考点为中心向内网格扩展，做四角笛卡尔积\n小圆采样模式: 以参考点为圆心在小圆内采样坐标\n随机采样模式: 在各角点范围内随机采样"},
         {"key": "screen_w", "label": "屏幕宽度", "type": "int", "default": 3839,
          "tooltip": "屏幕水平分辨率像素最大索引（4K = 3839）"},
         {"key": "screen_h", "label": "屏幕高度", "type": "int", "default": 2159,
@@ -46,24 +46,33 @@ MODULE_INFO = {
         # ── gen_grid 参数 ──
         {"key": "grid_cell_size", "label": "网格格子尺寸(grid)", "type": "int", "default": 200,
          "tooltip": "gen_grid: 网格划分的格子边长（像素），值越小点越密",
-         "visible_when": {"key": "run_mode", "values": ["gen_grid"]}},
+         "visible_when": {"key": "run_mode", "values": ["网格覆盖模式"]}},
         {"key": "grid_expand_steps", "label": "向内扩展层数(grid)", "type": "int", "default": 4,
          "tooltip": "gen_grid: 从参考点向内扩展的层数，每层间距=格子尺寸",
-         "visible_when": {"key": "run_mode", "values": ["gen_grid"]}},
+         "visible_when": {"key": "run_mode", "values": ["网格覆盖模式"]}},
         # ── gen_random 参数 ──
         {"key": "random_count", "label": "随机组合数(random)", "type": "int", "default": 1000,
          "tooltip": "gen_random: 生成的随机坐标组合总数",
-         "visible_when": {"key": "run_mode", "values": ["gen_random"]}},
+         "visible_when": {"key": "run_mode", "values": ["随机采样模式"]}},
         # ── gen_circle 参数 ──
         {"key": "circle_radius", "label": "小圆半径(circle)", "type": "int", "default": 300,
          "tooltip": "gen_circle: 以参考点为圆心的采样圆半径（像素）",
-         "visible_when": {"key": "run_mode", "values": ["gen_circle"]}},
+         "visible_when": {"key": "run_mode", "values": ["小圆采样模式"]}},
         {"key": "circle_step", "label": "圆内采样步长(circle)", "type": "int", "default": 20,
          "tooltip": "gen_circle: 圆内网格采样步长（像素），越小点越密",
-         "visible_when": {"key": "run_mode", "values": ["gen_circle"]}},
-        {"key": "circle_n_half", "label": "每组PASS/FAIL各N行(circle)", "type": "int", "default": 150,
-         "tooltip": "gen_circle: 每个3角组合生成的PASS/FAIL行数（各N行）",
-         "visible_when": {"key": "run_mode", "values": ["gen_circle"]}},
+         "visible_when": {"key": "run_mode", "values": ["小圆采样模式"]}},
+        # ── 角点组合（circle/random 模式通用）──
+        {"key": "corner_combo", "label": "角点组合", "type": "combo",
+         "options": [
+             "全部四角(笛卡尔积)",
+             "单角-左上TL", "单角-右上TR", "单角-左下BL", "单角-右下BR",
+             "双角-TL+TR", "双角-TL+BL", "双角-TL+BR",
+             "双角-TR+BL", "双角-TR+BR", "双角-BL+BR",
+             "三角-TL+TR+BL", "三角-TL+TR+BR", "三角-TL+BL+BR", "三角-TR+BL+BR",
+         ],
+         "default": "全部四角(笛卡尔积)",
+         "tooltip": "选择参与采样的角点组合\n单角: 仅该角点采样，其余三角固定在参考坐标\n双角/三角: 所选角点采样，其余固定\n全部四角: 所有角点都采样，做完整笛卡尔积",
+         "visible_when": {"key": "run_mode", "values": ["小圆采样模式", "随机采样模式"]}},
         # ── 参考坐标（所有模式都用到）──
         {"key": "ref_corners_text", "label": "参考坐标（自动解析）", "type": "textarea",
          "default": "(0, 0) (3839, 0)\n(0, 2159) (3839, 2159)",
@@ -83,6 +92,32 @@ MODULE_INFO = {
 
 # 输出文件表头（与 Trapezoid-test.py 兼容）
 OUTPUT_HEADER = "WriteCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y)"
+
+# 角点组合 → 活跃角点列表
+_CORNER_COMBOS = {
+    "全部四角(笛卡尔积)": ['TL', 'TR', 'BL', 'BR'],
+    "单角-左上TL":        ['TL'],
+    "单角-右上TR":        ['TR'],
+    "单角-左下BL":        ['BL'],
+    "单角-右下BR":        ['BR'],
+    "双角-TL+TR":         ['TL', 'TR'],
+    "双角-TL+BL":         ['TL', 'BL'],
+    "双角-TL+BR":         ['TL', 'BR'],
+    "双角-TR+BL":         ['TR', 'BL'],
+    "双角-TR+BR":         ['TR', 'BR'],
+    "双角-BL+BR":         ['BL', 'BR'],
+    "三角-TL+TR+BL":      ['TL', 'TR', 'BL'],
+    "三角-TL+TR+BR":      ['TL', 'TR', 'BR'],
+    "三角-TL+BL+BR":      ['TL', 'BL', 'BR'],
+    "三角-TR+BL+BR":      ['TR', 'BL', 'BR'],
+}
+
+# 模式中文名 → 文件名短标识
+_MODE_FILE_MAP = {
+    '网格覆盖模式': 'gen_grid',
+    '小圆采样模式': 'gen_circle',
+    '随机采样模式': 'gen_random',
+}
 
 
 # ─────────────────────── 参考坐标解析 ───────────────────────
@@ -223,87 +258,69 @@ def _gen_grid(params: dict, W: int, H: int, ref: dict,
 
 
 def _gen_circle(params: dict, W: int, H: int, ref: dict,
-                log_cb, prog_cb) -> str:
+                log_cb, prog_cb) -> list:
     """
-    小圆模式: 在各参考点周围的圆形区域内采样，
-    生成3角组合的 PASS（圆内）/ FAIL（圆外）行。
+    小圆模式: 在选定角点的参考位置周围的圆形区域内均匀采样，
+    其余未选角点固定在参考坐标，对活跃角点做笛卡尔积组合。
+    （已移除 PASS/FAIL 区分，实际下点结果需硬件测试才能判定）
     """
-    radius = max(1, int(params.get('circle_radius', 300)))
-    step   = max(1, int(params.get('circle_step', 20)))
-    n_half = max(1, int(params.get('circle_n_half', 150)))
-    log_cb(f"小圆模式: radius={radius}px  step={step}px  每组各{n_half}行", "INFO")
-
-    # IN 区域边界（向内约 1/3 宽高处）
-    in_bounds = {
-        'TL': {'x': (0,   W // 3),     'y': (0,   H // 3)},
-        'TR': {'x': (W * 2 // 3, W),   'y': (0,   H // 3)},
-        'BL': {'x': (0,   W // 3),     'y': (H * 2 // 3, H)},
-        'BR': {'x': (W * 2 // 3, W),   'y': (H * 2 // 3, H)},
-    }
+    radius     = max(1, int(params.get('circle_radius', 300)))
+    step       = max(1, int(params.get('circle_step', 20)))
+    combo_name = params.get('corner_combo', '全部四角(笛卡尔积)')
+    active     = _CORNER_COMBOS.get(combo_name, ['TL', 'TR', 'BL', 'BR'])
+    log_cb(f"小圆模式: radius={radius}px  step={step}px  角点组合={combo_name}  活跃角={active}", "INFO")
 
     def _circle_pts(corner):
         cx, cy = ref[corner]
-        bnd = in_bounds[corner]
-        in_pts, out_pts = [], []
+        pts = []
         for dx in range(-radius, radius + 1, step):
             for dy in range(-radius, radius + 1, step):
-                if dx * dx + dy * dy > radius * radius:
-                    continue
-                x, y = cx + dx, cy + dy
-                if not (0 <= x <= W and 0 <= y <= H):
-                    continue
-                if (bnd['x'][0] <= x <= bnd['x'][1] and
-                        bnd['y'][0] <= y <= bnd['y'][1]):
-                    in_pts.append((x, y))
-                else:
-                    out_pts.append((x, y))
-        return in_pts or [ref[corner]], out_pts or [ref[corner]]
+                if dx * dx + dy * dy <= radius * radius:
+                    x = max(0, min(W, cx + dx))
+                    y = max(0, min(H, cy + dy))
+                    pts.append((x, y))
+        return pts or [ref[corner]]
 
-    BASE = {'TL': (0, 0), 'TR': (W, 0), 'BL': (0, H), 'BR': (W, H)}
-    combos_3 = list(itertools.combinations(['TL', 'TR', 'BL', 'BR'], 3))
-    order = ['TL', 'TR', 'BL', 'BR']
+    # 活跃角点采样圆内点；非活跃角点固定在参考坐标
+    corner_pools = {}
+    for c in ['TL', 'TR', 'BL', 'BR']:
+        corner_pools[c] = _circle_pts(c) if c in active else [ref[c]]
+
+    log_cb(f"各角候选点数: TL={len(corner_pools['TL'])} "
+           f"TR={len(corner_pools['TR'])} "
+           f"BL={len(corner_pools['BL'])} "
+           f"BR={len(corner_pools['BR'])}", "INFO")
+
+    # 笛卡尔积
     lines = []
+    total_est = (len(corner_pools['TL']) * len(corner_pools['TR']) *
+                 len(corner_pools['BL']) * len(corner_pools['BR']))
+    log_cb(f"预计组合数: {total_est}", "INFO")
 
-    for ci, combo in enumerate(combos_3):
-        pools_in  = {c: _circle_pts(c)[0] for c in combo}
-        pools_out = {c: _circle_pts(c)[1] for c in combo}
+    cnt = 0
+    for tl in corner_pools['TL']:
+        for tr in corner_pools['TR']:
+            for bl in corner_pools['BL']:
+                for br in corner_pools['BR']:
+                    lines.append(
+                        f"{tl[0]},{tl[1]},{tr[0]},{tr[1]},{bl[0]},{bl[1]},{br[0]},{br[1]}"
+                    )
+                    cnt += 1
+        prog_cb(min(cnt, max(total_est - 1, 1)), max(total_est, 1))
 
-        # PASS 行
-        for i in range(n_half):
-            row = []
-            for c in order:
-                if c in combo:
-                    p = pools_in[c]
-                    row.extend(p[i % len(p)])
-                else:
-                    row.extend(BASE[c])
-            lines.append(','.join(map(str, row)))
-
-        # FAIL 行
-        for i in range(n_half):
-            out_c = combo[i % len(combo)]
-            row = []
-            for c in order:
-                if c in combo:
-                    p = pools_out[c] if c == out_c else pools_in[c]
-                    row.extend(p[i % len(p)])
-                else:
-                    row.extend(BASE[c])
-            lines.append(','.join(map(str, row)))
-
-        log_cb(f"  组合 {'+'.join(combo)}: {n_half * 2} 行", "INFO")
-        prog_cb(ci + 1, len(combos_3))
-
+    prog_cb(total_est, max(total_est, 1))
     return lines
 
 
 def _gen_random(params: dict, W: int, H: int, ref: dict,
                 log_cb, prog_cb) -> list:
     """
-    随机模式: 以各参考点为基准，在合理范围内随机采样。
+    随机模式: 选定角点在参考坐标周围随机偏移采样，其余角点固定在参考坐标。
     """
-    n = max(1, int(params.get('random_count', 1000)))
-    log_cb(f"随机模式: 生成 {n} 组合", "INFO")
+    n          = max(1, int(params.get('random_count', 1000)))
+    combo_name = params.get('corner_combo', '全部四角(笛卡尔积)')
+    active     = _CORNER_COMBOS.get(combo_name, ['TL', 'TR', 'BL', 'BR'])
+    log_cb(f"随机模式: 生成 {n} 组合  角点组合={combo_name}  活跃角={active}", "INFO")
 
     # 各角允许摆动范围（以参考点为中心 ±margin）
     margin = min(W, H) // 6
@@ -315,12 +332,12 @@ def _gen_random(params: dict, W: int, H: int, ref: dict,
 
     lines = []
     for i in range(n):
-        tl = _rand_pt(*ref['TL'])
-        tr = _rand_pt(*ref['TR'])
-        bl = _rand_pt(*ref['BL'])
-        br = _rand_pt(*ref['BR'])
+        pts = {}
+        for c in ['TL', 'TR', 'BL', 'BR']:
+            pts[c] = _rand_pt(*ref[c]) if c in active else ref[c]
         lines.append(
-            f"{tl[0]},{tl[1]},{tr[0]},{tr[1]},{bl[0]},{bl[1]},{br[0]},{br[1]}"
+            f"{pts['TL'][0]},{pts['TL'][1]},{pts['TR'][0]},{pts['TR'][1]},"
+            f"{pts['BL'][0]},{pts['BL'][1]},{pts['BR'][0]},{pts['BR'][1]}"
         )
         if i % 100 == 0:
             prog_cb(i, n)
@@ -344,7 +361,7 @@ def run(input_path: str, output_dir: str, params: dict,
     prog = progress_callback or (lambda cur, total: None)
 
     try:
-        run_mode = params.get('run_mode', 'gen_grid')
+        run_mode = params.get('run_mode', '网格覆盖模式')
         W = int(params.get('screen_w', 3839))
         H = int(params.get('screen_h', 2159))
 
@@ -360,11 +377,11 @@ def run(input_path: str, output_dir: str, params: dict,
         prog(1, 10)
 
         # ── 生成数据行 ──
-        if run_mode == 'gen_grid':
+        if run_mode == '网格覆盖模式':
             lines = _gen_grid(params, W, H, ref, log, prog)
-        elif run_mode == 'gen_circle':
+        elif run_mode == '小圆采样模式':
             lines = _gen_circle(params, W, H, ref, log, prog)
-        elif run_mode == 'gen_random':
+        elif run_mode == '随机采样模式':
             lines = _gen_random(params, W, H, ref, log, prog)
         else:
             return {"status": "error",
@@ -379,7 +396,8 @@ def run(input_path: str, output_dir: str, params: dict,
         # ── 写入文件 ──
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         date_dir  = os.path.join(output_dir, datetime.now().strftime('%Y%m%d'))
-        filename  = f"trapezoid_{run_mode}_{timestamp}.txt"
+        mode_short = _MODE_FILE_MAP.get(run_mode, run_mode)
+        filename  = f"trapezoid_{mode_short}_{timestamp}.txt"
         out_path  = _write_output(lines, date_dir, filename, log)
 
         prog(10, 10)

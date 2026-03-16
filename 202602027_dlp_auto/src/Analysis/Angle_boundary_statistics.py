@@ -24,6 +24,8 @@ from datetime import datetime
 
 # 工程根目录（输出路径自动定位，无需修改）
 DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+# 输出根目录：指向当前主工程 xgimi_dlp_test（与 202602027_dlp_auto 同级）
+OUTPUT_ROOT = os.path.normpath(os.path.join(DATA_ROOT, '..', 'xgimi_dlp_test'))
 
 # ==============================================================================
 # 【手动配置区】每次运行前修改此处
@@ -262,7 +264,7 @@ if not result_df.empty:
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 date_str = datetime.now().strftime('%Y%m%d')
 output_dir = os.path.join(
-    DATA_ROOT, 'reports', 'Angle_boundary_statistics', date_str
+    OUTPUT_ROOT, 'reports', 'Angle_boundary_statistics', date_str
 )
 os.makedirs(output_dir, exist_ok=True)
 output_csv = os.path.join(output_dir, f'comprehensive_boundary_{timestamp}.csv')

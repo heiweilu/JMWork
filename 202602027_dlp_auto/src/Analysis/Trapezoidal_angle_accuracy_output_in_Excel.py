@@ -34,6 +34,8 @@ except ImportError:
 
 # 工程根目录（输出路径自动定位，无需修改）
 DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+# 输出根目录：指向当前主工程 xgimi_dlp_test（与 202602027_dlp_auto 同级）
+OUTPUT_ROOT = os.path.normpath(os.path.join(DATA_ROOT, '..', 'xgimi_dlp_test'))
 
 # 自动搜索最新结果文件（无需手动指定）
 ANGLE_RESULTS_BASE = os.path.join(DATA_ROOT, 'reports', 'Angle_test_results')
@@ -318,7 +320,7 @@ def main():
     # 生成Excel表格
     timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     date_str = datetime.now().strftime("%Y%m%d")
-    output_dir = os.path.join(ANGLE_RESULTS_BASE, date_str)
+    output_dir = os.path.join(OUTPUT_ROOT, 'reports', 'Extracted_Data', date_str)
     os.makedirs(output_dir, exist_ok=True)
     excel_file = os.path.join(output_dir, 'test_result_table_{}.xlsx'.format(timestamp))
     

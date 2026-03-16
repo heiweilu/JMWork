@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                               QComboBox, QLabel, QPushButton, QGroupBox,
                               QMessageBox, QFileDialog, QScrollArea,
                               QTabWidget, QSizePolicy, QTextBrowser, QFrame)
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap
 
 from ui.widgets.file_selector import FileSelector
@@ -24,12 +24,18 @@ from core import task_registry
 class AnalysisPage(QWidget):
     """分析执行页面"""
 
-    def __init__(self, log_panel=None, config_mgr=None, parent=None):
+    # 快捷跳转信号：深度敏感的应用内导航逻辑由 MainWindow 监听
+    send_to_preprocessing = pyqtSignal(str)  # 发送到数据预处理页（角度扩圆坐标生成）
+    send_to_svm = pyqtSignal(str)            # 发送到 SVM 训练页
+
+    def __init__(self, log_panel=None, config_mgr=None, category='analysis', parent=None):
         super().__init__(parent)
         self._log_panel = log_panel
         self._config_mgr = config_mgr
+        self._category = category
         self._worker = None
         self._last_output_path = ''   # 记录最近一次成功输出路径
+        self._last_data_path   = ''   # 结构化数据路径（TSV，供下游）
         self._init_ui()
 
     def _init_ui(self):
@@ -120,6 +126,21 @@ class AnalysisPage(QWidget):
         btn_layout.addStretch()
         left_layout.addLayout(btn_layout)
 
+        # 快捷跳转按钮（执行成功后才显示）
+        self._btn_send_to_expand = QPushButton("→ 发送到角度扩圆坐标生成")
+        self._btn_send_to_expand.setObjectName("btn_success")
+        self._btn_send_to_expand.setToolTip("将输出的结构化 TXT 文件直接填入《角度扩圆坐标生成》模块的输入路径")
+        self._btn_send_to_expand.setVisible(False)
+        self._btn_send_to_expand.clicked.connect(self._on_btn_send_to_preprocess)
+        left_layout.addWidget(self._btn_send_to_expand)
+
+        self._btn_send_to_svm = QPushButton("→ 导入到 SVM 模型训练")
+        self._btn_send_to_svm.setObjectName("btn_success")
+        self._btn_send_to_svm.setToolTip("将输出的 TXT 文件直接发送到《SVM 模型训练》页面")
+        self._btn_send_to_svm.setVisible(False)
+        self._btn_send_to_svm.clicked.connect(self._on_btn_send_to_svm)
+        left_layout.addWidget(self._btn_send_to_svm)
+
         # 进度条
         self.progress = ProgressWidget()
         left_layout.addWidget(self.progress)
@@ -181,7 +202,7 @@ class AnalysisPage(QWidget):
         self.combo_type.clear()
         self._module_ids.clear()
 
-        modules = task_registry.get_modules('analysis')
+        modules = task_registry.get_modules(self._category)
         for mid, mdata in modules.items():
             info = mdata['info']
             if not info.get('enabled', True):
@@ -284,6 +305,9 @@ class AnalysisPage(QWidget):
         self.btn_export.setEnabled(False)
         self.btn_open_output.setEnabled(False)
         self._last_output_path = ''
+        self._last_data_path = ''
+        self._btn_send_to_expand.setVisible(False)
+        self._btn_send_to_svm.setVisible(False)
 
     def _update_reference_panel(self, info: dict):
         """根据模块信息更新参考结果面板"""
@@ -437,6 +461,24 @@ class AnalysisPage(QWidget):
                 self._last_output_path = output_path
                 self.btn_open_output.setEnabled(True)
 
+            # 快捷跳转按钮（按当前模块名称显示）
+            self._btn_send_to_expand.setVisible(False)
+            self._btn_send_to_svm.setVisible(False)
+            cur_idx = self.combo_type.currentIndex()
+            cur_mid = self._module_ids[cur_idx] if 0 <= cur_idx < len(self._module_ids) else ""
+            cur_name = ""
+            if cur_mid:
+                mdata_cur = task_registry.get_module(cur_mid)
+                if mdata_cur:
+                    cur_name = mdata_cur['info'].get('name', '')
+            if "角度边界统计" in cur_name and "FAIL" in cur_name:
+                # 保存结构化 TSV 路径（extra 字段）
+                extra = result.get('extra', {})
+                self._last_data_path = extra.get('data_path', output_path)
+                self._btn_send_to_expand.setVisible(bool(self._last_data_path))
+            elif "角度扩圆坐标生成" in cur_name:
+                self._btn_send_to_svm.setVisible(bool(output_path))
+
             # 显示图表，并自动切换到"分析结果" Tab
             fig = result.get('figure')
             if fig:
@@ -498,18 +540,59 @@ class AnalysisPage(QWidget):
             return
         # 若路径是文件，打开其所在目录并选中该文件；若是目录直接打开
         if os.path.isfile(path):
-            folder = os.path.dirname(path)
             subprocess.Popen(f'explorer /select,"{path}"')
         elif os.path.isdir(path):
             os.startfile(path)
         else:
-            # 尝试父目录
             folder = os.path.dirname(path)
             if os.path.isdir(folder):
                 os.startfile(folder)
             else:
                 if self._log_panel:
                     self._log_panel.append_log(f"输出路径不存在: {path}", "WARNING")
+
+    def _send_to_module(self, target_module_name: str, file_path: str):
+        """切换到目标模块并预填输入文件路径。"""
+        if not file_path or not os.path.isfile(file_path):
+            QMessageBox.warning(self, "发送失败",
+                                f"找不到文件:\n{file_path}")
+            return
+        # 在 combo 中找目标模块
+        target_idx = -1
+        for i, mid in enumerate(self._module_ids):
+            mdata = task_registry.get_module(mid)
+            if mdata and target_module_name in mdata['info'].get('name', ''):
+                target_idx = i
+                break
+        if target_idx < 0:
+            QMessageBox.warning(self, "发送失败",
+                                f"未找到模块《{target_module_name}》，请确认已正确加载。")
+            return
+        self.combo_type.setCurrentIndex(target_idx)
+        self.file_selector.set_path(file_path)
+        if self._log_panel:
+            self._log_panel.append_log(
+                f"已切换到《{target_module_name}》并填入输入文件: {file_path}", "INFO")
+
+    def set_input_file(self, file_path: str):
+        """外部调用：预填输入文件路径（供主窗口快捷跳转使用）"""
+        self.file_selector.set_path(file_path)
+
+    def _on_btn_send_to_preprocess(self):
+        """→ 发送到角度扩圆坐标生成（在预处理页面打开）"""
+        p = self._last_data_path
+        if p and os.path.isfile(p):
+            self.send_to_preprocessing.emit(p)
+        else:
+            QMessageBox.warning(self, "发送失败", f"找不到输出文件:\n{p}")
+
+    def _on_btn_send_to_svm(self):
+        """→ 导入到 SVM 模型训练页面"""
+        p = self._last_output_path
+        if p and os.path.isfile(p):
+            self.send_to_svm.emit(p)
+        else:
+            QMessageBox.warning(self, "发送失败", f"找不到输出文件:\n{p}")
 
     def _collect_result_images(self, output_path: str) -> list:
         """从输出文件或目录中收集可显示的图片文件。"""

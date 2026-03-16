@@ -144,36 +144,55 @@ def _run_file_mode(input_path: str, output_dir: str, params: dict,
     execute_delay = float(params.get('execute_delay', 0.3))
 
     # 读取坐标行
+    # 支持两种格式：
+    #   1. 传统格式：每行首列为 "TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y"
+    #   2. 扩圆坐标格式（TSV 多列）：含 WriteCoords 命名列，取该列值解析
     coord_rows = []
     with open(input_path, 'r', encoding='utf-8-sig', errors='ignore') as f:
-        for raw_line in f:
-            stripped = raw_line.strip()
-            if not stripped:
+        lines = f.readlines()
+
+    # 检测是否为带命名列的 TSV（第一行含 Tab 且包含 "WriteCoords" 字段）
+    wc_col_idx = None
+    if lines:
+        first = lines[0].strip()
+        if '\t' in first and 'WriteCoords' in first.split('\t'):
+            wc_col_idx = first.split('\t').index('WriteCoords')
+            log(f"检测到 TSV 格式，WriteCoords 位于第 {wc_col_idx+1} 列", "INFO")
+            lines = lines[1:]  # 跳过表头
+
+    for raw_line in lines:
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        # 跳过传统格式的表头行（以 WriteCoords 开头）
+        if stripped.startswith('WriteCoords') and '\t' not in stripped:
+            continue
+        # 取坐标字符串
+        if wc_col_idx is not None:
+            # TSV 多列格式：取 WriteCoords 列
+            cols = stripped.split('\t')
+            if len(cols) <= wc_col_idx:
                 continue
-            # 跳过表头（以 WriteCoords 开头）
-            if stripped.startswith('WriteCoords'):
+            coord_str = cols[wc_col_idx].strip().strip('"\'')
+        elif '\t' in stripped:
+            # 传统 Tab 格式：首列为坐标
+            coord_str = stripped.split('\t')[0].strip().strip('"\'')
+        else:
+            coord_str = stripped.strip('"\'')
+        try:
+            parts = [int(float(x.strip())) for x in coord_str.split(',') if x.strip()]
+            if len(parts) < 8:
                 continue
-            # Tab 分隔时取第一列，否则整行为坐标
-            if '\t' in stripped:
-                coord_str = stripped.split('\t')[0].strip()
-            else:
-                coord_str = stripped
-            # 去掉引号
-            coord_str = coord_str.strip('"\'')
-            try:
-                parts = [int(float(x.strip())) for x in coord_str.split(',') if x.strip()]
-                if len(parts) < 8:
-                    continue
-                # TL, TR, BL, BR
-                wp = [
-                    [parts[0], parts[1]],
-                    [parts[2], parts[3]],
-                    [parts[4], parts[5]],
-                    [parts[6], parts[7]],
-                ]
-                coord_rows.append(wp)
-            except (ValueError, IndexError):
-                continue
+            # TL, TR, BL, BR
+            wp = [
+                [parts[0], parts[1]],
+                [parts[2], parts[3]],
+                [parts[4], parts[5]],
+                [parts[6], parts[7]],
+            ]
+            coord_rows.append(wp)
+        except (ValueError, IndexError):
+            continue
 
     if not coord_rows:
         msg = "文件中未找到有效坐标行（需要8个逗号分隔整数）"
@@ -223,13 +242,25 @@ def _run_file_mode(input_path: str, output_dir: str, params: dict,
                 if _stopped():
                     log("\u68c0测到停止信号，提前结束文件模式测试", "WARNING")
                     break
-                log(f"[{idx + 1}/{total_tests}] TL={wp[0]} TR={wp[1]} BL={wp[2]} BR={wp[3]}", "INFO")
-                ok = _check_keystone(mgr, wp, txtfile)
+                ok, ec_val = _check_keystone(mgr, wp, txtfile)
                 if ok:
                     pass_count += 1
                 else:
                     fail_count += 1
-                prog(idx + 1, total_tests)
+                done = pass_count + fail_count
+                _es = time.time() - start_time
+                _rt = _es / done if done > 0 else 0
+                _pct = pass_count * 100.0 / done if done > 0 else 0
+                _eta = (total_tests - done) * _rt / 60 if done > 0 else 0
+                log(
+                    f"[{done}/{total_tests}] "
+                    f"TL={wp[0]} TR={wp[1]} BL={wp[2]} BR={wp[3]} "
+                    f"\u2192 {'PASS' if ok else 'FAIL'} EC={ec_val} | "
+                    f"PASS:{pass_count} FAIL:{fail_count} ({_pct:.0f}%) | "
+                    f"Elapsed:{_es / 60:.1f}min | Rate:{_rt:.3f}s/test | ETA:{_eta:.1f}min",
+                    "INFO" if ok else "WARNING"
+                )
+                prog(done, total_tests)
                 time.sleep(execute_delay)
 
     except Exception as e:
@@ -379,6 +410,7 @@ def run(input_path: str, output_dir: str, params: dict,
 
     row_count = 0
     total_tests = 0
+    pass_count = 0
     fail_count = 0
     _stopped = (lambda: stop_event is not None and stop_event.is_set())
 
@@ -405,13 +437,15 @@ def run(input_path: str, output_dir: str, params: dict,
                     points = copy.deepcopy(fixed_points)
                     points.insert(corner_idx, [current_x, current_y])
 
-                    ok = _check_keystone(mgr, points, txtfile)
+                    ok, _ec = _check_keystone(mgr, points, txtfile)
                     total_tests += 1
                     row_tests += 1
 
                     prog(total_tests, total_x * total_y)
 
-                    if not ok:
+                    if ok:
+                        pass_count += 1
+                    else:
                         fail_count += 1
                         # 失败细扫
                         if fine_scan and not _stopped():
@@ -452,8 +486,18 @@ def run(input_path: str, output_dir: str, params: dict,
 
                 row_elapsed = time.time() - row_start
                 row_count += 1
-                log(f"[Y={current_y}] 完成! {row_tests} 点, "
-                    f"耗时 {row_elapsed:.1f}秒", "INFO")
+                _done_s = pass_count + fail_count
+                _es_s = time.time() - start_time
+                _rt_s = _es_s / _done_s if _done_s > 0 else 0
+                _pct_s = pass_count * 100.0 / _done_s if _done_s > 0 else 0
+                _rem_s = total_x * total_y - _done_s
+                _eta_s = _rem_s * _rt_s / 60 if _done_s > 0 else 0
+                log(
+                    f"[Y={current_y}] {row_tests}点完成 | "
+                    f"PASS:{pass_count} FAIL:{fail_count} ({_pct_s:.0f}%) | "
+                    f"Elapsed:{_es_s / 60:.1f}min | Rate:{_rt_s:.3f}s/test | ETA:{_eta_s:.1f}min",
+                    "INFO"
+                )
 
                 # 首行时间估算
                 if row_count == 1:

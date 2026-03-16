@@ -122,17 +122,40 @@ def run(input_path: str, output_dir: str, params: dict,
                     _log(f"  [{qname}] 未配置路径，跳过")
         elif os.path.isdir(input_path):
             import glob
-            _log(f"扫描目录: {os.path.basename(input_path)}")
-            csv_files = sorted(glob.glob(os.path.join(input_path, "*.csv")))
-            for f in csv_files:
+            _log(f"扫描目录（含子目录）: {os.path.basename(input_path)}")
+            # 递归扫描 CSV + TXT，优先使用最新文件（按修改时间排序）
+            data_files = []
+            for pattern in ("**/*.csv", "**/*.txt"):
+                data_files.extend(
+                    glob.glob(os.path.join(input_path, pattern), recursive=True)
+                )
+            # 按修改时间从新到旧排序，确保每个象限使用最新文件
+            data_files.sort(key=os.path.getmtime, reverse=True)
+
+            # 为每个象限找到最新的匹配文件（文件名中含有 BL/BR/TL/TR 关键字）
+            seen_quads = set()
+            for f in data_files:
                 bn = os.path.splitext(os.path.basename(f))[0].upper()
                 qname = None
                 for q in ("TL", "TR", "BL", "BR"):
-                    if bn.startswith(q):
+                    # 支持 "TL_..." 开头 或 文件名中包含 "_TL_" / "_TL以空格/数字结尾" 等情况
+                    if bn.startswith(q) or f"_{q}_" in bn or f"_{q}" in bn or bn.endswith(f"_{q}"):
                         qname = q
                         break
+                    # 也匹配 "0.1ANGLE_TL_..." 等带前缀的文件名
+                    if q in bn:
+                        # 确保是独立 token（前后非字母），避免误匹配 "CTRL" 等
+                        import re
+                        if re.search(r'(?<![A-Z])' + q + r'(?![A-Z])', bn):
+                            qname = q
+                            break
                 if qname is None:
-                    qname = bn[:10]
+                    continue
+                # 每个象限只取最新的一个文件
+                if qname in seen_quads:
+                    _log(f"  [{qname}] 跳过旧文件: {os.path.basename(f)}", "INFO")
+                    continue
+                seen_quads.add(qname)
                 qdf = _load_quadrant(f, qname, log_callback)
                 if qdf is not None:
                     dfs.append(qdf)

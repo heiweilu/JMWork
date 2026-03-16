@@ -33,6 +33,8 @@ show_animation = False    # True=动画模式，False=静态图模式
 
 # 工程根目录（输出路径自动定位，无需修改）
 DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+# 输出根目录：指向当前主工程 xgimi_dlp_test（与 202602027_dlp_auto 同级）
+OUTPUT_ROOT = os.path.normpath(os.path.join(DATA_ROOT, '..', 'xgimi_dlp_test'))
 
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei']  # Windows系统使用黑体
@@ -331,7 +333,8 @@ if __name__ == "__main__":
         if not show_animation:
             date_str = datetime.now().strftime("%Y%m%d")
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_dir = os.path.join(data_dir, date_str)
+            output_dir = os.path.join(OUTPUT_ROOT, 'reports', 'Data_Analysis_Result',
+                                      'Trapezoidal_coord', date_str)
             os.makedirs(output_dir, exist_ok=True)
             output_path = os.path.join(output_dir, f'{point_name}_trajectory_with_abnormal_{IMAGE_WIDTH}x{IMAGE_HEIGHT}_{timestamp}.png')
             fig.savefig(output_path, dpi=DPI, bbox_inches='tight')

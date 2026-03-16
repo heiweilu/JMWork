@@ -10,6 +10,7 @@ import matplotlib
 matplotlib.use('Agg')  # 在导入 pyplot 前设置后端
 
 import os
+import math as _math
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
@@ -17,7 +18,7 @@ from matplotlib.figure import Figure
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QComboBox, QScrollArea)
 from PyQt6.QtCore import Qt, QPoint
-from PyQt6.QtGui import QPixmap, QWheelEvent, QMouseEvent
+from PyQt6.QtGui import QPixmap, QWheelEvent, QMouseEvent, QTransform
 
 # 缩放等级预设（倍率）
 _ZOOM_STEPS = [0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0, 6.0]
@@ -68,6 +69,7 @@ class PlotWidget(QWidget):
         self._image_paths = []
         self._current_image_index = -1
         self._current_source_pixmap = None
+        self._rotation_angle = 0          # 0 / 90 / 180 / 270
         self._zoom_factor = 0.0   # 0.0 = 适应窗口；>0 = 固定倍率
         self._drag_start: QPoint | None = None  # 拖拽起始位置
 
@@ -132,6 +134,30 @@ class PlotWidget(QWidget):
         self._zoom_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         nav_layout.addWidget(self._zoom_label)
 
+        # 旋转按钮
+        _btn_sep2 = QLabel("│")
+        _btn_sep2.setStyleSheet("color:#ccc; font-size:16px;")
+        nav_layout.addWidget(_btn_sep2)
+
+        self._btn_rotate_ccw = QPushButton("↺ 逆转")
+        self._btn_rotate_ccw.setStyleSheet(_ZOOM_S)
+        self._btn_rotate_ccw.setToolTip("逆时针旋转 90°")
+        self._btn_rotate_ccw.clicked.connect(self._rotate_ccw)
+        nav_layout.addWidget(self._btn_rotate_ccw)
+
+        self._btn_rotate_cw = QPushButton("↻ 顺转")
+        self._btn_rotate_cw.setStyleSheet(_ZOOM_S)
+        self._btn_rotate_cw.setToolTip("顺时针旋转 90°")
+        self._btn_rotate_cw.clicked.connect(self._rotate_cw)
+        nav_layout.addWidget(self._btn_rotate_cw)
+
+        self._rotation_label = QLabel("0°")
+        self._rotation_label.setStyleSheet(
+            "color:#555; font-size:11px; min-width:30px; text-align:center;"
+        )
+        self._rotation_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        nav_layout.addWidget(self._rotation_label)
+
         self._image_scroll = QScrollArea(self)
         self._image_scroll.setWidgetResizable(False)   # 手动控制 label 大小以支持缩放滚动
         self._image_scroll.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -195,7 +221,9 @@ class PlotWidget(QWidget):
             self._image_combo.addItem(os.path.basename(p), p)
         self._image_combo.blockSignals(False)
         self._zoom_factor = 0.0          # 每次新图片重置为适应窗口
+        self._rotation_angle = 0         # 新图片重置旋转
         self._zoom_label.setText("适应")
+        self._rotation_label.setText("0°")
         self._set_mode('image')
         if self._image_paths:
             self._show_image_at(0)
@@ -225,15 +253,22 @@ class PlotWidget(QWidget):
             self._image_label.setText("图片加载失败")
             self._image_label.setPixmap(QPixmap())
             return
-        pw = self._current_source_pixmap.width()
-        ph = self._current_source_pixmap.height()
+
+        # 应用旋转
+        src = self._current_source_pixmap
+        if self._rotation_angle != 0:
+            transform = QTransform().rotate(self._rotation_angle)
+            src = src.transformed(transform, Qt.TransformationMode.SmoothTransformation)
+
+        pw = src.width()
+        ph = src.height()
         vp = self._image_scroll.viewport().size()
         vw = max(100, vp.width() - 4)
         vh = max(100, vp.height() - 4)
 
         if self._zoom_factor <= 0:
             # 适应窗口模式：按比例缩放至视口
-            scaled = self._current_source_pixmap.scaled(
+            scaled = src.scaled(
                 vw, vh,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
@@ -242,7 +277,7 @@ class PlotWidget(QWidget):
         else:
             new_w = max(1, int(pw * self._zoom_factor))
             new_h = max(1, int(ph * self._zoom_factor))
-            scaled = self._current_source_pixmap.scaled(
+            scaled = src.scaled(
                 new_w, new_h,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
@@ -275,6 +310,20 @@ class PlotWidget(QWidget):
     def _zoom_fit(self):
         """切换为适应窗口模式"""
         self._zoom_factor = 0.0
+        self._refresh_current_image()
+
+    # ──────────────────── 旋转控制 ────────────────────
+
+    def _rotate_cw(self):
+        """顺时针旋转 90°"""
+        self._rotation_angle = (self._rotation_angle + 90) % 360
+        self._rotation_label.setText(f"{self._rotation_angle}°")
+        self._refresh_current_image()
+
+    def _rotate_ccw(self):
+        """逆时针旋转 90°"""
+        self._rotation_angle = (self._rotation_angle - 90) % 360
+        self._rotation_label.setText(f"{self._rotation_angle}°")
         self._refresh_current_image()
 
     def _set_zoom(self, factor: float):
@@ -352,11 +401,13 @@ class PlotWidget(QWidget):
         self._current_image_index = -1
         self._current_source_pixmap = None
         self._zoom_factor = 0.0
+        self._rotation_angle = 0
         self._image_combo.clear()
         self._image_label.clear()
         self._image_label.setFixedSize(self._image_scroll.viewport().size())
         self._image_info.clear()
         self._zoom_label.setText("适应")
+        self._rotation_label.setText("0°")
         self._set_mode('figure')
 
     def save_figure(self, filepath: str, dpi: int = 150):

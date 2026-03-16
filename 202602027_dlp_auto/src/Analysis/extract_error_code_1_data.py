@@ -24,6 +24,8 @@ from datetime import datetime
 
 # 工程根目录（输出路径自动定位，无需修改）
 DATA_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+# 输出根目录：指向当前主工程 xgimi_dlp_test（与 202602027_dlp_auto 同级）
+OUTPUT_ROOT = os.path.normpath(os.path.join(DATA_ROOT, '..', 'xgimi_dlp_test'))
 
 # ── 【配置】输入文件路径（支持 CSV 或 TXT，可填多个，依次处理）────────── #
 INPUT_FILES = [
@@ -155,7 +157,7 @@ def extract_write_coords_and_errorcode(input_path, output_dir):
 # ─────────────────────────────────────────────────────────────────────────── #
 if __name__ == '__main__':
     out_dir = OUTPUT_DIR.strip() if OUTPUT_DIR.strip() else os.path.join(
-        DATA_ROOT, 'reports', 'Extracted_Data')
+        OUTPUT_ROOT, 'reports', 'Extracted_Data')
 
     print("=" * 60)
     print("输出目录: {}".format(out_dir))

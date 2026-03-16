@@ -10,24 +10,8 @@ ErrorCode 数据提取模块
 import os
 import pandas as pd
 
-MODULE_INFO = {
-    "name": "ErrorCode数据提取",
-    "category": "preprocessing",
-    "description": "从测试结果中提取WriteCoords和ErrorCode列。\n"
-                   "ErrorCode 二值化: 非零 → 1、零 → 0。\n"
-                   "用于后续ErrorCode=1坐标可视化分析。",
-    "input_type": "csv_or_dir",
-    "input_description": "角度测试结果CSV（含WriteCoords和ErrorCode列）或目录",
-    "output_type": "csv",
-    "params": [
-        {"key": "coords_col", "label": "坐标列名", "type": "string",
-         "default": "WriteCoords"},
-        {"key": "error_col", "label": "ErrorCode列名", "type": "string",
-         "default": "ErrorCode"},
-        {"key": "binarize", "label": "二值化ErrorCode", "type": "bool",
-         "default": True},
-    ],
-}
+# MODULE_INFO 已移除 —— ErrorCode 数据提取功能已由 SVM 训练模块覆盖，此模块不再注册到 UI。
+# 保留代码供参考，如需恢复请重新添加 MODULE_INFO 字典。
 
 
 def _extract_one(csv_path, output_path, coords_col, error_col, binarize, log_cb):

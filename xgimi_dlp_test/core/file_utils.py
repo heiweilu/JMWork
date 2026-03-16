@@ -14,18 +14,15 @@ from typing import Optional, Tuple
 
 def get_project_root() -> str:
     """
-    获取 DLP 自动化测试工程根目录。
+    获取当前工程（xgimi_dlp_test）根目录。
 
-    基于本文件位置自动计算，假设 test_ui 与 202602027_dlp_auto 在同级目录下。
+    基于本文件位置自动计算：core/file_utils.py 在 xgimi_dlp_test/core/ 下，
+    上一级即为 xgimi_dlp_test/。
     """
-    # test_ui/core/file_utils.py → 上两级到 code/
-    code_dir = os.path.normpath(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
+    # xgimi_dlp_test/core/file_utils.py → 上一级到 xgimi_dlp_test/
+    return os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
     )
-    dlp_root = os.path.join(code_dir, '202602027_dlp_auto')
-    if os.path.isdir(dlp_root):
-        return dlp_root
-    return code_dir
 
 
 def make_output_path(project_root: str,

@@ -15,9 +15,12 @@ from datetime import datetime
 MODULE_INFO = {
     "name": "CSV拆分象限",
     "category": "preprocessing",
-    "description": "将原始大CSV按Yaw/Pitch正负拆分为4个象限文件。\n"
-                   "左上(Yaw<0,Pitch<0) / 右上(Yaw>0,Pitch<0) /\n"
-                   "左下(Yaw<0,Pitch>0) / 右下(Yaw>0,Pitch>0)\n"
+    "description": "原始角度测试采集数据（AK接口输出）为CSV格式，步进0.1°时约含64万行数据。\n"
+                   "数据量过大时，可先按Yaw/Pitch正负拆分为4个象限子文件，\n"
+                   "再对单个象限文件单独执行CSV转TXT操作，降低内存压力、加快处理速度。\n"
+                   "保留此功能是因为早期/原始采集数据仍为CSV格式。\n"
+                   "象限划分: 左上(Yaw<0,Pitch<0) / 右上(Yaw>0,Pitch<0) /\n"
+                   "          左下(Yaw<0,Pitch>0) / 右下(Yaw>0,Pitch>0)\n"
                    "注意: 大文件处理可能需要数分钟。",
     "input_type": "csv",
     "input_description": "原始角度接口数据CSV（~64万行），需含 yaw, pitch 列和8个坐标列",

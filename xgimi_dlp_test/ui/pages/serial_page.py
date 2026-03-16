@@ -208,7 +208,7 @@ class _CollapsibleSection(QFrame):
         self._header.setFixedHeight(36)
         h_lay = QHBoxLayout(self._header)
         h_lay.setContentsMargins(10, 0, 6, 0)
-        h_lay.setSpacing(6)
+        h_lay.setSpacing(4)
 
         self._arrow = QLabel("▶" if collapsed else "▼")
         self._arrow.setFixedWidth(14)
@@ -216,6 +216,27 @@ class _CollapsibleSection(QFrame):
 
         self._title_lbl = QLabel(title)
         h_lay.addWidget(self._title_lbl, stretch=1)
+
+        # ─── 头部右侧控制按钮（默认隐藏，调用 set_controls 后显示）
+        _ctrl_qss = (
+            "QToolButton{color:#8A98A5;background:transparent;"
+            "border:1px solid #444;border-radius:3px;font-size:10px;padding:0;}"
+            "QToolButton:hover{color:#fff;border-color:#58A6FF;}"
+        )
+        self._ctrl_ren = QToolButton(); self._ctrl_ren.setText("✏")
+        self._ctrl_ren.setToolTip("重命名板块")
+        self._ctrl_up  = QToolButton(); self._ctrl_up.setText("↑")
+        self._ctrl_up.setToolTip("向上移动")
+        self._ctrl_dn  = QToolButton(); self._ctrl_dn.setText("↓")
+        self._ctrl_dn.setToolTip("向下移动")
+        self._ctrl_del = QToolButton(); self._ctrl_del.setText("✕")
+        self._ctrl_del.setToolTip("删除板块")
+        for b in (self._ctrl_ren, self._ctrl_up, self._ctrl_dn, self._ctrl_del):
+            b.setFixedSize(22, 22)
+            b.setStyleSheet(_ctrl_qss)
+            b.hide()
+            h_lay.addWidget(b)
+
         outer.addWidget(self._header)
 
         # ─── 分隔线
@@ -239,7 +260,35 @@ class _CollapsibleSection(QFrame):
             self._body.setMaximumHeight(0)
             self._body.setVisible(False)
 
-        self._header.mousePressEvent = lambda _e: self.toggle()
+        self._header.mousePressEvent = self._on_header_press
+
+    def _on_header_press(self, event):
+        """点击标题栏时折叠/展开（但不拦截头部控制按钮的点击）"""
+        child = self._header.childAt(event.pos())
+        if isinstance(child, QToolButton):
+            return
+        self.toggle()
+
+    def set_controls(self, *, up_cb=None, down_cb=None,
+                     delete_cb=None, rename_cb=None):
+        """启用头部控制按钮（可传 None 表示不开启该按钮）"""
+        def _bind(btn, cb):
+            if cb:
+                try:
+                    btn.clicked.disconnect()
+                except Exception:
+                    pass
+                btn.clicked.connect(cb)
+                btn.show()
+            else:
+                btn.hide()
+        _bind(self._ctrl_up,  up_cb)
+        _bind(self._ctrl_dn,  down_cb)
+        _bind(self._ctrl_del, delete_cb)
+        _bind(self._ctrl_ren, rename_cb)
+
+    def update_title(self, title: str):
+        self._title_lbl.setText(title)
 
     def toggle(self):
         if self._collapsed:
@@ -248,43 +297,71 @@ class _CollapsibleSection(QFrame):
             self._do_collapse()
 
     def _do_expand(self):
+        if self._anim and self._anim.state() == self._anim.State.Running:
+            self._anim.stop()
+            self._body.setMaximumHeight(16_777_215)
         self._collapsed = False
         self._arrow.setText("▼")
         self._sep.setVisible(True)
-        self._body.setVisible(True)
+        # 先将 body 不可见且高度为 0，延迟一帧再开始展开动画，
+        # 避免 setVisible(True) 后立即渲染导致闪屏
         self._body.setMaximumHeight(0)
-        # 激活布局计算正确目标高度，避免 sizeHint 返回 0 导致卡顿
-        layout = self._body.layout()
-        if layout:
-            layout.activate()
-            target = layout.totalSizeHint().height()
-        else:
-            self._body.adjustSize()
-            target = self._body.sizeHint().height()
-        target = max(target, 48)
-        # OutBack 缓动产生弹簧过冲感
-        anim = QPropertyAnimation(self._body, b"maximumHeight", self._body)
-        anim.setDuration(360)
-        anim.setStartValue(0)
-        anim.setEndValue(target)
-        anim.setEasingCurve(QEasingCurve.Type.OutBack)
-        anim.finished.connect(lambda: self._body.setMaximumHeight(16_777_215))
-        anim.start()
-        self._anim = anim
+        self._body.setMinimumHeight(0)
+        # 注意：不在此处 setVisible(True)，而在 _start() 里才显示，
+        # 避免 Qt 在动画还未开始时就渲染一帧零高度的闪屏
+        self._body.setVisible(False)
+
+        from PyQt6.QtCore import QTimer as _QTimer
+
+        def _start():
+            self._body.setVisible(True)
+            layout = self._body.layout()
+            if layout:
+                layout.activate()
+                target = layout.totalSizeHint().height()
+            else:
+                self._body.adjustSize()
+                target = self._body.sizeHint().height()
+            target = max(target, 48)
+            # 以 self 为父对象，防止 body 动画期间析构引发崩溃
+            anim = QPropertyAnimation(self._body, b"maximumHeight", self)
+            anim.setDuration(200)
+            anim.setStartValue(0)
+            anim.setEndValue(target)
+            anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+            def _done():
+                self._body.setMaximumHeight(16_777_215)
+                self._body.setMinimumHeight(0)
+
+            anim.finished.connect(_done)
+            anim.start()
+            self._anim = anim
+
+        _QTimer.singleShot(0, _start)
 
     def _do_collapse(self):
+        if self._anim and self._anim.state() == self._anim.State.Running:
+            self._anim.stop()
         self._collapsed = True
         self._arrow.setText("▶")
         cur = self._body.height()
-        anim = QPropertyAnimation(self._body, b"maximumHeight", self._body)
-        anim.setDuration(220)
+        if cur == 0:
+            # 已经是折叠状态，直接置隐
+            self._body.setVisible(False)
+            self._sep.setVisible(False)
+            return
+        # 以 self 为父对象，防止析构
+        anim = QPropertyAnimation(self._body, b"maximumHeight", self)
+        anim.setDuration(180)
         anim.setStartValue(cur)
         anim.setEndValue(0)
-        anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+        anim.setEasingCurve(QEasingCurve.Type.InCubic)
 
         def _done():
             self._body.setVisible(False)
             self._sep.setVisible(False)
+            self._body.setMaximumHeight(0)
 
         anim.finished.connect(_done)
         anim.start()
@@ -344,8 +421,13 @@ class SerialPage(QWidget):
         self._fw_step_buttons: list = []                             # 固件升级按钮引用
         self._scan_cmd_template = (
             'gmpfUnit externDisplay kst_dev batchGetDisplayPointByAngle '
-            '"yaw;pitch;0;-40;40;-40;40;{step};/data/vendor"'
+            '"yaw;pitch;{resolution};{yaw_min};{yaw_max};{pitch_min};{pitch_max};{step};/data/vendor"'
         )
+        self._scan_resolution = '0'   # 分辨率参数：0=默认/4K，1=2K
+        self._scan_yaw_min    = '-40'
+        self._scan_yaw_max    = '40'
+        self._scan_pitch_min  = '-40'
+        self._scan_pitch_max  = '40'
         self._copy_csv_cmd = 'cp /data/vendor/ak_scan_*.csv /mnt/media_rw/0182-0265/'
         # 系统工具指令（可编辑）
         self._sysutil_tools: list = [
@@ -369,6 +451,13 @@ class SerialPage(QWidget):
              "打印设备型号和 Android 版本"],
         ]
         self._sysutil_btns: list = []  # QPushButton 引用列表
+        # ── 快捷板块有序列表（用于 ↑↓ 重排）
+        self._quick_sections_list: list = []
+        self._sections_layout     = None   # set in _build_quick_panel
+        self._btn_add_section     = None   # "+ 新建板块" 按钮引用
+        # ── 搜索状态
+        self._search_visible = False
+        self._search_last_pos = None  # QTextCursor position for incremental find
         self._init_ui()
         self._refresh_ports()
 
@@ -397,6 +486,9 @@ class SerialPage(QWidget):
         term_layout = QVBoxLayout(terminal_widget)
         term_layout.setContentsMargins(0, 0, 0, 0)
         term_layout.setSpacing(4)
+        # 搜索栏（Ctrl+F 切换显示）
+        self._search_bar = self._build_search_bar()
+        term_layout.addWidget(self._search_bar)
         term_layout.addWidget(self._build_terminal(), stretch=1)
         term_layout.addWidget(self._build_input_bar())
 
@@ -516,6 +608,16 @@ class SerialPage(QWidget):
         self.terminal.setReadOnly(True)
         self.terminal.setFont(QFont("Consolas", 10))
         self.terminal.setMinimumHeight(300)
+        self.terminal.installEventFilter(self)   # 键盘输入路由 + Ctrl+F
+        # 显示光标，让用户知道可以在此直接输入
+        self.terminal.setTextInteractionFlags(
+            self.terminal.textInteractionFlags()
+            | Qt.TextInteractionFlag.TextEditable
+        )
+        # 用于内嵌输入模式的内部状态
+        self._terminal_input_mode = False   # 是否处于终端内输入模式
+        self._terminal_input_anchor = -1    # 输入区起始位置
+        self._terminal_input_buf  = ''      # 已输入内容
         return self.terminal
 
     def _build_input_bar(self) -> QWidget:
@@ -552,43 +654,326 @@ class SerialPage(QWidget):
 
         return bar
 
+    def _build_search_bar(self) -> 'QWidget':
+        """构建终端搜索栏（Ctrl+F 切换显示）"""
+        from PyQt6.QtWidgets import QToolBar
+        bar = QFrame()
+        bar.setObjectName("search_frame")
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(4, 3, 4, 3)
+        layout.setSpacing(4)
+
+        lbl = QLabel("🔍 搜索:")
+        lbl.setFixedWidth(52)
+        layout.addWidget(lbl)
+
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText("输入关键词，Enter 搜索下一个...")
+        self.search_edit.setFont(QFont("Consolas", 10))
+        self.search_edit.returnPressed.connect(self._on_search_next)
+        self.search_edit.textChanged.connect(self._on_search_text_changed)
+        layout.addWidget(self.search_edit, stretch=1)
+
+        btn_prev = QPushButton("↑ 上一个")
+        btn_prev.setFixedWidth(70)
+        btn_prev.clicked.connect(self._on_search_prev)
+        layout.addWidget(btn_prev)
+
+        btn_next = QPushButton("↓ 下一个")
+        btn_next.setFixedWidth(70)
+        btn_next.clicked.connect(self._on_search_next)
+        layout.addWidget(btn_next)
+
+        self._search_count_lbl = QLabel("")
+        self._search_count_lbl.setFixedWidth(80)
+        layout.addWidget(self._search_count_lbl)
+
+        btn_close = QPushButton("✕")
+        btn_close.setFixedWidth(28)
+        btn_close.setToolTip("关闭搜索 (Esc)")
+        btn_close.clicked.connect(self._close_search)
+        layout.addWidget(btn_close)
+
+        bar.setVisible(False)
+        # 安装 Esc 过滤
+        self.search_edit.installEventFilter(self)
+        return bar
+
+    def _toggle_search(self):
+        self._search_visible = not self._search_visible
+        self._search_bar.setVisible(self._search_visible)
+        if self._search_visible:
+            self.search_edit.setFocus()
+            self.search_edit.selectAll()
+        else:
+            self.input_line.setFocus()
+
+    def _close_search(self):
+        self._search_visible = False
+        self._search_bar.setVisible(False)
+        # 清除高亮
+        self.terminal.setExtraSelections([])
+        self._search_count_lbl.setText("")
+        self.input_line.setFocus()
+
+    def _on_search_text_changed(self, text: str):
+        self._search_count_lbl.setText("")
+        self.terminal.setExtraSelections([])
+        if not text:
+            return
+        self._do_search(text, forward=True, wrap=True, count_only=True)
+
+    def _on_search_next(self):
+        txt = self.search_edit.text()
+        if txt:
+            self._do_search(txt, forward=True, wrap=True)
+
+    def _on_search_prev(self):
+        txt = self.search_edit.text()
+        if txt:
+            self._do_search(txt, forward=False, wrap=True)
+
+    def _do_search(self, text: str, forward: bool = True,
+                   wrap: bool = True, count_only: bool = False):
+        from PyQt6.QtGui import QTextDocument, QTextCursor, QTextCharFormat, QColor
+        from PyQt6.QtWidgets import QTextEdit
+
+        flags = QTextDocument.FindFlag(0)
+        if not forward:
+            flags |= QTextDocument.FindFlag.FindBackward
+
+        # 高亮所有匹配
+        doc = self.terminal.document()
+        cursor = QTextCursor(doc)
+        hi_fmt = QTextCharFormat()
+        hi_fmt.setBackground(QColor('#F0C040'))
+        hi_fmt.setForeground(QColor('#000000'))
+        selections = []
+        count = 0
+        c = doc.find(text, 0)
+        while not c.isNull():
+            sel = QTextEdit.ExtraSelection()
+            sel.cursor = c
+            sel.format = hi_fmt
+            selections.append(sel)
+            count += 1
+            c = doc.find(text, c)
+        self.terminal.setExtraSelections(selections)
+        self._search_count_lbl.setText(f"{count} 处")
+
+        if count_only or count == 0:
+            return
+
+        # 移动到下一个匹配
+        cur = self.terminal.textCursor()
+        found = self.terminal.find(text, flags)
+        if not found and wrap:
+            # 回绕
+            tmp = QTextCursor(doc)
+            if forward:
+                tmp.movePosition(QTextCursor.MoveOperation.Start)
+            else:
+                tmp.movePosition(QTextCursor.MoveOperation.End)
+            self.terminal.setTextCursor(tmp)
+            self.terminal.find(text, flags)
+
     def _build_quick_panel(self) -> QWidget:
-        """构建右侧快捷指令面板"""
+        """构建右侧快捷指令面板（支持板块重排/新建）"""
         panel = QWidget()
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(10)
+        outer_layout = QVBoxLayout(panel)
+        outer_layout.setContentsMargins(4, 4, 4, 4)
+        outer_layout.setSpacing(6)
 
-        # ── 区域1：固件升级 ──
-        layout.addWidget(self._build_firmware_group())
+        # ── 图标说明提示 ──
+        icon_lbl = QLabel(
+            "💡 板块标题可用 Emoji 图标，常用: "
+            "📦🔧🧪📝🔍⚙️✅🔑📡🚀💾🔄"
+        )
+        icon_lbl.setWordWrap(True)
+        icon_lbl.setToolTip(
+            "在创建新板块时，标题直接输入 Emoji 即可使用图标\n"
+            "快速参考:\n"
+            "  📦 固件/包   🔧 工具/维修   🧪 测试\n"
+            "  📝 命令/记录  🔍 搜索/查询   ⚙️ 设置\n"
+            "  ✅ 完成/正确  🔑 权限/root   📡 通信\n"
+            "  🚀 启动/执行  💾 保存/下载   🔄 刷新"
+        )
+        self._icon_hint_lbl = icon_lbl
+        outer_layout.addWidget(icon_lbl)
 
-        # ── 区域2：角度采集测试 ──
-        layout.addWidget(self._build_angle_test_group())
+        # ── 板块容器（用单独 layout 便于重排）──
+        sec_widget = QWidget()
+        self._sections_layout = QVBoxLayout(sec_widget)
+        self._sections_layout.setContentsMargins(0, 0, 0, 0)
+        self._sections_layout.setSpacing(10)
+        outer_layout.addWidget(sec_widget)
 
-        # ── 区域3：系统工具 ──
-        layout.addWidget(self._build_sysutil_group())
+        # ── 构建各板块 ──
+        built_in_secs = [
+            self._build_firmware_group(),
+            self._build_angle_test_group(),
+            self._build_kst_angle_group(),
+            self._build_kst_coord_group(),
+            self._build_sysutil_group(),
+            self._build_custom_group(),
+        ]
+        self._quick_sections_list = built_in_secs[:]
+        for sec in built_in_secs:
+            self._sections_layout.addWidget(sec)
 
-        # ── 区域4：自定义指令 ──
-        layout.addWidget(self._build_custom_group())
+        self._refresh_section_controls()
 
-        layout.addStretch()
+        # ── 新建板块按钮 ──
+        btn_add = QPushButton("＋ 新建板块")
+        btn_add.setObjectName("btn_add_section")
+        btn_add.setStyleSheet(
+            "QPushButton{color:#58A6FF;background:#1A2233;"
+            "border:1px dashed #335577;border-radius:5px;padding:4px 8px;"
+            "font-size:12px;}"
+            "QPushButton:hover{background:#1E2D44;border-color:#58A6FF;}"
+        )
+        btn_add.clicked.connect(self._on_add_section)
+        self._btn_add_section = btn_add
+        outer_layout.addWidget(btn_add)
+
+        outer_layout.addStretch()
         return panel
+
+    def _refresh_section_controls(self):
+        """更新所有板块的 ↑↓ 按钮可用状态"""
+        n = len(self._quick_sections_list)
+        for i, sec in enumerate(self._quick_sections_list):
+            sec.set_controls(
+                up_cb=(lambda checked, s=sec: self._move_section(s, -1)) if i > 0 else None,
+                down_cb=(lambda checked, s=sec: self._move_section(s, +1)) if i < n - 1 else None,
+                rename_cb=(lambda checked, s=sec: self._on_rename_section(s)),
+            )
+
+    def _move_section(self, sec: '_CollapsibleSection', direction: int):
+        """在快捷面板内将板块上移（-1）或下移（+1）"""
+        idx = self._quick_sections_list.index(sec)
+        new_idx = idx + direction
+        if new_idx < 0 or new_idx >= len(self._quick_sections_list):
+            return
+        self._quick_sections_list.insert(new_idx, self._quick_sections_list.pop(idx))
+        # 从 layout 中移除全部再按新顺序插入
+        for s in self._quick_sections_list:
+            self._sections_layout.removeWidget(s)
+        for s in self._quick_sections_list:
+            self._sections_layout.addWidget(s)
+            s.show()
+        self._refresh_section_controls()
+
+    def _on_rename_section(self, sec: '_CollapsibleSection'):
+        new_name, ok = QInputDialog.getText(
+            self, "重命名板块", "输入新名称（可直接输入 Emoji 图标）:",
+            text=sec._title_lbl.text()
+        )
+        if ok and new_name.strip():
+            sec.update_title(new_name.strip())
+
+    def _on_add_section(self):
+        name, ok = QInputDialog.getText(
+            self, "新建板块",
+            "板块名称（可直接输入 Emoji，如 '🔑 Root操作'）："
+        )
+        if not ok or not name.strip():
+            return
+        sec = self._build_dynamic_section(name.strip())
+        self._quick_sections_list.append(sec)
+        self._sections_layout.addWidget(sec)
+        self._refresh_section_controls()
+        self._apply_theme()   # 应用当前主题样式到新板块
+
+    def _build_dynamic_section(self, title: str) -> '_CollapsibleSection':
+        """动态创建一个空白自定义指令板块"""
+        key = f"_dyn_{len(self._quick_sections_list)}"
+        sec = _CollapsibleSection(title)
+        layout = sec.body_layout
+
+        # 每个动态板块拥有独立的命令列表
+        sec._dyn_cmds: list = []
+        sec._dyn_btns_widget = QWidget()
+        sec._dyn_btns_layout = QVBoxLayout(sec._dyn_btns_widget)
+        sec._dyn_btns_layout.setContentsMargins(0, 0, 0, 0)
+        sec._dyn_btns_layout.setSpacing(4)
+        layout.addWidget(sec._dyn_btns_widget)
+
+        btn_add = QPushButton("＋ 添加指令")
+        btn_add.setStyleSheet(
+            "QPushButton{color:#4CAF50;background:#1C2128;border:1px solid #4CAF50;"
+            "border-radius:4px;padding:3px 8px;font-size:11px;}"
+            "QPushButton:hover{background:#1B3D2A;}"
+        )
+        btn_add.clicked.connect(lambda: self._on_add_dyn_cmd(sec))
+        layout.addWidget(btn_add)
+
+        return sec
+
+    def _on_add_dyn_cmd(self, sec: '_CollapsibleSection'):
+        dlg = CmdEditDialog(parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            name, cmd = dlg.get_values()
+            sec._dyn_cmds.append({"name": name, "cmd": cmd})
+            self._refresh_dyn_buttons(sec)
+
+    def _refresh_dyn_buttons(self, sec: '_CollapsibleSection'):
+        t = _DARK if self._dark_mode else _LIGHT
+        while sec._dyn_btns_layout.count():
+            item = sec._dyn_btns_layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+        _STYLE = (
+            f"QPushButton{{background:{t['btn_bg']};color:{t['btn_text']};"
+            f"border:1px solid {t['btn_bdr']};border-radius:5px;"
+            f"padding:4px 8px;font-size:12px;text-align:left;}}"
+            f"QPushButton:hover{{background:{t['btn_hover']};"
+            f"border-color:{t['btn_hover_bdr']};color:{t['combo_text']};}}"
+        )
+        for i, item in enumerate(sec._dyn_cmds):
+            row = QHBoxLayout()
+            row.setContentsMargins(0, 0, 0, 0)
+            btn = QPushButton(f"  {item['name']}")
+            btn.setToolTip(f"<code>{item['cmd']}</code>")
+            btn.setStyleSheet(_STYLE)
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            btn.clicked.connect(lambda checked, c=item['cmd']: self._send_command(c))
+            row.addWidget(btn, stretch=1)
+            btn_del = QToolButton(); btn_del.setText("✕")
+            btn_del.setStyleSheet("color:#E74C3C;background:transparent;border:none;")
+            btn_del.clicked.connect(lambda checked, idx=i, s=sec: (
+                s._dyn_cmds.pop(idx), self._refresh_dyn_buttons(s)
+            ))
+            row.addWidget(btn_del)
+            container = QWidget(); container.setLayout(row)
+            sec._dyn_btns_layout.addWidget(container)
 
     def _build_firmware_group(self) -> _CollapsibleSection:
         """固件升级流程区"""
         sec = _CollapsibleSection("📦 固件升级流程")
         layout = sec.body_layout
 
-        # 说明
-        hint = QLabel(
-            "<html><body style='font-size:11px;color:#546E7A;'>"
-            "升级前准备：<br>将 <b>libxgimi_MTK9660_GTV_4K.so</b> 或者 <b>libxgimi_MTK9660_AOSP.so</b> 放入 U 盘根目录，并把名称修改为 <b>libxgimi.so</b>（已内置于 assets/firmware/）。"
+        # 说明（可编辑）
+        self._fw_hint_text = (
+            "升级前准备：将 libxgimi_MTK9660_GTV_4K.so 或 libxgimi_MTK9660_AOSP.so "
+            "放入 U 盘根目录并改名为 libxgimi.so（已内置于 assets/firmware/）。\n"
             "U 盘插入投影仪，连接串口后依次点击以下按钮："
-            "</body></html>"
         )
-        hint.setWordWrap(True)
-        hint.setTextFormat(Qt.TextFormat.RichText)
-        layout.addWidget(hint)
+        hint_row = QHBoxLayout()
+        self._fw_hint_lbl = QLabel(self._fw_hint_text)
+        self._fw_hint_lbl.setWordWrap(True)
+        self._fw_hint_lbl.setStyleSheet("font-size:11px;color:#546E7A;")
+        hint_row.addWidget(self._fw_hint_lbl, stretch=1)
+        btn_edit_hint = QToolButton(); btn_edit_hint.setText("✏")
+        btn_edit_hint.setToolTip("编辑说明文字")
+        btn_edit_hint.setFixedWidth(22)
+        btn_edit_hint.setStyleSheet(
+            "QToolButton{color:#8A98A5;background:transparent;border:none;font-size:11px;}"
+            "QToolButton:hover{color:#58A6FF;}"
+        )
+        btn_edit_hint.clicked.connect(self._on_edit_fw_hint)
+        hint_row.addWidget(btn_edit_hint)
+        layout.addLayout(hint_row)
 
         # firmware 文件路径提示
         fw_exists = os.path.exists(_FIRMWARE_PATH)
@@ -603,43 +988,87 @@ class SerialPage(QWidget):
         layout.addWidget(fw_label)
 
         self._fw_step_buttons = []
+        self._fw_sec_layout = layout   # 保留引用，新增/删除步骤时用
+        self._fw_sec = sec
+        self._fw_step_rows: list = []  # QWidget 容器引用
+
         for i, step in enumerate(self._upgrade_steps):
-            btn_text, cmd, tip = step[0], step[1], step[2]
-            row = QHBoxLayout()
-            btn = QPushButton(btn_text)
-            btn.setToolTip(f"<b>指令:</b> <code>{cmd}</code><br><br>{tip}")
-            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            layout.addWidget(self._build_fw_step_row(i))
 
-            if "reboot" in cmd:
-                btn.setObjectName("btn_danger")
-            else:
-                btn.setStyleSheet(
-                    "QPushButton{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
-                    "stop:0 #2A303C,stop:1 #1E2433);color:#C9D1D9;border:1px solid #444;"
-                    "border-radius:5px;padding:5px 8px;font-size:12px;}"
-                    "QPushButton:hover{background:#2D3748;border-color:#58A6FF;color:#fff;}"
-                    "QPushButton:pressed{background:#1E253A;padding-top:6px;}"
-                )
-
-            btn.clicked.connect(lambda checked, idx=i: self._send_command(self._upgrade_steps[idx][1]))
-            self._fw_step_buttons.append(btn)
-            row.addWidget(btn, stretch=1)
-
-            btn_edit = QToolButton()
-            btn_edit.setText("✏")
-            btn_edit.setToolTip("编辑该步骤的指令内容")
-            btn_edit.setFixedWidth(26)
-            btn_edit.setStyleSheet(
-                "QToolButton{color:#8A98A5;background:transparent;"
-                "border:1px solid #444;border-radius:4px;font-size:11px;}"
-                "QToolButton:hover{color:#fff;border-color:#58A6FF;}"
-            )
-            btn_edit.clicked.connect(lambda checked, idx=i: self._on_edit_fw_step(idx))
-            row.addWidget(btn_edit)
-
-            layout.addLayout(row)
+        # 添加步骤按钮
+        btn_add_step = QPushButton("＋ 添加步骤")
+        btn_add_step.setStyleSheet(
+            "QPushButton{color:#4CAF50;background:#1C2128;border:1px solid #4CAF50;"
+            "border-radius:4px;padding:3px 8px;font-size:11px;}"
+            "QPushButton:hover{background:#1B3D2A;}"
+        )
+        btn_add_step.clicked.connect(self._on_add_fw_step)
+        layout.addWidget(btn_add_step)
+        self._fw_add_step_btn = btn_add_step
 
         return sec
+
+    def _build_fw_step_row(self, i: int) -> QWidget:
+        """构建单条固件升级步骤行"""
+        _EDIT_QSS = (
+            "QToolButton{color:#8A98A5;background:transparent;"
+            "border:1px solid #444;border-radius:4px;font-size:11px;}"
+            "QToolButton:hover{color:#fff;border-color:#58A6FF;}"
+        )
+        step = self._upgrade_steps[i]
+        btn_text, cmd, tip = step[0], step[1], step[2]
+
+        container = QWidget()
+        row = QHBoxLayout(container)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(3)
+
+        btn = QPushButton(btn_text)
+        btn.setToolTip(f"<b>指令:</b> <code>{cmd}</code><br><br>{tip}")
+        btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        if "reboot" in cmd:
+            btn.setObjectName("btn_danger")
+        else:
+            btn.setStyleSheet(
+                "QPushButton{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+                "stop:0 #2A303C,stop:1 #1E2433);color:#C9D1D9;border:1px solid #444;"
+                "border-radius:5px;padding:5px 8px;font-size:12px;}"
+                "QPushButton:hover{background:#2D3748;border-color:#58A6FF;color:#fff;}"
+                "QPushButton:pressed{background:#1E253A;padding-top:6px;}"
+            )
+        btn.clicked.connect(lambda checked, idx=i: self._send_command(self._upgrade_steps[idx][1]))
+        if i < len(self._fw_step_buttons):
+            self._fw_step_buttons[i] = btn
+        else:
+            self._fw_step_buttons.append(btn)
+        row.addWidget(btn, stretch=1)
+
+        btn_edit = QToolButton(); btn_edit.setText("✏")
+        btn_edit.setToolTip("编辑指令"); btn_edit.setFixedWidth(24)
+        btn_edit.setStyleSheet(_EDIT_QSS)
+        btn_edit.clicked.connect(lambda checked, idx=i: self._on_edit_fw_step(idx))
+        row.addWidget(btn_edit)
+
+        btn_del = QToolButton(); btn_del.setText("✕")
+        btn_del.setToolTip("删除此步骤"); btn_del.setFixedWidth(24)
+        btn_del.setStyleSheet("QToolButton{color:#E74C3C;background:transparent;border:none;}"
+                              "QToolButton:hover{color:#FF6B6B;}")
+        btn_del.clicked.connect(lambda checked, idx=i, c=container: self._on_delete_fw_step(idx, c))
+        row.addWidget(btn_del)
+
+        if len(self._fw_step_rows) > i:
+            self._fw_step_rows[i] = container
+        else:
+            self._fw_step_rows.append(container)
+        return container
+
+    def _on_edit_fw_hint(self):
+        new_text, ok = QInputDialog.getMultiLineText(
+            self, "编辑固件升级说明", "说明文字:", self._fw_hint_text
+        )
+        if ok:
+            self._fw_hint_text = new_text
+            self._fw_hint_lbl.setText(new_text)
 
     def _on_edit_fw_step(self, idx: int):
         step = self._upgrade_steps[idx]
@@ -650,72 +1079,168 @@ class SerialPage(QWidget):
         )
         if ok:
             self._upgrade_steps[idx][1] = new_cmd
-            btn = self._fw_step_buttons[idx]
-            btn.setToolTip(f"<b>指令:</b> <code>{new_cmd}</code><br><br>{step[2]}")
+            if idx < len(self._fw_step_buttons):
+                self._fw_step_buttons[idx].setToolTip(
+                    f"<b>指令:</b> <code>{new_cmd}</code><br><br>{step[2]}"
+                )
+
+    def _on_delete_fw_step(self, idx: int, container: QWidget):
+        step = self._upgrade_steps[idx]
+        reply = QMessageBox.question(
+            self, "确认删除", f"删除步骤「{step[0]}」？",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        self._upgrade_steps.pop(idx)
+        container.setParent(None)
+        if idx < len(self._fw_step_buttons):
+            self._fw_step_buttons.pop(idx)
+        if idx < len(self._fw_step_rows):
+            self._fw_step_rows.pop(idx)
+
+    def _on_add_fw_step(self):
+        dlg = CmdEditDialog(parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            name, cmd = dlg.get_values()
+            new_step = [name, cmd, ""]
+            self._upgrade_steps.append(new_step)
+            i = len(self._upgrade_steps) - 1
+            row_widget = self._build_fw_step_row(i)
+            # 在"添加步骤"按钮前插入
+            add_btn_idx = self._fw_sec_layout.indexOf(self._fw_add_step_btn)
+            self._fw_sec_layout.insertWidget(add_btn_idx, row_widget)
 
     def _build_angle_test_group(self) -> _CollapsibleSection:
-        """角度采集测试区"""
+        """角度采集测试区（含分辨率和范围参数）"""
         sec = _CollapsibleSection("🧪 角度采集测试")
         layout = sec.body_layout
 
-        # 说明
-        desc = QLabel(
-            "<html><body style='font-size:11px;color:#546E7A;'>"
-            "遍历 Yaw × Pitch [-40°,40°] 二维网格，调用 <code>batchGetDisplayPointByAngle</code> "
-            "将每个角度对应的四角坐标写入 CSV（位于设备 /data/vendor/）。"
-            "<br><br>"
+        # 说明（可编辑）
+        self._angle_desc_text = (
+            "遍历 Yaw × Pitch 二维网格，调用 batchGetDisplayPointByAngle "
+            "将每个角度对应的四角坐标写入 CSV（位于设备 /data/vendor/）。\n"
             "完成后需将 CSV 文件拷贝回 U 盘取走分析。"
-            "</body></html>"
         )
-        desc.setWordWrap(True)
-        desc.setTextFormat(Qt.TextFormat.RichText)
-        layout.addWidget(desc)
+        desc_row = QHBoxLayout()
+        self._angle_desc_lbl = QLabel(self._angle_desc_text)
+        self._angle_desc_lbl.setWordWrap(True)
+        self._angle_desc_lbl.setStyleSheet("font-size:11px;color:#546E7A;")
+        desc_row.addWidget(self._angle_desc_lbl, stretch=1)
+        btn_edit_desc = QToolButton(); btn_edit_desc.setText("✏")
+        btn_edit_desc.setToolTip("编辑说明文字"); btn_edit_desc.setFixedWidth(22)
+        btn_edit_desc.setStyleSheet(
+            "QToolButton{color:#8A98A5;background:transparent;border:none;font-size:11px;}"
+            "QToolButton:hover{color:#58A6FF;}"
+        )
+        btn_edit_desc.clicked.connect(self._on_edit_angle_desc)
+        desc_row.addWidget(btn_edit_desc)
+        layout.addLayout(desc_row)
 
-        # 步进选择
+        _COMBO_W = 60
+
+        # ── 分辨率行 ──
+        res_row = QHBoxLayout()
+        res_row.addWidget(QLabel("分辨率:"))
+        self.combo_resolution = QComboBox()
+        self.combo_resolution.addItems(["0 (默认/4K)", "1 (2K)", "2", "3"])
+        self.combo_resolution.setFixedWidth(100)
+        self.combo_resolution.setToolTip(
+            "传入 batchGetDisplayPointByAngle 的第3个参数（分辨率/模式标识）\n"
+            "0=默认(4K), 1=2K; 具体含义取决于固件版本"
+        )
+        self.combo_resolution.currentTextChanged.connect(
+            lambda t: setattr(self, '_scan_resolution', t.split()[0])
+        )
+        res_row.addWidget(self.combo_resolution)
+        res_row.addStretch()
+        layout.addLayout(res_row)
+
+        # ── Yaw 范围行 ──
+        yaw_row = QHBoxLayout()
+        yaw_row.addWidget(QLabel("Yaw 范围:"))
+        self._spin_yaw_min = QDoubleSpinBox()
+        self._spin_yaw_min.setRange(-180, 0); self._spin_yaw_min.setValue(-40)
+        self._spin_yaw_min.setFixedWidth(_COMBO_W)
+        self._spin_yaw_min.valueChanged.connect(
+            lambda v: setattr(self, '_scan_yaw_min', str(int(v)))
+        )
+        yaw_row.addWidget(self._spin_yaw_min)
+        yaw_row.addWidget(QLabel("~"))
+        self._spin_yaw_max = QDoubleSpinBox()
+        self._spin_yaw_max.setRange(0, 180); self._spin_yaw_max.setValue(40)
+        self._spin_yaw_max.setFixedWidth(_COMBO_W)
+        self._spin_yaw_max.valueChanged.connect(
+            lambda v: setattr(self, '_scan_yaw_max', str(int(v)))
+        )
+        yaw_row.addWidget(self._spin_yaw_max)
+        yaw_row.addStretch()
+        layout.addLayout(yaw_row)
+
+        # ── Pitch 范围行 ──
+        pitch_row = QHBoxLayout()
+        pitch_row.addWidget(QLabel("Pitch 范围:"))
+        self._spin_pitch_min = QDoubleSpinBox()
+        self._spin_pitch_min.setRange(-180, 0); self._spin_pitch_min.setValue(-40)
+        self._spin_pitch_min.setFixedWidth(_COMBO_W)
+        self._spin_pitch_min.valueChanged.connect(
+            lambda v: setattr(self, '_scan_pitch_min', str(int(v)))
+        )
+        pitch_row.addWidget(self._spin_pitch_min)
+        pitch_row.addWidget(QLabel("~"))
+        self._spin_pitch_max = QDoubleSpinBox()
+        self._spin_pitch_max.setRange(0, 180); self._spin_pitch_max.setValue(40)
+        self._spin_pitch_max.setFixedWidth(_COMBO_W)
+        self._spin_pitch_max.valueChanged.connect(
+            lambda v: setattr(self, '_scan_pitch_max', str(int(v)))
+        )
+        pitch_row.addWidget(self._spin_pitch_max)
+        pitch_row.addStretch()
+        layout.addLayout(pitch_row)
+
+        # ── 角度步进 ──
         step_row = QHBoxLayout()
-        step_row.addWidget(QLabel("角度步进:"))
+        step_row.addWidget(QLabel("步进:"))
         self.combo_step = QComboBox()
         self.combo_step.addItems(_STEP_OPTIONS)
         self.combo_step.setCurrentText("0.1")
         self.combo_step.setToolTip(
-            "步进值越小，采集点越密，耗时越长。\n"
-            "0.1° → 约 161×161=25921 个点（约 30 分钟）\n"
-            "0.5° → 约 33×33=1089 个点（较快）\n"
-            "1°   → 约 17×17=289 个点（快速验证）"
+            "0.1° → ~(range/0.1)² 个点（慢）\n"
+            "0.5° / 1° → 更快速验证"
         )
         self.combo_step.setFixedWidth(70)
         step_row.addWidget(self.combo_step)
         step_row.addStretch()
         layout.addLayout(step_row)
 
-        # 发送采集指令
+        _EDIT_QSS = (
+            "QToolButton{color:#8A98A5;background:transparent;"
+            "border:1px solid #444;border-radius:4px;font-size:11px;}"
+            "QToolButton:hover{color:#fff;border-color:#58A6FF;}"
+        )
+
+        # ── 发送采集指令 ──
         scan_row = QHBoxLayout()
         btn_scan = QPushButton("▶ 发送角度采集指令")
         btn_scan.setObjectName("btn_primary")
         btn_scan.setToolTip(
             "<b>执行角度坐标批量采集</b><br>"
-            "指令模板:<br>"
-            "<code>" + self._scan_cmd_template.replace('{step}', '{step}') + "</code><br><br>"
-            "点击 ✏ 可编辑模板"
+            f"指令模板: <code>{self._scan_cmd_template}</code><br>"
+            "占位符会自动替换为当前 UI 参数值"
         )
         btn_scan.clicked.connect(self._on_send_scan_cmd)
         self._btn_scan = btn_scan
         scan_row.addWidget(btn_scan, stretch=1)
 
-        btn_edit_scan = QToolButton()
-        btn_edit_scan.setText("✏")
-        btn_edit_scan.setToolTip("编辑采集指令模板（{step} 会被当前步进值替换）")
+        btn_edit_scan = QToolButton(); btn_edit_scan.setText("✏")
+        btn_edit_scan.setToolTip("编辑采集指令模板")
         btn_edit_scan.setFixedWidth(26)
-        btn_edit_scan.setStyleSheet(
-            "QToolButton{color:#8A98A5;background:transparent;"
-            "border:1px solid #444;border-radius:4px;font-size:11px;}"
-            "QToolButton:hover{color:#fff;border-color:#58A6FF;}"
-        )
+        btn_edit_scan.setStyleSheet(_EDIT_QSS)
         btn_edit_scan.clicked.connect(self._on_edit_scan_cmd)
         scan_row.addWidget(btn_edit_scan)
         layout.addLayout(scan_row)
 
-        # 拷贝数据到 U 盘
+        # ── 拷贝数据到 U 盘 ──
         copy_row = QHBoxLayout()
         btn_copy = QPushButton("📋 拷贝 CSV 到 U 盘")
         btn_copy.setToolTip(self._copy_csv_cmd)
@@ -729,25 +1254,182 @@ class SerialPage(QWidget):
         self._btn_copy = btn_copy
         copy_row.addWidget(btn_copy, stretch=1)
 
-        btn_edit_copy = QToolButton()
-        btn_edit_copy.setText("✏")
+        btn_edit_copy = QToolButton(); btn_edit_copy.setText("✏")
         btn_edit_copy.setToolTip("编辑 CSV 拷贝命令")
         btn_edit_copy.setFixedWidth(26)
-        btn_edit_copy.setStyleSheet(
-            "QToolButton{color:#8A98A5;background:transparent;"
-            "border:1px solid #444;border-radius:4px;font-size:11px;}"
-            "QToolButton:hover{color:#fff;border-color:#58A6FF;}"
-        )
+        btn_edit_copy.setStyleSheet(_EDIT_QSS)
         btn_edit_copy.clicked.connect(self._on_edit_copy_cmd)
         copy_row.addWidget(btn_edit_copy)
         layout.addLayout(copy_row)
 
         return sec
 
+    def _on_edit_angle_desc(self):
+        new_text, ok = QInputDialog.getMultiLineText(
+            self, "编辑角度采集说明", "说明文字:", self._angle_desc_text
+        )
+        if ok:
+            self._angle_desc_text = new_text
+            self._angle_desc_lbl.setText(new_text)
+
+    def _build_kst_angle_group(self) -> _CollapsibleSection:
+        """set_kst_by_angle 快捷设置区"""
+        sec = _CollapsibleSection("📐 set_kst_by_angle", collapsed=True)
+        layout = sec.body_layout
+
+        desc = QLabel(
+            "输入 Yaw、Pitch 角度和分辨率，发送 set_kst_by_angle 指令\n"
+            "设置当前角度对应的 KST 梯形校正参数。"
+        )
+        desc.setWordWrap(True)
+        desc.setStyleSheet("font-size:11px;color:#546E7A;")
+        layout.addWidget(desc)
+
+        _COMBO_W = 80
+        grid = QHBoxLayout()
+        grid.addWidget(QLabel("Yaw:"))
+        self._kst_yaw_spin = QDoubleSpinBox()
+        self._kst_yaw_spin.setRange(-90, 90); self._kst_yaw_spin.setValue(0)
+        self._kst_yaw_spin.setDecimals(1); self._kst_yaw_spin.setFixedWidth(_COMBO_W)
+        grid.addWidget(self._kst_yaw_spin)
+
+        grid.addWidget(QLabel("Pitch:"))
+        self._kst_pitch_spin = QDoubleSpinBox()
+        self._kst_pitch_spin.setRange(-90, 90); self._kst_pitch_spin.setValue(0)
+        self._kst_pitch_spin.setDecimals(1); self._kst_pitch_spin.setFixedWidth(_COMBO_W)
+        grid.addWidget(self._kst_pitch_spin)
+
+        grid.addWidget(QLabel("Res:"))
+        self._kst_angle_res = QComboBox()
+        self._kst_angle_res.addItems(["0", "1", "2"])
+        self._kst_angle_res.setFixedWidth(50)
+        self._kst_angle_res.setToolTip("分辨率参数: 0=4K, 1=2K")
+        grid.addWidget(self._kst_angle_res)
+        grid.addStretch()
+        layout.addLayout(grid)
+
+        tpl_row = QHBoxLayout()
+        self._kst_angle_tpl = (
+            'gmpfUnit externDisplay kst_dev set_kst_by_angle '
+            '"{yaw};{pitch};{resolution}"'
+        )
+        btn_send = QPushButton("▶ 发送 set_kst_by_angle")
+        btn_send.setObjectName("btn_primary")
+        btn_send.clicked.connect(self._on_send_kst_angle)
+        tpl_row.addWidget(btn_send, stretch=1)
+
+        btn_edit = QToolButton(); btn_edit.setText("✏")
+        btn_edit.setToolTip("编辑命令模板")
+        btn_edit.setFixedWidth(26)
+        btn_edit.setStyleSheet(
+            "QToolButton{color:#8A98A5;background:transparent;"
+            "border:1px solid #444;border-radius:4px;font-size:11px;}"
+            "QToolButton:hover{color:#fff;border-color:#58A6FF;}"
+        )
+        btn_edit.clicked.connect(self._on_edit_kst_angle_tpl)
+        tpl_row.addWidget(btn_edit)
+        layout.addLayout(tpl_row)
+
+        return sec
+
+    def _on_send_kst_angle(self):
+        yaw   = self._kst_yaw_spin.value()
+        pitch = self._kst_pitch_spin.value()
+        res   = self._kst_angle_res.currentText()
+        cmd = (self._kst_angle_tpl
+               .replace('{yaw}', str(yaw))
+               .replace('{pitch}', str(pitch))
+               .replace('{resolution}', res))
+        self._send_command(cmd)
+
+    def _on_edit_kst_angle_tpl(self):
+        new_tpl, ok = QInputDialog.getText(
+            self, "编辑 set_kst_by_angle 模板",
+            "模板（{yaw}/{pitch}/{resolution} 会被替换）:",
+            text=self._kst_angle_tpl
+        )
+        if ok and new_tpl.strip():
+            self._kst_angle_tpl = new_tpl.strip()
+
+    def _build_kst_coord_group(self) -> _CollapsibleSection:
+        """set_kst_by_coord 快捷设置区"""
+        sec = _CollapsibleSection("📌 set_kst_by_coord", collapsed=True)
+        layout = sec.body_layout
+
+        desc = QLabel(
+            "输入四角坐标（像素），发送 set_kst_by_coord 指令\n"
+            "直接按坐标设置 KST 梯形校正参数。"
+        )
+        desc.setWordWrap(True)
+        desc.setStyleSheet("font-size:11px;color:#546E7A;")
+        layout.addWidget(desc)
+
+        _W = 90
+        def _coord_row(label_text, attr_name):
+            r = QHBoxLayout()
+            r.addWidget(QLabel(label_text))
+            ln = QLineEdit("0,0")
+            ln.setPlaceholderText("x,y")
+            ln.setFixedWidth(_W)
+            setattr(self, attr_name, ln)
+            r.addWidget(ln)
+            r.addStretch()
+            return r
+
+        layout.addLayout(_coord_row("TL (左上):", '_kst_coord_tl'))
+        layout.addLayout(_coord_row("TR (右上):", '_kst_coord_tr'))
+        layout.addLayout(_coord_row("BL (左下):", '_kst_coord_bl'))
+        layout.addLayout(_coord_row("BR (右下):", '_kst_coord_br'))
+
+        self._kst_coord_tpl = (
+            'gmpfUnit externDisplay kst_dev set_kst_by_coord '
+            '"{tl};{tr};{bl};{br}"'
+        )
+        btn_row = QHBoxLayout()
+        btn_send = QPushButton("▶ 发送 set_kst_by_coord")
+        btn_send.setObjectName("btn_primary")
+        btn_send.clicked.connect(self._on_send_kst_coord)
+        btn_row.addWidget(btn_send, stretch=1)
+
+        btn_edit = QToolButton(); btn_edit.setText("✏")
+        btn_edit.setToolTip("编辑命令模板")
+        btn_edit.setFixedWidth(26)
+        btn_edit.setStyleSheet(
+            "QToolButton{color:#8A98A5;background:transparent;"
+            "border:1px solid #444;border-radius:4px;font-size:11px;}"
+            "QToolButton:hover{color:#fff;border-color:#58A6FF;}"
+        )
+        btn_edit.clicked.connect(self._on_edit_kst_coord_tpl)
+        btn_row.addWidget(btn_edit)
+        layout.addLayout(btn_row)
+
+        return sec
+
+    def _on_send_kst_coord(self):
+        tl = self._kst_coord_tl.text().strip() or '0,0'
+        tr = self._kst_coord_tr.text().strip() or '0,0'
+        bl = self._kst_coord_bl.text().strip() or '0,0'
+        br = self._kst_coord_br.text().strip() or '0,0'
+        cmd = (self._kst_coord_tpl
+               .replace('{tl}', tl)
+               .replace('{tr}', tr)
+               .replace('{bl}', bl)
+               .replace('{br}', br))
+        self._send_command(cmd)
+
+    def _on_edit_kst_coord_tpl(self):
+        new_tpl, ok = QInputDialog.getText(
+            self, "编辑 set_kst_by_coord 模板",
+            "模板（{tl}/{tr}/{bl}/{br} 会被替换为 x,y 形式）:",
+            text=self._kst_coord_tpl
+        )
+        if ok and new_tpl.strip():
+            self._kst_coord_tpl = new_tpl.strip()
+
     def _on_edit_scan_cmd(self):
         new_tpl, ok = QInputDialog.getText(
             self, "编辑角度采集指令模板",
-            "模板内容（{step} 会被当前步进替换）：",
+            "模板（{resolution}/{yaw_min}/{yaw_max}/{pitch_min}/{pitch_max}/{step} 会被替换）：",
             text=self._scan_cmd_template
         )
         if ok and new_tpl.strip():
@@ -1003,57 +1685,262 @@ class SerialPage(QWidget):
             self._sys_msg("⚠ 串口未连接，无法发送指令", error=True)
 
     # ──────────────────────────────────────────────────────────────────────────
+    #  终端内联输入（WindTerm 风格）
+    # ──────────────────────────────────────────────────────────────────────────
+    def _terminal_enter_input_mode(self, first_char: str = ''):
+        """进入内联输入模式：在终端末尾插入提示符，允许直接在日志区域输入指令。"""
+        self._terminal_input_mode = True
+        self._terminal_input_buf = first_char
+        cur = self.terminal.textCursor()
+        cur.movePosition(QTextCursor.MoveOperation.End)
+        # 若末尾不是换行，先补一个
+        doc_text = self.terminal.toPlainText()
+        fmt_prompt = QTextCharFormat()
+        fmt_prompt.setForeground(QColor('#58A6FF'))   # 蓝色提示符
+        if doc_text and not doc_text.endswith('\n'):
+            cur.insertText('\n', fmt_prompt)
+        cur.insertText('➤ ', fmt_prompt)
+        self._terminal_input_anchor = cur.position()
+        # 插入第一个字符
+        if first_char:
+            fmt_input = QTextCharFormat()
+            fmt_input.setForeground(QColor('#79C0FF'))
+            cur.insertText(first_char, fmt_input)
+        self.terminal.setTextCursor(cur)
+        self.terminal.ensureCursorVisible()
+
+    def _terminal_commit_input(self):
+        """提交内联输入：清除状态。"""
+        self._terminal_input_mode = False
+        self._terminal_input_anchor = -1
+        self._terminal_input_buf = ''
+
+    def _terminal_tab_complete(self):
+        """内联输入模式下的 Tab 补全：借用 input_line 的补全逻辑。"""
+        old_text = self.input_line.text()
+        # 将当前内联 buf 同步到 input_line，让 _on_tab_complete() 可以操作
+        self.input_line.setText(self._terminal_input_buf)
+        self._on_tab_complete()
+        new_text = self.input_line.text()
+        self.input_line.setText(old_text)   # 恢复 input_line
+
+        if new_text == self._terminal_input_buf:
+            return   # 无补全结果
+
+        # 计算需要在终端末尾替换的字符数
+        old_len = len(self._terminal_input_buf)
+        new_len = len(new_text)
+        # 删除末尾 old_len 个字符（已输入内容），追加 new_text
+        cur = self.terminal.textCursor()
+        cur.movePosition(QTextCursor.MoveOperation.End)
+        for _ in range(old_len):
+            cur.deletePreviousChar()
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor('#79C0FF'))
+        cur.insertText(new_text, fmt)
+        self.terminal.setTextCursor(cur)
+        self.terminal.ensureCursorVisible()
+        self._terminal_input_buf = new_text
+
+    def _terminal_history_cycle(self, direction: int):
+        """内联输入模式下的上/下键历史导航（direction=-1上一条, +1下一条）。"""
+        if not self._cmd_history:
+            return
+        old_text = self.input_line.text()
+        self.input_line.setText(self._terminal_input_buf)
+        if direction == -1:
+            self._history_prev()
+        else:
+            self._history_next()
+        new_text = self.input_line.text()
+        self.input_line.setText(old_text)
+
+        if new_text == self._terminal_input_buf:
+            return
+
+        old_len = len(self._terminal_input_buf)
+        cur = self.terminal.textCursor()
+        cur.movePosition(QTextCursor.MoveOperation.End)
+        for _ in range(old_len):
+            cur.deletePreviousChar()
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor('#79C0FF'))
+        cur.insertText(new_text, fmt)
+        self.terminal.setTextCursor(cur)
+        self.terminal.ensureCursorVisible()
+        self._terminal_input_buf = new_text
+
+    def _terminal_cancel_input(self):
+        """取消内联输入：删除已输入的文字和提示符。"""
+        if self._terminal_input_anchor >= 0:
+            # 提示符 '➤ ' 占 2 字符，anchor 指向第一个输入字符位置
+            remove_from = max(0, self._terminal_input_anchor - 2)
+            cur = self.terminal.textCursor()
+            cur.setPosition(remove_from)
+            cur.movePosition(QTextCursor.MoveOperation.End,
+                             QTextCursor.MoveMode.KeepAnchor)
+            cur.removeSelectedText()
+            self.terminal.setTextCursor(cur)
+        self._terminal_input_mode = False
+        self._terminal_input_anchor = -1
+        self._terminal_input_buf = ''
+
+    # ──────────────────────────────────────────────────────────────────────────
     #  输入框事件拦截（Tab补全 / 上下键历史）
     # ──────────────────────────────────────────────────────────────────────────
     def eventFilter(self, obj, event):
         from PyQt6.QtCore import QEvent
-        if obj is self.input_line and event.type() == QEvent.Type.KeyPress:
+        if event.type() == QEvent.Type.KeyPress:
             key = event.key()
             modifiers = event.modifiers()
 
-            # ── Ctrl+字母 → 直接发送控制字符 ──
-            if modifiers == Qt.KeyboardModifier.ControlModifier:
-                _CTRL_MAP = {
-                    Qt.Key.Key_C:          ('\x03', 'Ctrl+C  (中断)'),
-                    Qt.Key.Key_Z:          ('\x1a', 'Ctrl+Z  (挂起)'),
-                    Qt.Key.Key_D:          ('\x04', 'Ctrl+D  (EOF)'),
-                    Qt.Key.Key_L:          ('\x0c', 'Ctrl+L  (清屏)'),
-                    Qt.Key.Key_Backslash:  ('\x1c', 'Ctrl+\\  (SIGQUIT)'),
-                    Qt.Key.Key_X:          ('\x18', 'Ctrl+X'),
-                    Qt.Key.Key_A:          ('\x01', 'Ctrl+A  (行首)'),
-                    Qt.Key.Key_E:          ('\x05', 'Ctrl+E  (行尾)'),
-                    Qt.Key.Key_K:          ('\x0b', 'Ctrl+K  (剔除到行尾)'),
-                    Qt.Key.Key_U:          ('\x15', 'Ctrl+U  (剔除到行首)'),
-                }
-                if key in _CTRL_MAP:
-                    char, label = _CTRL_MAP[key]
-                    # Ctrl+C 有选中文本时不拦截（允许复制）
-                    if key == Qt.Key.Key_C and self.input_line.hasSelectedText():
-                        return super().eventFilter(obj, event)
-                    if self._serial and self._serial.is_open:
-                        try:
-                            self._serial.write(char.encode('latin-1'))
-                            self._append_terminal(f'  [{label}]', color=self._sys_color)
-                            self._log_lines.append(f'[CTRL] {label}')
-                        except Exception as e:
-                            self._sys_msg(f'发送失败: {e}', error=True)
-                    else:
-                        self._sys_msg('⚠ 串口未连接', error=True)
+            # ── 搜索栏 Esc 关闭 ──────────────────────────────────────────
+            if hasattr(self, 'search_edit') and obj is self.search_edit:
+                if key == Qt.Key.Key_Escape:
+                    self._close_search()
+                    return True
+            if obj is self.terminal:
+                # Ctrl+F：切换搜索栏
+                if (modifiers == Qt.KeyboardModifier.ControlModifier
+                        and key == Qt.Key.Key_F):
+                    self._toggle_search()
                     return True
 
-            if key == Qt.Key.Key_Tab:
-                self._on_tab_complete()
-                return True          # 阻止焦点跳转
-            elif key == Qt.Key.Key_Up:
-                self._history_prev()
-                return True
-            elif key == Qt.Key.Key_Down:
-                self._history_next()
-                return True
-            else:
-                # 任意其他键重置 Tab 候选（但不重置历史导航）
-                self._tab_candidates = []
-                self._tab_idx = -1
+                # Ctrl+C：有选中 → 复制；内联输入中 → 取消；否则静默
+                if (modifiers == Qt.KeyboardModifier.ControlModifier
+                        and key == Qt.Key.Key_C):
+                    if self.terminal.textCursor().hasSelection():
+                        return False   # 让 Qt 处理复制
+                    if self._terminal_input_mode:
+                        self._terminal_cancel_input()
+                    return True
+
+                # ── 内联输入模式：已有活跃输入 ──────────────────────────────
+                if self._terminal_input_mode:
+                    if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                        cmd = self._terminal_input_buf
+                        self._terminal_commit_input()
+                        # 无论 cmd 是否为空都调用 _send_command（空回车也要发送）
+                        self._send_command(cmd)
+                        stripped = cmd.strip()
+                        if stripped:
+                            if not self._cmd_history or self._cmd_history[-1] != stripped:
+                                self._cmd_history.append(stripped)
+                            self._history_idx = -1
+                            self._tab_candidates = []
+                            self._tab_idx = -1
+                        return True
+
+                    if key == Qt.Key.Key_Backspace:
+                        if self._terminal_input_buf:
+                            self._terminal_input_buf = self._terminal_input_buf[:-1]
+                            cur = self.terminal.textCursor()
+                            cur.movePosition(QTextCursor.MoveOperation.End)
+                            cur.deletePreviousChar()
+                            self.terminal.setTextCursor(cur)
+                        return True
+
+                    if key == Qt.Key.Key_Up:
+                        self._terminal_history_cycle(-1)
+                        return True
+
+                    if key == Qt.Key.Key_Down:
+                        self._terminal_history_cycle(1)
+                        return True
+
+                    if key == Qt.Key.Key_Tab:
+                        # Tab 补全：借用 input_line 的补全逻辑
+                        self._terminal_tab_complete()
+                        return True
+
+                    if key == Qt.Key.Key_Escape:
+                        self._terminal_cancel_input()
+                        return True
+
+                    char = event.text()
+                    if char and (char.isprintable() or char == ' ') and modifiers in (
+                            Qt.KeyboardModifier.NoModifier,
+                            Qt.KeyboardModifier.ShiftModifier):
+                        self._terminal_input_buf += char
+                        cur = self.terminal.textCursor()
+                        cur.movePosition(QTextCursor.MoveOperation.End)
+                        fmt = QTextCharFormat()
+                        fmt.setForeground(QColor('#79C0FF'))
+                        cur.insertText(char, fmt)
+                        self.terminal.setTextCursor(cur)
+                        self.terminal.ensureCursorVisible()
+                        return True
+
+                    # 其他键（翻页、方向键）保留给终端滚动
+                    return False
+
+                # ── 非内联输入模式 ────────────────────────────────────────────
+                # 直接回车：发送空命令（相当于在终端按 Enter）
+                if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and modifiers == Qt.KeyboardModifier.NoModifier:
+                    self._send_command('')
+                    return True
+
+                # 可打印字符 → 进入内联输入
+                char = event.text()
+                if char and char.isprintable() and modifiers in (
+                        Qt.KeyboardModifier.NoModifier,
+                        Qt.KeyboardModifier.ShiftModifier):
+                    self._terminal_enter_input_mode(char)
+                    return True
+
+                # 上下翻页键保留给终端滚动
+                return False
+
+            # ── 输入框焦点时 ──────────────────────────────────────────────
+            if obj is self.input_line:
+                # Ctrl+F：切换搜索栏
+                if (modifiers == Qt.KeyboardModifier.ControlModifier
+                        and key == Qt.Key.Key_F):
+                    self._toggle_search()
+                    return True
+
+                # ── Ctrl+字母 → 直接发送控制字符 ──
+                if modifiers == Qt.KeyboardModifier.ControlModifier:
+                    _CTRL_MAP = {
+                        Qt.Key.Key_C:          ('\x03', 'Ctrl+C  (中断)'),
+                        Qt.Key.Key_Z:          ('\x1a', 'Ctrl+Z  (挂起)'),
+                        Qt.Key.Key_D:          ('\x04', 'Ctrl+D  (EOF)'),
+                        Qt.Key.Key_L:          ('\x0c', 'Ctrl+L  (清屏)'),
+                        Qt.Key.Key_Backslash:  ('\x1c', 'Ctrl+\\  (SIGQUIT)'),
+                        Qt.Key.Key_X:          ('\x18', 'Ctrl+X'),
+                        Qt.Key.Key_A:          ('\x01', 'Ctrl+A  (行首)'),
+                        Qt.Key.Key_E:          ('\x05', 'Ctrl+E  (行尾)'),
+                        Qt.Key.Key_K:          ('\x0b', 'Ctrl+K  (剔除到行尾)'),
+                        Qt.Key.Key_U:          ('\x15', 'Ctrl+U  (剔除到行首)'),
+                    }
+                    if key in _CTRL_MAP:
+                        char, label = _CTRL_MAP[key]
+                        if key == Qt.Key.Key_C and self.input_line.hasSelectedText():
+                            return super().eventFilter(obj, event)
+                        if self._serial and self._serial.is_open:
+                            try:
+                                self._serial.write(char.encode('latin-1'))
+                                self._append_terminal(f'  [{label}]', color=self._sys_color)
+                                self._log_lines.append(f'[CTRL] {label}')
+                            except Exception as e:
+                                self._sys_msg(f'发送失败: {e}', error=True)
+                        else:
+                            self._sys_msg('⚠ 串口未连接', error=True)
+                        return True
+
+                if key == Qt.Key.Key_Tab:
+                    self._on_tab_complete()
+                    return True
+                elif key == Qt.Key.Key_Up:
+                    self._history_prev()
+                    return True
+                elif key == Qt.Key.Key_Down:
+                    self._history_next()
+                    return True
+                else:
+                    self._tab_candidates = []
+                    self._tab_idx = -1
+
         return super().eventFilter(obj, event)
 
     def _on_tab_complete(self):
@@ -1125,14 +2012,31 @@ class SerialPage(QWidget):
         # 追加系统工具指令
         for tool in self._sysutil_tools:
             cmds.append(tool[1])
-        # 追加角度采集命令
+        # 追加角度采集命令（带当前参数展开）
         step_val = getattr(self, 'combo_step', None)
         step_str = step_val.currentText() if step_val else '0.1'
-        cmds.append(self._scan_cmd_template.replace('{step}', step_str))
+        scan_expanded = (self._scan_cmd_template
+                         .replace('{resolution}', getattr(self, '_scan_resolution', '0'))
+                         .replace('{yaw_min}',    getattr(self, '_scan_yaw_min',   '-40'))
+                         .replace('{yaw_max}',    getattr(self, '_scan_yaw_max',   '40'))
+                         .replace('{pitch_min}',  getattr(self, '_scan_pitch_min', '-40'))
+                         .replace('{pitch_max}',  getattr(self, '_scan_pitch_max', '40'))
+                         .replace('{step}',       step_str))
+        cmds.append(scan_expanded)
         cmds.append(self._copy_csv_cmd)
+        # KST 命令模板
+        if hasattr(self, '_kst_angle_tpl'):
+            cmds.append(self._kst_angle_tpl)
+        if hasattr(self, '_kst_coord_tpl'):
+            cmds.append(self._kst_coord_tpl)
         # 追加自定义命令
         for item in self._custom_cmds:
             cmds.append(item['cmd'])
+        # 追加动态板块命令
+        for sec in self._quick_sections_list:
+            if hasattr(sec, '_dyn_cmds'):
+                for item in sec._dyn_cmds:
+                    cmds.append(item['cmd'])
         return cmds
 
     def _history_prev(self):
@@ -1319,6 +2223,24 @@ class SerialPage(QWidget):
             f"QPushButton:hover{{background:{t['btn_hover']};border-color:{t['btn_hover_bdr']};}}"
         )
 
+        # 搜索栏样式
+        if hasattr(self, 'search_edit'):
+            self._search_bar.setStyleSheet(
+                f"QFrame#search_frame {{background:{t['bar_bg']};border-radius:6px;padding:2px;}}"
+            )
+            self.search_edit.setStyleSheet(
+                f"QLineEdit{{background:{t['input_bg']};color:{t['input_text']};"
+                f"border:1px solid {t['input_bdr']};border-radius:4px;padding:3px 6px;}}"
+                f"QLineEdit:focus{{border:1px solid {t['input_focus']};}}"
+            )
+            _sbtn_qss = (
+                f"QPushButton{{color:{t['btn_text']};background:{t['btn_bg']};"
+                f"border:1px solid {t['btn_bdr']};border-radius:4px;padding:2px 6px;font-size:11px;}}"
+                f"QPushButton:hover{{background:{t['btn_hover']};}}"
+            )
+            if hasattr(self, '_search_count_lbl'):
+                self._search_count_lbl.setStyleSheet(f"color:{t['bar_label']};font-size:11px;")
+
         # 右侧面板：更新滚动区域及可折叠区块样式
         self._right_scroll.setStyleSheet(
             f"QScrollArea {{ background: {t['scroll_bg']}; border: none; }}"
@@ -1356,15 +2278,43 @@ class SerialPage(QWidget):
         )
 
     def _append_terminal(self, text: str, color: str = '#C9D1D9'):
-        cursor = self.terminal.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.End)
+        ts = datetime.datetime.now().strftime('%H:%M:%S.%f')[:12]
+        new_line = f"[{ts}] {text}\n"
         fmt = QTextCharFormat()
         fmt.setForeground(QColor(color))
-        ts = datetime.datetime.now().strftime('%H:%M:%S.%f')[:12]
-        cursor.insertText(f"[{ts}] {text}\n", fmt)
-        if self._auto_scroll:
+
+        if self._terminal_input_mode and self._terminal_input_anchor >= 0:
+            # 内联输入模式：将新数据插入到提示符"上方"，保留已输入内容
+            saved_buf = self._terminal_input_buf
+            # 删除 '➤ ' + 已输入内容（从 anchor-2 到末尾）
+            remove_from = max(0, self._terminal_input_anchor - 2)
+            cursor = self.terminal.textCursor()
+            cursor.setPosition(remove_from)
+            cursor.movePosition(QTextCursor.MoveOperation.End,
+                                QTextCursor.MoveMode.KeepAnchor)
+            cursor.removeSelectedText()
+            # 插入新数据
+            cursor.insertText(new_line, fmt)
+            # 重新插入提示符和已输入内容
+            fmt_prompt = QTextCharFormat()
+            fmt_prompt.setForeground(QColor('#58A6FF'))
+            cursor.insertText('➤ ', fmt_prompt)
+            self._terminal_input_anchor = cursor.position()
+            if saved_buf:
+                fmt_input = QTextCharFormat()
+                fmt_input.setForeground(QColor('#79C0FF'))
+                cursor.insertText(saved_buf, fmt_input)
+            self._terminal_input_buf = saved_buf
             self.terminal.setTextCursor(cursor)
             self.terminal.ensureCursorVisible()
+        else:
+            cursor = self.terminal.textCursor()
+            cursor.movePosition(QTextCursor.MoveOperation.End)
+            cursor.insertText(new_line, fmt)
+            if self._auto_scroll:
+                self.terminal.setTextCursor(cursor)
+                self.terminal.ensureCursorVisible()
+
         # 从接收行中提取路径（Unix 绝对路径）缓入补全库
         if text and not text.startswith('▶') and not text.startswith('  ['):
             for tok in re.split(r'[\s,;]+', text):
@@ -1402,8 +2352,19 @@ class SerialPage(QWidget):
     #  角度采集
     # ──────────────────────────────────────────────────────────────────────────
     def _on_send_scan_cmd(self):
-        step = self.combo_step.currentText()
-        cmd = self._scan_cmd_template.replace('{step}', step)
+        step      = self.combo_step.currentText()
+        res       = getattr(self, '_scan_resolution', '0')
+        yaw_min   = getattr(self, '_scan_yaw_min',   '-40')
+        yaw_max   = getattr(self, '_scan_yaw_max',   '40')
+        pitch_min = getattr(self, '_scan_pitch_min', '-40')
+        pitch_max = getattr(self, '_scan_pitch_max', '40')
+        cmd = (self._scan_cmd_template
+               .replace('{resolution}', res)
+               .replace('{yaw_min}',    yaw_min)
+               .replace('{yaw_max}',    yaw_max)
+               .replace('{pitch_min}',  pitch_min)
+               .replace('{pitch_max}',  pitch_max)
+               .replace('{step}',       step))
         self._send_command(cmd)
 
     # ──────────────────────────────────────────────────────────────────────────

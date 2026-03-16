@@ -40,6 +40,8 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 # 当前机器：脚本在 src/Analysis/ 子目录，数据在项目根目录（上两级）
 # 分发给他人时：将脚本与 data/ reports/ 放同一目录，改为: DATA_ROOT = PROJECT_ROOT
 DATA_ROOT = os.path.normpath(os.path.join(PROJECT_ROOT, '..', '..'))
+# 输出根目录：指向当前主工程 xgimi_dlp_test（与 202602027_dlp_auto 同级）
+OUTPUT_ROOT = os.path.normpath(os.path.join(DATA_ROOT, '..', 'xgimi_dlp_test'))
 
 # ==============================================================================
 # 【手动配置区】
@@ -342,7 +344,7 @@ def visualize_0_1_degree(quadrant_files: dict, project_root: str,
     # ── 13. 保存 ─────────────────────────────────────────────
     timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
     date_str   = datetime.now().strftime("%Y%m%d")
-    output_dir = os.path.join(DATA_ROOT, 'reports', 'Data_Analysis_Result',
+    output_dir = os.path.join(OUTPUT_ROOT, 'reports', 'Data_Analysis_Result',
                               'Angle', '0.1', date_str)
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir,

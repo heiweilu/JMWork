@@ -5,6 +5,8 @@
 布局: 左侧导航栏 + 中间页面区 + 右侧可隐藏日志面板
 """
 
+import os
+
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                               QListWidget, QListWidgetItem, QStackedWidget,
                               QSplitter, QStatusBar, QMessageBox, QFrame,
@@ -29,8 +31,9 @@ from ui.animations import UIAnimator, TypewriterEffect, NeonPulse
 
 # 导航项定义
 NAV_ITEMS = [
-    {"name": "分析执行",   "icon": "📊", "enabled": True},
     {"name": "数据预处理", "icon": "📁", "enabled": True},
+    {"name": "分析执行",   "icon": "📊", "enabled": True},
+    {"name": "SVM训练",     "icon": "🤖", "enabled": True},
     {"name": "配置管理",   "icon": "⚙",  "enabled": True},
     {"name": "历史浏览",   "icon": "📋", "enabled": True},
     {"name": "开发文档",   "icon": "📖", "enabled": True},
@@ -206,6 +209,10 @@ class MainWindow(QMainWindow):
         self.analysis_page = AnalysisPage(
             log_panel=self.log_panel,
             config_mgr=self._config_mgr)
+        self.svm_page = AnalysisPage(
+            log_panel=self.log_panel,
+            config_mgr=self._config_mgr,
+            category='svm')
         self.preprocessing_page = PreprocessingPage(
             log_panel=self.log_panel,
             config_mgr=self._config_mgr)
@@ -219,8 +226,9 @@ class MainWindow(QMainWindow):
             log_panel=self.log_panel,
             config_mgr=self._config_mgr)
 
-        self.page_stack.addWidget(self.analysis_page)
         self.page_stack.addWidget(self.preprocessing_page)
+        self.page_stack.addWidget(self.analysis_page)
+        self.page_stack.addWidget(self.svm_page)
         self.page_stack.addWidget(self.config_page)
         self.page_stack.addWidget(self.history_page)
         self.docs_page = DocsPage()
@@ -230,8 +238,9 @@ class MainWindow(QMainWindow):
         self.page_stack.addWidget(self.test_page)
 
         # 预处理页"导入至梯形测试"信号 → 切换至硬件测试并设置文件
-        self.preprocessing_page.import_to_test.connect(self._on_import_to_test)
-
+        self.preprocessing_page.import_to_test.connect(self._on_import_to_test)        # 分析页快捷跳转信号
+        self.analysis_page.send_to_preprocessing.connect(self._on_send_to_preprocess_expand)
+        self.analysis_page.send_to_svm.connect(self._on_send_to_svm)
         self.splitter.addWidget(self.page_stack_container)
         self.splitter.addWidget(self.log_panel_container)
         self.splitter.setHandleWidth(8)
@@ -342,6 +351,7 @@ class MainWindow(QMainWindow):
     def refresh_modules(self):
         """刷新所有页面的模块列表"""
         self.analysis_page.refresh_modules()
+        self.svm_page.refresh_modules()
         self.preprocessing_page.refresh_modules()
         self.test_page.refresh_modules()
         self.log_panel.append_log("模块列表已刷新", "SUCCESS")
@@ -350,11 +360,35 @@ class MainWindow(QMainWindow):
         """预处理页导入信号 → 切换至硬件测试并设置梯形测试文件"""
         # 找到"硬件测试"导航项索引（固定为 6）
         hw_nav_index = next(
-            (i for i, item in enumerate(NAV_ITEMS) if item['name'] == '硬件测试'), 6)
+            (i for i, item in enumerate(NAV_ITEMS) if item['name'] == '硬件测试'), 7)
         self.nav_list.setCurrentRow(hw_nav_index)
         self.test_page.set_input_file_for_trapezoid(file_path)
         self.log_panel.append_log(
             f"已导入坐标文件至梯形坐标测试: {file_path}", "INFO")
+
+    def _on_send_to_preprocess_expand(self, file_path: str):
+        """分析页快捷跳转：发送到数据预处理→角度扩圆坐标生成"""
+        if not file_path or not os.path.isfile(file_path):
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "发送失败", f"找不到文件:\n{file_path}")
+            return
+        preproc_idx = next(
+            (i for i, item in enumerate(NAV_ITEMS) if item['name'] == '数据预处理'), 2)
+        self.nav_list.setCurrentRow(preproc_idx)
+        self.preprocessing_page.set_module_input("角度扩圆坐标生成", file_path)
+        self.log_panel.append_log(f"已发送至角度扩圆坐标生成: {file_path}", "INFO")
+
+    def _on_send_to_svm(self, file_path: str):
+        """分析页快捷跳转：发送到 SVM 训练页面"""
+        if not file_path or not os.path.isfile(file_path):
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "发送失败", f"找不到文件:\n{file_path}")
+            return
+        svm_idx = next(
+            (i for i, item in enumerate(NAV_ITEMS) if item['name'] == 'SVM训练'), 1)
+        self.nav_list.setCurrentRow(svm_idx)
+        self.svm_page.set_input_file(file_path)
+        self.log_panel.append_log(f"已导入到 SVM 模型训练: {file_path}", "INFO")
 
     def closeEvent(self, event):
         """关闭窗口确认"""

@@ -1,0 +1,1663 @@
+========================================================================
+  角度边界统计（FAIL边界提取）报告
+  输入文件 : D:/software/heiweilu/workspace/xgimi/code/202602027_dlp_auto/reports/Angle_test_results/1_degress/20260213/angle_test_result_2026_02_13_17_10_41 copy.txt
+  边界点数 : 295
+  偏差阈值 : 50.0 px
+========================================================================
+
+【问题角点分布（ErrorCode 解析）】
+  左上(TL)     :   82 点  (27.8%)
+  右上(TR)     :   88 点  (29.8%)
+  左下(BL)     :   60 点  (20.3%)
+  右下(BR)     :   64 点  (21.7%)
+  相等/无效      :    1 点  (0.3%)
+
+【超阈值点（MaxDist > 50 px）: 166 个】
+  Yaw=   -37  Pitch=   -28  问题角点=BR(EC)/BR(几何)  MaxDist=1606.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -37  Pitch=   -27  问题角点=BR(EC)/BR(几何)  MaxDist=1628.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -37  Pitch=   -26  问题角点=BR(EC)/BR(几何)  MaxDist=1648.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -37  Pitch=   -25  问题角点=BR(EC)/BR(几何)  MaxDist=1668.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -37  Pitch=   -24  问题角点=BR(EC)/BR(几何)  MaxDist=1687.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=   -32  问题角点=BL(EC)/BR(几何)  MaxDist=1555.0px  EC=3519  LcwKeystoneCornerBottomLeftInput
+  Yaw=   -36  Pitch=   -31  问题角点=BL(EC)/BR(几何)  MaxDist=1538.0px  EC=3519  LcwKeystoneCornerBottomLeftInput
+  Yaw=   -36  Pitch=   -30  问题角点=BL(EC)/BR(几何)  MaxDist=1520.0px  EC=3519  LcwKeystoneCornerBottomLeftInput
+  Yaw=   -36  Pitch=   -29  问题角点=BL(EC)/BR(几何)  MaxDist=1529.0px  EC=3519  LcwKeystoneCornerBottomLeftInput
+  Yaw=   -36  Pitch=   -22  问题角点=TL(EC)/TL(几何)  MaxDist=58.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=   -21  问题角点=TL(EC)/TL(几何)  MaxDist=86.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=   -20  问题角点=TL(EC)/TL(几何)  MaxDist=115.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=   -19  问题角点=TL(EC)/TL(几何)  MaxDist=142.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=   -18  问题角点=TL(EC)/TL(几何)  MaxDist=170.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=   -17  问题角点=TL(EC)/TL(几何)  MaxDist=197.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=   -16  问题角点=TL(EC)/TL(几何)  MaxDist=224.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=   -15  问题角点=TL(EC)/TL(几何)  MaxDist=250.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=   -14  问题角点=TL(EC)/TL(几何)  MaxDist=277.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=   -13  问题角点=TL(EC)/TL(几何)  MaxDist=303.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=   -12  问题角点=TL(EC)/TL(几何)  MaxDist=329.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=   -11  问题角点=TL(EC)/TL(几何)  MaxDist=354.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=   -10  问题角点=TL(EC)/TL(几何)  MaxDist=380.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=    -9  问题角点=TL(EC)/TL(几何)  MaxDist=405.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -36  Pitch=    -8  问题角点=TL(EC)/TL(几何)  MaxDist=431.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -35  Pitch=   -36  问题角点=TR(EC)/TR(几何)  MaxDist=324.6px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -35  Pitch=   -35  问题角点=TR(EC)/TR(几何)  MaxDist=291.6px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -35  Pitch=   -34  问题角点=BL(EC)/TR(几何)  MaxDist=263.0px  EC=3519  LcwKeystoneCornerBottomLeftInput
+  Yaw=   -35  Pitch=   -33  问题角点=BL(EC)/TR(几何)  MaxDist=240.7px  EC=3519  LcwKeystoneCornerBottomLeftInput
+  Yaw=   -35  Pitch=    -6  问题角点=BL(EC)/BL(几何)  MaxDist=50.1px  EC=3525  LcwUpsCalculation
+  Yaw=   -34  Pitch=   -40  问题角点=BL(EC)/BL(几何)  MaxDist=665.5px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -34  Pitch=   -39  问题角点=BL(EC)/BL(几何)  MaxDist=652.1px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -34  Pitch=   -38  问题角点=BL(EC)/BL(几何)  MaxDist=638.6px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=   -34  Pitch=   -37  问题角点=BL(EC)/BL(几何)  MaxDist=624.8px  EC=3519  LcwKeystoneCornerBottomLeftInput
+  Yaw=   -31  Pitch=    -2  问题角点=TL(EC)/BL(几何)  MaxDist=74.3px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -31  Pitch=    -1  问题角点=TL(EC)/BL(几何)  MaxDist=100.2px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -31  Pitch=     0  问题角点=TL(EC)/TL(几何)  MaxDist=127.5px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -31  Pitch=     1  问题角点=TL(EC)/TL(几何)  MaxDist=142.9px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -30  Pitch=     3  问题角点=TL(EC)/BR(几何)  MaxDist=68.0px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -30  Pitch=     4  问题角点=TL(EC)/BR(几何)  MaxDist=101.0px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -30  Pitch=     5  问题角点=TL(EC)/BR(几何)  MaxDist=133.7px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -30  Pitch=     6  问题角点=TL(EC)/BR(几何)  MaxDist=165.2px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -30  Pitch=     7  问题角点=TL(EC)/BR(几何)  MaxDist=197.4px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -30  Pitch=     8  问题角点=TL(EC)/BR(几何)  MaxDist=228.5px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -29  Pitch=    10  问题角点=TL(EC)/BR(几何)  MaxDist=61.1px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -29  Pitch=    11  问题角点=TL(EC)/BR(几何)  MaxDist=91.1px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -29  Pitch=    12  问题角点=TL(EC)/BR(几何)  MaxDist=121.1px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -27  Pitch=    15  问题角点=TL(EC)/BR(几何)  MaxDist=58.9px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -25  Pitch=    18  问题角点=TL(EC)/BR(几何)  MaxDist=59.8px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -24  Pitch=    20  问题角点=TL(EC)/BR(几何)  MaxDist=62.2px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -23  Pitch=    22  问题角点=TL(EC)/BR(几何)  MaxDist=65.7px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -22  Pitch=    24  问题角点=TL(EC)/BR(几何)  MaxDist=71.7px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -21  Pitch=    26  问题角点=TL(EC)/BR(几何)  MaxDist=78.5px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -21  Pitch=    27  问题角点=TL(EC)/BR(几何)  MaxDist=120.2px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -20  Pitch=    29  问题角点=TL(EC)/BR(几何)  MaxDist=91.8px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -19  Pitch=    30  问题角点=TL(EC)/BR(几何)  MaxDist=51.0px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -19  Pitch=    31  问题角点=TL(EC)/BR(几何)  MaxDist=104.3px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -19  Pitch=    32  问题角点=TL(EC)/BR(几何)  MaxDist=159.2px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -18  Pitch=    13  问题角点=BL(EC)/BL(几何)  MaxDist=52.2px  EC=1  None
+  Yaw=   -18  Pitch=    33  问题角点=TL(EC)/BR(几何)  MaxDist=60.9px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -17  Pitch=    14  问题角点=BL(EC)/BL(几何)  MaxDist=61.3px  EC=1  None
+  Yaw=   -17  Pitch=    15  问题角点=BL(EC)/BL(几何)  MaxDist=69.4px  EC=1  None
+  Yaw=   -16  Pitch=    16  问题角点=BL(EC)/BL(几何)  MaxDist=80.4px  EC=1  None
+  Yaw=   -15  Pitch=    17  问题角点=BL(EC)/BL(几何)  MaxDist=92.4px  EC=1  None
+  Yaw=   -14  Pitch=    18  问题角点=BL(EC)/BL(几何)  MaxDist=105.5px  EC=1  None
+  Yaw=   -14  Pitch=    19  问题角点=BL(EC)/BL(几何)  MaxDist=117.6px  EC=1  None
+  Yaw=   -13  Pitch=    20  问题角点=BL(EC)/BL(几何)  MaxDist=133.6px  EC=1  None
+  Yaw=   -13  Pitch=    21  问题角点=BL(EC)/BL(几何)  MaxDist=148.8px  EC=1  None
+  Yaw=   -12  Pitch=    22  问题角点=BL(EC)/BL(几何)  MaxDist=151.7px  EC=1  None
+  Yaw=   -11  Pitch=    23  问题角点=BL(EC)/BL(几何)  MaxDist=154.7px  EC=1  None
+  Yaw=   -11  Pitch=    24  问题角点=BL(EC)/BL(几何)  MaxDist=165.9px  EC=1  None
+  Yaw=   -11  Pitch=    33  问题角点=TL(EC)/BR(几何)  MaxDist=89.0px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=   -10  Pitch=    25  问题角点=BL(EC)/BL(几何)  MaxDist=166.8px  EC=1  None
+  Yaw=   -10  Pitch=    26  问题角点=BL(EC)/BL(几何)  MaxDist=178.9px  EC=1  None
+  Yaw=   -10  Pitch=    35  问题角点=TL(EC)/BR(几何)  MaxDist=88.0px  EC=3517  LcwKeystoneCornerTopLeftInput
+  Yaw=    -9  Pitch=    26  问题角点=BL(EC)/BL(几何)  MaxDist=164.7px  EC=1  None
+  Yaw=    -9  Pitch=    27  问题角点=BL(EC)/BL(几何)  MaxDist=176.8px  EC=1  None
+  Yaw=    -8  Pitch=    24  问题角点=BL(EC)/BL(几何)  MaxDist=130.4px  EC=1  None
+  Yaw=    -8  Pitch=    25  问题角点=BL(EC)/BL(几何)  MaxDist=139.4px  EC=1  None
+  Yaw=    -7  Pitch=    22  问题角点=BL(EC)/BL(几何)  MaxDist=100.2px  EC=1  None
+  Yaw=    -7  Pitch=    23  问题角点=BL(EC)/BL(几何)  MaxDist=108.2px  EC=1  None
+  Yaw=    -6  Pitch=    20  问题角点=BL(EC)/BL(几何)  MaxDist=75.1px  EC=1  None
+  Yaw=    -6  Pitch=    21  问题角点=BL(EC)/BL(几何)  MaxDist=81.2px  EC=1  None
+  Yaw=    -5  Pitch=    19  问题角点=BL(EC)/BL(几何)  MaxDist=59.1px  EC=1  None
+  Yaw=     4  Pitch=    19  问题角点=BR(EC)/BR(几何)  MaxDist=58.1px  EC=1  None
+  Yaw=     5  Pitch=    20  问题角点=BR(EC)/BR(几何)  MaxDist=74.1px  EC=1  None
+  Yaw=     5  Pitch=    21  问题角点=BR(EC)/BR(几何)  MaxDist=80.1px  EC=1  None
+  Yaw=     6  Pitch=    22  问题角点=BR(EC)/BR(几何)  MaxDist=98.2px  EC=1  None
+  Yaw=     6  Pitch=    23  问题角点=BR(EC)/BR(几何)  MaxDist=106.2px  EC=1  None
+  Yaw=     7  Pitch=    24  问题角点=BR(EC)/BR(几何)  MaxDist=127.4px  EC=1  None
+  Yaw=     7  Pitch=    25  问题角点=BR(EC)/BR(几何)  MaxDist=137.4px  EC=1  None
+  Yaw=     8  Pitch=    26  问题角点=BR(EC)/BR(几何)  MaxDist=161.7px  EC=1  None
+  Yaw=     9  Pitch=    25  问题角点=BR(EC)/BR(几何)  MaxDist=163.8px  EC=1  None
+  Yaw=     9  Pitch=    26  问题角点=BR(EC)/BR(几何)  MaxDist=175.9px  EC=1  None
+  Yaw=    10  Pitch=    23  问题角点=BR(EC)/BR(几何)  MaxDist=151.7px  EC=1  None
+  Yaw=    10  Pitch=    24  问题角点=BR(EC)/BR(几何)  MaxDist=163.8px  EC=1  None
+  Yaw=    10  Pitch=    33  问题角点=TR(EC)/BL(几何)  MaxDist=89.0px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    10  Pitch=    34  问题角点=TR(EC)/BL(几何)  MaxDist=133.0px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    11  Pitch=    22  问题角点=BR(EC)/BR(几何)  MaxDist=149.8px  EC=1  None
+  Yaw=    12  Pitch=    20  问题角点=BR(EC)/BR(几何)  MaxDist=132.6px  EC=1  None
+  Yaw=    12  Pitch=    21  问题角点=BR(EC)/BR(几何)  MaxDist=146.8px  EC=1  None
+  Yaw=    13  Pitch=    19  问题角点=BR(EC)/BR(几何)  MaxDist=116.6px  EC=1  None
+  Yaw=    14  Pitch=    17  问题角点=BR(EC)/BR(几何)  MaxDist=91.4px  EC=1  None
+  Yaw=    14  Pitch=    18  问题角点=BR(EC)/BR(几何)  MaxDist=102.6px  EC=1  None
+  Yaw=    15  Pitch=    16  问题角点=BR(EC)/BR(几何)  MaxDist=79.4px  EC=1  None
+  Yaw=    16  Pitch=    15  问题角点=BR(EC)/BR(几何)  MaxDist=69.4px  EC=1  None
+  Yaw=    17  Pitch=    13  问题角点=BR(EC)/BR(几何)  MaxDist=52.2px  EC=1  None
+  Yaw=    17  Pitch=    14  问题角点=BR(EC)/BR(几何)  MaxDist=59.3px  EC=1  None
+  Yaw=    17  Pitch=    33  问题角点=TR(EC)/BL(几何)  MaxDist=57.7px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    18  Pitch=    30  问题角点=TR(EC)/BL(几何)  MaxDist=51.9px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    18  Pitch=    31  问题角点=TR(EC)/BL(几何)  MaxDist=104.6px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    18  Pitch=    32  问题角点=TR(EC)/BL(几何)  MaxDist=160.3px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    19  Pitch=    29  问题角点=TR(EC)/BL(几何)  MaxDist=93.2px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    20  Pitch=    26  问题角点=TR(EC)/BL(几何)  MaxDist=78.5px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    20  Pitch=    27  问题角点=TR(EC)/BL(几何)  MaxDist=120.2px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    21  Pitch=    24  问题角点=TR(EC)/BL(几何)  MaxDist=71.7px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    22  Pitch=    22  问题角点=TR(EC)/BL(几何)  MaxDist=66.3px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    23  Pitch=    20  问题角点=TR(EC)/BL(几何)  MaxDist=62.2px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    25  Pitch=    17  问题角点=TR(EC)/BL(几何)  MaxDist=58.5px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    26  Pitch=    15  问题角点=TR(EC)/BL(几何)  MaxDist=58.9px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    28  Pitch=    10  问题角点=TR(EC)/BL(几何)  MaxDist=61.1px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    28  Pitch=    11  问题角点=TR(EC)/BL(几何)  MaxDist=91.1px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    28  Pitch=    12  问题角点=TR(EC)/BL(几何)  MaxDist=121.0px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    29  Pitch=     3  问题角点=TR(EC)/BL(几何)  MaxDist=67.1px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    29  Pitch=     4  问题角点=TR(EC)/BL(几何)  MaxDist=100.0px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    29  Pitch=     5  问题角点=TR(EC)/BL(几何)  MaxDist=132.7px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    29  Pitch=     6  问题角点=TR(EC)/BL(几何)  MaxDist=165.2px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    29  Pitch=     7  问题角点=TR(EC)/BL(几何)  MaxDist=196.5px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    29  Pitch=     8  问题角点=TR(EC)/BL(几何)  MaxDist=227.6px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    30  Pitch=    -3  问题角点=TR(EC)/BR(几何)  MaxDist=50.1px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    30  Pitch=    -2  问题角点=TR(EC)/BR(几何)  MaxDist=75.7px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    30  Pitch=    -1  问题角点=TR(EC)/BR(几何)  MaxDist=100.7px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    30  Pitch=     0  问题角点=TR(EC)/TR(几何)  MaxDist=126.6px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    30  Pitch=     1  问题角点=TR(EC)/TR(几何)  MaxDist=143.0px  EC=3518  LcwKeystoneCornerTopRightInput
+  Yaw=    33  Pitch=   -40  问题角点=BR(EC)/BR(几何)  MaxDist=720.9px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    33  Pitch=   -39  问题角点=BR(EC)/BR(几何)  MaxDist=707.5px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    33  Pitch=   -38  问题角点=BR(EC)/BR(几何)  MaxDist=693.6px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    34  Pitch=   -37  问题角点=BR(EC)/BR(几何)  MaxDist=687.8px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    34  Pitch=   -36  问题角点=BR(EC)/BR(几何)  MaxDist=673.1px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    34  Pitch=   -35  问题角点=BR(EC)/BR(几何)  MaxDist=659.6px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    34  Pitch=   -34  问题角点=BR(EC)/BR(几何)  MaxDist=645.3px  EC=3520  LcwKeystoneCornerBottomRightInput
+  Yaw=    34  Pitch=   -33  问题角点=BR(EC)/TR(几何)  MaxDist=635.0px  EC=3520  LcwKeystoneCornerBottomRightInput
+  Yaw=    35  Pitch=   -32  问题角点=TR(EC)/TR(几何)  MaxDist=646.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -31  问题角点=BR(EC)/TR(几何)  MaxDist=646.0px  EC=3520  LcwKeystoneCornerBottomRightInput
+  Yaw=    35  Pitch=   -30  问题角点=BR(EC)/TR(几何)  MaxDist=646.0px  EC=3520  LcwKeystoneCornerBottomRightInput
+  Yaw=    35  Pitch=   -29  问题角点=BR(EC)/TR(几何)  MaxDist=625.0px  EC=3520  LcwKeystoneCornerBottomRightInput
+  Yaw=    35  Pitch=   -23  问题角点=TR(EC)/TR(几何)  MaxDist=59.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -22  问题角点=TR(EC)/TR(几何)  MaxDist=87.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -21  问题角点=TR(EC)/TR(几何)  MaxDist=116.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -20  问题角点=TR(EC)/TR(几何)  MaxDist=144.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -19  问题角点=TR(EC)/TR(几何)  MaxDist=172.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -18  问题角点=TR(EC)/TR(几何)  MaxDist=199.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -17  问题角点=TR(EC)/TR(几何)  MaxDist=226.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -16  问题角点=TR(EC)/TR(几何)  MaxDist=253.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -15  问题角点=TR(EC)/TR(几何)  MaxDist=280.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -14  问题角点=TR(EC)/TR(几何)  MaxDist=306.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -13  问题角点=TR(EC)/TR(几何)  MaxDist=332.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -12  问题角点=TR(EC)/TR(几何)  MaxDist=358.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -11  问题角点=TR(EC)/TR(几何)  MaxDist=384.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=   -10  问题角点=TR(EC)/TR(几何)  MaxDist=409.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=    -9  问题角点=TR(EC)/TR(几何)  MaxDist=434.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=    -8  问题角点=TR(EC)/TR(几何)  MaxDist=460.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=    -7  问题角点=TR(EC)/TR(几何)  MaxDist=485.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    35  Pitch=    -6  问题角点=TR(EC)/TR(几何)  MaxDist=510.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    36  Pitch=   -28  问题角点=TR(EC)/TR(几何)  MaxDist=92.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    36  Pitch=   -27  问题角点=TR(EC)/TR(几何)  MaxDist=60.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+  Yaw=    36  Pitch=   -25  问题角点=TL(EC)/TL(几何)  MaxDist=71.0px  EC=3538  LcwKeystoneCornerBottomEdgeInput
+
+【逐点明细（含坐标数据）】
+  说明: 问题角点=ErrorCode解析 / 偏差最大角=几何计算
+  ------------------------------------------------------------------------------------------------
+  Yaw=   -37  Pitch=   -28  问题角点=BR    (EC)  偏差最大角=BR      MaxDist= 1606.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=   32.2  TR= 1509.0  BL=  708.2  BR= 1606.0 px
+    Write坐标: TL=(0.0,54.0)  TR=(2299.0,0.0)  BL=(301.0,1517.0)  BR=(2208.0,2158.0)
+    Read坐标:  TL=(4.0,22.0)  TR=(3808.0,0.0)  BL=(0.0,2158.0)  BR=(3814.0,2158.0)
+
+  Yaw=   -37  Pitch=   -27  问题角点=BR    (EC)  偏差最大角=BR      MaxDist= 1628.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=   64.1  TR= 1540.0  BL=  683.6  BR= 1628.0 px
+    Write坐标: TL=(0.0,86.0)  TR=(2268.0,0.0)  BL=(290.0,1539.0)  BR=(2186.0,2158.0)
+    Read坐标:  TL=(4.0,22.0)  TR=(3808.0,0.0)  BL=(0.0,2158.0)  BR=(3814.0,2158.0)
+
+  Yaw=   -37  Pitch=   -26  问题角点=BR    (EC)  偏差最大角=BR      MaxDist= 1648.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=   95.1  TR= 1570.0  BL=  658.5  BR= 1648.0 px
+    Write坐标: TL=(0.0,117.0)  TR=(2238.0,0.0)  BL=(280.0,1562.0)  BR=(2166.0,2158.0)
+    Read坐标:  TL=(4.0,22.0)  TR=(3808.0,0.0)  BL=(0.0,2158.0)  BR=(3814.0,2158.0)
+
+  Yaw=   -37  Pitch=   -25  问题角点=BR    (EC)  偏差最大角=BR      MaxDist= 1668.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  126.1  TR= 1598.0  BL=  633.0  BR= 1668.0 px
+    Write坐标: TL=(0.0,148.0)  TR=(2210.0,0.0)  BL=(269.0,1585.0)  BR=(2146.0,2158.0)
+    Read坐标:  TL=(4.0,22.0)  TR=(3808.0,0.0)  BL=(0.0,2158.0)  BR=(3814.0,2158.0)
+
+  Yaw=   -37  Pitch=   -24  问题角点=BR    (EC)  偏差最大角=BR      MaxDist= 1687.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  156.1  TR= 1624.0  BL=  608.4  BR= 1687.0 px
+    Write坐标: TL=(0.0,178.0)  TR=(2184.0,0.0)  BL=(258.0,1607.0)  BR=(2127.0,2158.0)
+    Read坐标:  TL=(4.0,22.0)  TR=(3808.0,0.0)  BL=(0.0,2158.0)  BR=(3814.0,2158.0)
+
+  Yaw=   -36  Pitch=   -32  问题角点=BL    (EC)  偏差最大角=BR      MaxDist= 1555.0 px  EC=3519    LcwKeystoneCornerBottomLeftInput [!]
+    偏差: TL=   22.4  TR= 1434.8  BL=  777.8  BR= 1555.0 px
+    Write坐标: TL=(0.0,0.0)  TR=(2378.0,117.0)  BL=(337.0,1457.0)  BR=(2259.0,2158.0)
+    Read坐标:  TL=(4.0,22.0)  TR=(3808.0,0.0)  BL=(0.0,2158.0)  BR=(3814.0,2158.0)
+
+  Yaw=   -36  Pitch=   -31  问题角点=BL    (EC)  偏差最大角=BR      MaxDist= 1538.0 px  EC=3519    LcwKeystoneCornerBottomLeftInput [!]
+    偏差: TL=   22.4  TR= 1411.6  BL=  762.1  BR= 1538.0 px
+    Write坐标: TL=(0.0,0.0)  TR=(2398.0,67.0)  BL=(330.0,1471.0)  BR=(2276.0,2158.0)
+    Read坐标:  TL=(4.0,22.0)  TR=(3808.0,0.0)  BL=(0.0,2158.0)  BR=(3814.0,2158.0)
+
+  Yaw=   -36  Pitch=   -30  问题角点=BL    (EC)  偏差最大角=BR      MaxDist= 1520.0 px  EC=3519    LcwKeystoneCornerBottomLeftInput [!]
+    偏差: TL=   22.4  TR= 1388.1  BL=  746.5  BR= 1520.0 px
+    Write坐标: TL=(0.0,0.0)  TR=(2420.0,17.0)  BL=(323.0,1485.0)  BR=(2294.0,2158.0)
+    Read坐标:  TL=(4.0,22.0)  TR=(3808.0,0.0)  BL=(0.0,2158.0)  BR=(3814.0,2158.0)
+
+  Yaw=   -36  Pitch=   -29  问题角点=BL    (EC)  偏差最大角=BR      MaxDist= 1529.0 px  EC=3519    LcwKeystoneCornerBottomLeftInput [!]
+    偏差: TL=    4.1  TR= 1404.0  BL=  724.6  BR= 1529.0 px
+    Write坐标: TL=(0.0,21.0)  TR=(2404.0,0.0)  BL=(314.0,1505.0)  BR=(2285.0,2158.0)
+    Read坐标:  TL=(4.0,22.0)  TR=(3808.0,0.0)  BL=(0.0,2158.0)  BR=(3814.0,2158.0)
+
+  Yaw=   -36  Pitch=   -23  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   29.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput
+    偏差: TL=   29.0  TR=   25.0  BL=   24.2  BR=   18.0 px
+    Write坐标: TL=(0.0,205.0)  TR=(2229.0,0.0)  BL=(250.0,1638.0)  BR=(2166.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=   -22  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   58.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=   58.0  TR=   50.0  BL=   48.8  BR=   36.0 px
+    Write坐标: TL=(0.0,234.0)  TR=(2204.0,0.0)  BL=(239.0,1660.0)  BR=(2148.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=   -21  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   86.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=   86.0  TR=   72.0  BL=   72.9  BR=   52.0 px
+    Write坐标: TL=(0.0,262.0)  TR=(2182.0,0.0)  BL=(229.0,1682.0)  BR=(2132.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=   -20  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  115.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  115.0  TR=   94.0  BL=   97.5  BR=   68.0 px
+    Write坐标: TL=(0.0,291.0)  TR=(2160.0,0.0)  BL=(218.0,1704.0)  BR=(2116.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=   -19  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  142.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  142.0  TR=  114.0  BL=  120.8  BR=   83.0 px
+    Write坐标: TL=(0.0,318.0)  TR=(2140.0,0.0)  BL=(208.0,1725.0)  BR=(2101.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=   -18  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  170.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  170.0  TR=  133.0  BL=  145.4  BR=   97.0 px
+    Write坐标: TL=(0.0,346.0)  TR=(2121.0,0.0)  BL=(197.0,1747.0)  BR=(2087.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=   -17  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  197.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  197.0  TR=  151.0  BL=  169.5  BR=  110.0 px
+    Write坐标: TL=(0.0,373.0)  TR=(2103.0,0.0)  BL=(187.0,1769.0)  BR=(2074.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=   -16  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  224.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  224.0  TR=  167.0  BL=  194.1  BR=  123.0 px
+    Write坐标: TL=(0.0,400.0)  TR=(2087.0,0.0)  BL=(176.0,1791.0)  BR=(2061.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=   -15  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  250.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  250.0  TR=  183.0  BL=  218.3  BR=  135.0 px
+    Write坐标: TL=(0.0,426.0)  TR=(2071.0,0.0)  BL=(166.0,1813.0)  BR=(2049.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=   -14  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  277.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  277.0  TR=  197.0  BL=  242.9  BR=  146.0 px
+    Write坐标: TL=(0.0,453.0)  TR=(2057.0,0.0)  BL=(155.0,1835.0)  BR=(2038.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=   -13  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  303.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  303.0  TR=  211.0  BL=  268.4  BR=  157.0 px
+    Write坐标: TL=(0.0,479.0)  TR=(2043.0,0.0)  BL=(144.0,1858.0)  BR=(2027.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=   -12  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  329.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  329.0  TR=  223.0  BL=  292.5  BR=  166.0 px
+    Write坐标: TL=(0.0,505.0)  TR=(2031.0,0.0)  BL=(134.0,1880.0)  BR=(2018.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=   -11  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  354.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  354.0  TR=  234.0  BL=  317.1  BR=  175.0 px
+    Write坐标: TL=(0.0,530.0)  TR=(2020.0,0.0)  BL=(123.0,1902.0)  BR=(2009.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=   -10  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  380.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  380.0  TR=  244.0  BL=  342.6  BR=  184.0 px
+    Write坐标: TL=(0.0,556.0)  TR=(2010.0,0.0)  BL=(112.0,1925.0)  BR=(2000.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=    -9  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  405.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  405.0  TR=  253.0  BL=  367.2  BR=  191.0 px
+    Write坐标: TL=(0.0,581.0)  TR=(2001.0,0.0)  BL=(101.0,1947.0)  BR=(1993.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -36  Pitch=    -8  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  431.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  431.0  TR=  261.0  BL=  392.7  BR=  198.0 px
+    Write坐标: TL=(0.0,607.0)  TR=(1993.0,0.0)  BL=(90.0,1970.0)  BR=(1986.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -35  Pitch=   -36  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  324.6 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  176.0  TR=  324.6  BL=  225.9  BR=   75.0 px
+    Write坐标: TL=(0.0,0.0)  TR=(2385.0,297.0)  BL=(365.0,1416.0)  BR=(2259.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -35  Pitch=   -35  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  291.6 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  176.0  TR=  291.6  BL=  211.6  BR=   87.0 px
+    Write坐标: TL=(0.0,0.0)  TR=(2399.0,253.0)  BL=(359.0,1429.0)  BR=(2271.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -35  Pitch=   -34  问题角点=BL    (EC)  偏差最大角=TR      MaxDist=  263.0 px  EC=3519    LcwKeystoneCornerBottomLeftInput [!]
+    偏差: TL=  176.0  TR=  263.0  BL=  196.8  BR=  100.0 px
+    Write坐标: TL=(0.0,0.0)  TR=(2415.0,208.0)  BL=(352.0,1442.0)  BR=(2284.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -35  Pitch=   -33  问题角点=BL    (EC)  偏差最大角=TR      MaxDist=  240.7 px  EC=3519    LcwKeystoneCornerBottomLeftInput [!]
+    偏差: TL=  176.0  TR=  240.7  BL=  182.5  BR=  114.0 px
+    Write坐标: TL=(0.0,0.0)  TR=(2432.0,162.0)  BL=(346.0,1455.0)  BR=(2298.0,2158.0)
+    Read坐标:  TL=(0.0,176.0)  TR=(2254.0,0.0)  BL=(260.0,1616.0)  BR=(2184.0,2158.0)
+
+  Yaw=   -35  Pitch=    -7  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   25.0 px  EC=3525    LcwUpsCalculation
+    偏差: TL=   25.0  TR=    7.0  BL=   24.6  BR=    6.0 px
+    Write坐标: TL=(0.0,622.0)  TR=(2052.0,0.0)  BL=(80.0,1995.0)  BR=(2042.0,2158.0)
+    Read坐标:  TL=(0.0,597.0)  TR=(2059.0,0.0)  BL=(91.0,1973.0)  BR=(2048.0,2158.0)
+
+  Yaw=   -35  Pitch=    -6  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   50.1 px  EC=3525    LcwUpsCalculation [!]
+    偏差: TL=   50.0  TR=   13.0  BL=   50.1  BR=   10.0 px
+    Write坐标: TL=(0.0,647.0)  TR=(2046.0,0.0)  BL=(69.0,2018.0)  BR=(2038.0,2158.0)
+    Read坐标:  TL=(0.0,597.0)  TR=(2059.0,0.0)  BL=(91.0,1973.0)  BR=(2048.0,2158.0)
+
+  Yaw=   -34  Pitch=   -40  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  665.5 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  597.0  TR=  577.1  BL=  665.5  BR=  227.0 px
+    Write坐标: TL=(0.0,0.0)  TR=(2414.0,455.0)  BL=(393.0,1380.0)  BR=(2275.0,2158.0)
+    Read坐标:  TL=(0.0,597.0)  TR=(2059.0,0.0)  BL=(91.0,1973.0)  BR=(2048.0,2158.0)
+
+  Yaw=   -34  Pitch=   -39  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  652.1 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  597.0  TR=  552.0  BL=  652.1  BR=  234.0 px
+    Write坐标: TL=(0.0,0.0)  TR=(2423.0,415.0)  BL=(387.0,1392.0)  BR=(2282.0,2158.0)
+    Read坐标:  TL=(0.0,597.0)  TR=(2059.0,0.0)  BL=(91.0,1973.0)  BR=(2048.0,2158.0)
+
+  Yaw=   -34  Pitch=   -38  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  638.6 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  597.0  TR=  528.9  BL=  638.6  BR=  243.0 px
+    Write坐标: TL=(0.0,0.0)  TR=(2433.0,374.0)  BL=(381.0,1404.0)  BR=(2291.0,2158.0)
+    Read坐标:  TL=(0.0,597.0)  TR=(2059.0,0.0)  BL=(91.0,1973.0)  BR=(2048.0,2158.0)
+
+  Yaw=   -34  Pitch=   -37  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  624.8 px  EC=3519    LcwKeystoneCornerBottomLeftInput [!]
+    偏差: TL=  597.0  TR=  509.8  BL=  624.8  BR=  253.0 px
+    Write坐标: TL=(0.0,0.0)  TR=(2445.0,333.0)  BL=(374.0,1416.0)  BR=(2301.0,2158.0)
+    Read坐标:  TL=(0.0,597.0)  TR=(2059.0,0.0)  BL=(91.0,1973.0)  BR=(2048.0,2158.0)
+
+  Yaw=   -34  Pitch=    -5  问题角点=TL    (EC)  偏差最大角=BL      MaxDist=   25.1 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   24.0  TR=    5.0  BL=   25.1  BR=    3.0 px
+    Write坐标: TL=(0.0,660.0)  TR=(2106.0,0.0)  BL=(58.0,2043.0)  BR=(2097.0,2158.0)
+    Read坐标:  TL=(0.0,636.0)  TR=(2111.0,0.0)  BL=(70.0,2021.0)  BR=(2100.0,2158.0)
+
+  Yaw=   -33  Pitch=    -5  问题角点=TL    (EC)  偏差最大角=BL      MaxDist=   24.6 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   23.0  TR=    5.0  BL=   24.6  BR=    3.0 px
+    Write坐标: TL=(0.0,649.0)  TR=(2171.0,0.0)  BL=(59.0,2045.0)  BR=(2158.0,2158.0)
+    Read坐标:  TL=(0.0,626.0)  TR=(2176.0,0.0)  BL=(70.0,2023.0)  BR=(2161.0,2158.0)
+
+  Yaw=   -32  Pitch=    -4  问题角点=TL    (EC)  偏差最大角=BL      MaxDist=   24.6 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   23.0  TR=    4.0  BL=   24.6  BR=    1.0 px
+    Write坐标: TL=(0.0,661.0)  TR=(2231.0,0.0)  BL=(48.0,2069.0)  BR=(2219.0,2158.0)
+    Read坐标:  TL=(0.0,638.0)  TR=(2235.0,0.0)  BL=(59.0,2047.0)  BR=(2220.0,2158.0)
+
+  Yaw=   -31  Pitch=    -4  问题角点=TL    (EC)  偏差最大角=BL      MaxDist=   25.1 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   23.0  TR=    4.0  BL=   25.1  BR=    0.0 px
+    Write坐标: TL=(0.0,649.0)  TR=(2295.0,0.0)  BL=(48.0,2071.0)  BR=(2280.0,2158.0)
+    Read坐标:  TL=(0.0,626.0)  TR=(2299.0,0.0)  BL=(60.0,2049.0)  BR=(2280.0,2158.0)
+
+  Yaw=   -31  Pitch=    -3  问题角点=TL    (EC)  偏差最大角=BL      MaxDist=   49.2 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   46.0  TR=    8.0  BL=   49.2  BR=    0.0 px
+    Write坐标: TL=(0.0,672.0)  TR=(2291.0,0.0)  BL=(36.0,2092.0)  BR=(2280.0,2158.0)
+    Read坐标:  TL=(0.0,626.0)  TR=(2299.0,0.0)  BL=(60.0,2049.0)  BR=(2280.0,2158.0)
+
+  Yaw=   -31  Pitch=    -2  问题角点=TL    (EC)  偏差最大角=BL      MaxDist=   74.3 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   69.0  TR=   10.0  BL=   74.3  BR=    1.0 px
+    Write坐标: TL=(0.0,695.0)  TR=(2289.0,0.0)  BL=(24.0,2114.0)  BR=(2281.0,2158.0)
+    Read坐标:  TL=(0.0,626.0)  TR=(2299.0,0.0)  BL=(60.0,2049.0)  BR=(2280.0,2158.0)
+
+  Yaw=   -31  Pitch=    -1  问题角点=TL    (EC)  偏差最大角=BL      MaxDist=  100.2 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   91.0  TR=   12.0  BL=  100.2  BR=    4.0 px
+    Write坐标: TL=(0.0,717.0)  TR=(2287.0,0.0)  BL=(12.0,2137.0)  BR=(2284.0,2158.0)
+    Read坐标:  TL=(0.0,626.0)  TR=(2299.0,0.0)  BL=(60.0,2049.0)  BR=(2280.0,2158.0)
+
+  Yaw=   -31  Pitch=     0  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  127.5 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=  127.5  TR=   30.0  BL=  124.4  BR=   34.9 px
+    Write坐标: TL=(11.0,753.0)  TR=(2269.0,0.0)  BL=(0.0,2158.0)  BR=(2272.0,2124.0)
+    Read坐标:  TL=(0.0,626.0)  TR=(2299.0,0.0)  BL=(60.0,2049.0)  BR=(2280.0,2158.0)
+
+  Yaw=   -31  Pitch=     1  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=  142.9 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=  142.9  TR=   46.0  BL=  124.4  BR=   70.9 px
+    Write坐标: TL=(23.0,767.0)  TR=(2253.0,0.0)  BL=(0.0,2158.0)  BR=(2260.0,2090.0)
+    Read坐标:  TL=(0.0,626.0)  TR=(2299.0,0.0)  BL=(60.0,2049.0)  BR=(2280.0,2158.0)
+
+  Yaw=   -30  Pitch=     2  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   34.5 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   18.4  TR=   14.0  BL=    0.0  BR=   34.5 px
+    Write坐标: TL=(35.0,767.0)  TR=(2302.0,0.0)  BL=(0.0,2158.0)  BR=(2314.0,2059.0)
+    Read坐标:  TL=(23.0,753.0)  TR=(2316.0,0.0)  BL=(0.0,2158.0)  BR=(2324.0,2092.0)
+
+  Yaw=   -30  Pitch=     3  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   68.0 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   36.1  TR=   26.0  BL=    0.0  BR=   68.0 px
+    Write坐标: TL=(47.0,780.0)  TR=(2290.0,0.0)  BL=(0.0,2158.0)  BR=(2304.0,2027.0)
+    Read坐标:  TL=(23.0,753.0)  TR=(2316.0,0.0)  BL=(0.0,2158.0)  BR=(2324.0,2092.0)
+
+  Yaw=   -30  Pitch=     4  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=  101.0 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   53.9  TR=   37.0  BL=    0.0  BR=  101.0 px
+    Write坐标: TL=(58.0,794.0)  TR=(2279.0,0.0)  BL=(0.0,2158.0)  BR=(2296.0,1995.0)
+    Read坐标:  TL=(23.0,753.0)  TR=(2316.0,0.0)  BL=(0.0,2158.0)  BR=(2324.0,2092.0)
+
+  Yaw=   -30  Pitch=     5  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=  133.7 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   71.6  TR=   48.0  BL=    0.0  BR=  133.7 px
+    Write坐标: TL=(70.0,807.0)  TR=(2268.0,0.0)  BL=(0.0,2158.0)  BR=(2289.0,1963.0)
+    Read坐标:  TL=(23.0,753.0)  TR=(2316.0,0.0)  BL=(0.0,2158.0)  BR=(2324.0,2092.0)
+
+  Yaw=   -30  Pitch=     6  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=  165.2 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   89.4  TR=   57.0  BL=    0.0  BR=  165.2 px
+    Write坐标: TL=(81.0,821.0)  TR=(2259.0,0.0)  BL=(0.0,2158.0)  BR=(2283.0,1932.0)
+    Read坐标:  TL=(23.0,753.0)  TR=(2316.0,0.0)  BL=(0.0,2158.0)  BR=(2324.0,2092.0)
+
+  Yaw=   -30  Pitch=     7  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=  197.4 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=  105.6  TR=   64.0  BL=    0.0  BR=  197.4 px
+    Write坐标: TL=(92.0,833.0)  TR=(2252.0,0.0)  BL=(0.0,2158.0)  BR=(2278.0,1900.0)
+    Read坐标:  TL=(23.0,753.0)  TR=(2316.0,0.0)  BL=(0.0,2158.0)  BR=(2324.0,2092.0)
+
+  Yaw=   -30  Pitch=     8  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=  228.5 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=  122.7  TR=   71.0  BL=    0.0  BR=  228.5 px
+    Write坐标: TL=(103.0,846.0)  TR=(2245.0,0.0)  BL=(0.0,2158.0)  BR=(2274.0,1869.0)
+    Read坐标:  TL=(23.0,753.0)  TR=(2316.0,0.0)  BL=(0.0,2158.0)  BR=(2324.0,2092.0)
+
+  Yaw=   -29  Pitch=     9  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   30.1 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   17.0  TR=    5.0  BL=    0.0  BR=   30.1 px
+    Write坐标: TL=(115.0,843.0)  TR=(2303.0,0.0)  BL=(0.0,2158.0)  BR=(2340.0,1847.0)
+    Read坐标:  TL=(104.0,830.0)  TR=(2308.0,0.0)  BL=(0.0,2158.0)  BR=(2343.0,1877.0)
+
+  Yaw=   -29  Pitch=    10  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   61.1 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   32.6  TR=   10.0  BL=    0.0  BR=   61.1 px
+    Write坐标: TL=(125.0,855.0)  TR=(2298.0,0.0)  BL=(0.0,2158.0)  BR=(2339.0,1816.0)
+    Read坐标:  TL=(104.0,830.0)  TR=(2308.0,0.0)  BL=(0.0,2158.0)  BR=(2343.0,1877.0)
+
+  Yaw=   -29  Pitch=    11  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   91.1 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   48.9  TR=   13.0  BL=    0.0  BR=   91.1 px
+    Write坐标: TL=(136.0,867.0)  TR=(2295.0,0.0)  BL=(0.0,2158.0)  BR=(2339.0,1786.0)
+    Read坐标:  TL=(104.0,830.0)  TR=(2308.0,0.0)  BL=(0.0,2158.0)  BR=(2343.0,1877.0)
+
+  Yaw=   -29  Pitch=    12  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=  121.1 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   65.3  TR=   16.0  BL=    0.0  BR=  121.1 px
+    Write坐标: TL=(146.0,880.0)  TR=(2292.0,0.0)  BL=(0.0,2158.0)  BR=(2339.0,1756.0)
+    Read坐标:  TL=(104.0,830.0)  TR=(2308.0,0.0)  BL=(0.0,2158.0)  BR=(2343.0,1877.0)
+
+  Yaw=   -28  Pitch=    13  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   30.1 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   16.3  TR=    1.0  BL=    0.0  BR=   30.1 px
+    Write坐标: TL=(159.0,875.0)  TR=(2355.0,0.0)  BL=(0.0,2158.0)  BR=(2414.0,1737.0)
+    Read坐标:  TL=(148.0,863.0)  TR=(2356.0,0.0)  BL=(0.0,2158.0)  BR=(2412.0,1767.0)
+
+  Yaw=   -27  Pitch=    14  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   29.3 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   16.3  TR=    0.0  BL=    0.0  BR=   29.3 px
+    Write坐标: TL=(172.0,869.0)  TR=(2419.0,0.0)  BL=(0.0,2158.0)  BR=(2492.0,1720.0)
+    Read坐标:  TL=(161.0,857.0)  TR=(2419.0,0.0)  BL=(0.0,2158.0)  BR=(2488.0,1749.0)
+
+  Yaw=   -27  Pitch=    15  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   58.9 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   31.9  TR=    1.0  BL=    0.0  BR=   58.9 px
+    Write坐标: TL=(182.0,881.0)  TR=(2420.0,0.0)  BL=(0.0,2158.0)  BR=(2498.0,1691.0)
+    Read坐标:  TL=(161.0,857.0)  TR=(2419.0,0.0)  BL=(0.0,2158.0)  BR=(2488.0,1749.0)
+
+  Yaw=   -26  Pitch=    16  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   30.1 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   15.6  TR=    2.0  BL=    0.0  BR=   30.1 px
+    Write坐标: TL=(195.0,874.0)  TR=(2487.0,0.0)  BL=(0.0,2158.0)  BR=(2582.0,1675.0)
+    Read坐标:  TL=(185.0,862.0)  TR=(2485.0,0.0)  BL=(0.0,2158.0)  BR=(2574.0,1704.0)
+
+  Yaw=   -25  Pitch=    17  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   29.7 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   15.6  TR=    3.0  BL=    0.0  BR=   29.7 px
+    Write坐标: TL=(209.0,866.0)  TR=(2557.0,0.0)  BL=(0.0,2158.0)  BR=(2670.0,1661.0)
+    Read坐标:  TL=(198.0,855.0)  TR=(2554.0,0.0)  BL=(0.0,2158.0)  BR=(2660.0,1689.0)
+
+  Yaw=   -25  Pitch=    18  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   59.8 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   31.1  TR=    7.0  BL=    0.0  BR=   59.8 px
+    Write坐标: TL=(220.0,877.0)  TR=(2561.0,0.0)  BL=(0.0,2158.0)  BR=(2681.0,1633.0)
+    Read坐标:  TL=(198.0,855.0)  TR=(2554.0,0.0)  BL=(0.0,2158.0)  BR=(2660.0,1689.0)
+
+  Yaw=   -24  Pitch=    19  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   30.4 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   15.6  TR=    5.0  BL=    0.0  BR=   30.4 px
+    Write坐标: TL=(234.0,868.0)  TR=(2634.0,0.0)  BL=(0.0,2158.0)  BR=(2776.0,1621.0)
+    Read坐标:  TL=(223.0,857.0)  TR=(2629.0,0.0)  BL=(0.0,2158.0)  BR=(2762.0,1648.0)
+
+  Yaw=   -24  Pitch=    20  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   62.2 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   31.1  TR=   11.0  BL=    0.0  BR=   62.2 px
+    Write坐标: TL=(245.0,879.0)  TR=(2640.0,0.0)  BL=(0.0,2158.0)  BR=(2791.0,1593.0)
+    Read坐标:  TL=(223.0,857.0)  TR=(2629.0,0.0)  BL=(0.0,2158.0)  BR=(2762.0,1648.0)
+
+  Yaw=   -23  Pitch=    21  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   32.8 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   14.1  TR=    8.0  BL=    0.0  BR=   32.8 px
+    Write坐标: TL=(259.0,869.0)  TR=(2718.0,0.0)  BL=(0.0,2158.0)  BR=(2894.0,1582.0)
+    Read坐标:  TL=(249.0,859.0)  TR=(2710.0,0.0)  BL=(0.0,2158.0)  BR=(2877.0,1610.0)
+
+  Yaw=   -23  Pitch=    22  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   65.7 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   29.7  TR=   16.0  BL=    0.0  BR=   65.7 px
+    Write坐标: TL=(270.0,880.0)  TR=(2726.0,0.0)  BL=(0.0,2158.0)  BR=(2913.0,1555.0)
+    Read坐标:  TL=(249.0,859.0)  TR=(2710.0,0.0)  BL=(0.0,2158.0)  BR=(2877.0,1610.0)
+
+  Yaw=   -22  Pitch=    23  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   35.6 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   15.6  TR=   10.0  BL=    0.0  BR=   35.6 px
+    Write坐标: TL=(286.0,869.0)  TR=(2808.0,0.0)  BL=(0.0,2158.0)  BR=(3026.0,1545.0)
+    Read坐标:  TL=(275.0,858.0)  TR=(2798.0,0.0)  BL=(0.0,2158.0)  BR=(3004.0,1573.0)
+
+  Yaw=   -22  Pitch=    24  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   71.7 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   31.1  TR=   21.0  BL=    0.0  BR=   71.7 px
+    Write坐标: TL=(297.0,880.0)  TR=(2819.0,0.0)  BL=(0.0,2158.0)  BR=(3050.0,1518.0)
+    Read坐标:  TL=(275.0,858.0)  TR=(2798.0,0.0)  BL=(0.0,2158.0)  BR=(3004.0,1573.0)
+
+  Yaw=   -21  Pitch=    10  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   31.1 px  EC=1       None
+    偏差: TL=   29.2  TR=   25.0  BL=   31.1  BR=    0.0 px
+    Write坐标: TL=(140.0,705.0)  TR=(2809.0,0.0)  BL=(0.0,2158.0)  BR=(2906.0,1895.0)
+    Read坐标:  TL=(167.0,716.0)  TR=(2810.0,25.0)  BL=(31.0,2155.0)  BR=(2906.0,1895.0)
+
+  Yaw=   -21  Pitch=    11  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   35.2 px  EC=1       None
+    偏差: TL=   33.6  TR=   27.0  BL=   35.2  BR=    1.0 px
+    Write坐标: TL=(152.0,716.0)  TR=(2809.0,0.0)  BL=(0.0,2158.0)  BR=(2915.0,1870.0)
+    Read坐标:  TL=(183.0,729.0)  TR=(2810.0,27.0)  BL=(35.0,2154.0)  BR=(2915.0,1869.0)
+
+  Yaw=   -21  Pitch=    25  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   38.2 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   14.9  TR=   13.0  BL=    0.0  BR=   38.2 px
+    Write坐标: TL=(314.0,867.0)  TR=(2906.0,0.0)  BL=(0.0,2158.0)  BR=(3173.0,1510.0)
+    Read坐标:  TL=(303.0,857.0)  TR=(2893.0,0.0)  BL=(0.0,2158.0)  BR=(3146.0,1537.0)
+
+  Yaw=   -21  Pitch=    26  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   78.5 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   30.4  TR=   26.0  BL=    0.0  BR=   78.5 px
+    Write坐标: TL=(325.0,878.0)  TR=(2919.0,0.0)  BL=(0.0,2158.0)  BR=(3202.0,1482.0)
+    Read坐标:  TL=(303.0,857.0)  TR=(2893.0,0.0)  BL=(0.0,2158.0)  BR=(3146.0,1537.0)
+
+  Yaw=   -21  Pitch=    27  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=  120.2 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   46.7  TR=   41.0  BL=    0.0  BR=  120.2 px
+    Write坐标: TL=(337.0,889.0)  TR=(2934.0,0.0)  BL=(0.0,2158.0)  BR=(3232.0,1453.0)
+    Read坐标:  TL=(303.0,857.0)  TR=(2893.0,0.0)  BL=(0.0,2158.0)  BR=(3146.0,1537.0)
+
+  Yaw=   -20  Pitch=    10  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   33.1 px  EC=1       None
+    偏差: TL=   31.4  TR=   25.0  BL=   33.1  BR=    1.0 px
+    Write坐标: TL=(142.0,683.0)  TR=(2872.0,0.0)  BL=(0.0,2158.0)  BR=(2977.0,1905.0)
+    Read坐标:  TL=(171.0,695.0)  TR=(2873.0,25.0)  BL=(33.0,2155.0)  BR=(2977.0,1904.0)
+
+  Yaw=   -20  Pitch=    11  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   37.2 px  EC=1       None
+    偏差: TL=   35.5  TR=   28.0  BL=   37.2  BR=    0.0 px
+    Write坐标: TL=(154.0,694.0)  TR=(2873.0,0.0)  BL=(0.0,2158.0)  BR=(2988.0,1882.0)
+    Read坐标:  TL=(187.0,707.0)  TR=(2874.0,28.0)  BL=(37.0,2154.0)  BR=(2988.0,1882.0)
+
+  Yaw=   -20  Pitch=    28  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   44.8 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=   16.3  TR=   16.0  BL=    0.0  BR=   44.8 px
+    Write坐标: TL=(355.0,875.0)  TR=(3028.0,0.0)  BL=(0.0,2158.0)  BR=(3373.0,1447.0)
+    Read坐标:  TL=(343.0,864.0)  TR=(3012.0,0.0)  BL=(0.0,2158.0)  BR=(3338.0,1475.0)
+
+  Yaw=   -20  Pitch=    29  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   91.8 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   32.6  TR=   33.0  BL=    0.0  BR=   91.8 px
+    Write坐标: TL=(367.0,886.0)  TR=(3045.0,0.0)  BL=(0.0,2158.0)  BR=(3410.0,1418.0)
+    Read坐标:  TL=(343.0,864.0)  TR=(3012.0,0.0)  BL=(0.0,2158.0)  BR=(3338.0,1475.0)
+
+  Yaw=   -19  Pitch=     9  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   30.1 px  EC=1       None
+    偏差: TL=   28.2  TR=   23.0  BL=   30.1  BR=    1.4 px
+    Write坐标: TL=(132.0,649.0)  TR=(2935.0,0.0)  BL=(0.0,2158.0)  BR=(3037.0,1938.0)
+    Read坐标:  TL=(158.0,660.0)  TR=(2936.0,23.0)  BL=(30.0,2155.0)  BR=(3036.0,1937.0)
+
+  Yaw=   -19  Pitch=    12  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   44.3 px  EC=1       None
+    偏差: TL=   40.9  TR=   32.1  BL=   44.3  BR=    0.0 px
+    Write坐标: TL=(169.0,682.0)  TR=(2940.0,0.0)  BL=(0.0,2158.0)  BR=(3074.0,1871.0)
+    Read坐标:  TL=(207.0,697.0)  TR=(2942.0,32.0)  BL=(44.0,2153.0)  BR=(3074.0,1871.0)
+
+  Yaw=   -19  Pitch=    30  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   51.0 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   15.6  TR=   19.0  BL=    0.0  BR=   51.0 px
+    Write坐标: TL=(386.0,870.0)  TR=(3146.0,0.0)  BL=(0.0,2158.0)  BR=(3566.0,1413.0)
+    Read坐标:  TL=(374.0,860.0)  TR=(3127.0,0.0)  BL=(0.0,2158.0)  BR=(3524.0,1442.0)
+
+  Yaw=   -19  Pitch=    31  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=  104.3 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   32.6  TR=   39.0  BL=    0.0  BR=  104.3 px
+    Write坐标: TL=(399.0,881.0)  TR=(3166.0,0.0)  BL=(0.0,2158.0)  BR=(3610.0,1383.0)
+    Read坐标:  TL=(374.0,860.0)  TR=(3127.0,0.0)  BL=(0.0,2158.0)  BR=(3524.0,1442.0)
+
+  Yaw=   -19  Pitch=    32  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=  159.2 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   48.9  TR=   61.0  BL=    0.0  BR=  159.2 px
+    Write坐标: TL=(411.0,892.0)  TR=(3188.0,0.0)  BL=(0.0,2158.0)  BR=(3656.0,1353.0)
+    Read坐标:  TL=(374.0,860.0)  TR=(3127.0,0.0)  BL=(0.0,2158.0)  BR=(3524.0,1442.0)
+
+  Yaw=   -18  Pitch=     8  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   26.4 px  EC=1       None
+    偏差: TL=   26.4  TR=   20.0  BL=   26.1  BR=    1.0 px
+    Write坐标: TL=(121.0,615.0)  TR=(2997.0,0.0)  BL=(0.0,2158.0)  BR=(3095.0,1970.0)
+    Read坐标:  TL=(145.0,626.0)  TR=(2998.0,20.0)  BL=(26.0,2156.0)  BR=(3095.0,1969.0)
+
+  Yaw=   -18  Pitch=    13  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   52.2 px  EC=1       None [!]
+    偏差: TL=   48.5  TR=   35.1  BL=   52.2  BR=    1.0 px
+    Write坐标: TL=(184.0,668.0)  TR=(3010.0,0.0)  BL=(0.0,2158.0)  BR=(3166.0,1861.0)
+    Read坐标:  TL=(229.0,686.0)  TR=(3012.0,35.0)  BL=(52.0,2153.0)  BR=(3165.0,1861.0)
+
+  Yaw=   -18  Pitch=    33  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   60.9 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   16.3  TR=   23.0  BL=    0.0  BR=   60.9 px
+    Write坐标: TL=(432.0,875.0)  TR=(3298.0,0.0)  BL=(0.0,2158.0)  BR=(3838.0,1349.0)
+    Read坐标:  TL=(420.0,864.0)  TR=(3275.0,0.0)  BL=(0.0,2158.0)  BR=(3785.0,1379.0)
+
+  Yaw=   -17  Pitch=     8  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   27.1 px  EC=1       None
+    偏差: TL=   26.4  TR=   20.0  BL=   27.1  BR=    1.4 px
+    Write坐标: TL=(123.0,591.0)  TR=(3058.0,0.0)  BL=(0.0,2158.0)  BR=(3162.0,1979.0)
+    Read坐标:  TL=(147.0,602.0)  TR=(3059.0,20.0)  BL=(27.0,2156.0)  BR=(3161.0,1978.0)
+
+  Yaw=   -17  Pitch=    14  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   61.3 px  EC=1       None [!]
+    偏差: TL=   54.8  TR=   39.1  BL=   61.3  BR=    1.4 px
+    Write坐标: TL=(200.0,653.0)  TR=(3083.0,0.0)  BL=(0.0,2158.0)  BR=(3263.0,1854.0)
+    Read坐标:  TL=(251.0,673.0)  TR=(3086.0,39.0)  BL=(61.0,2152.0)  BR=(3262.0,1853.0)
+
+  Yaw=   -17  Pitch=    15  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   69.4 px  EC=1       None [!]
+    偏差: TL=   62.0  TR=   43.2  BL=   69.4  BR=    1.0 px
+    Write坐标: TL=(213.0,663.0)  TR=(3090.0,0.0)  BL=(0.0,2158.0)  BR=(3285.0,1832.0)
+    Read坐标:  TL=(271.0,685.0)  TR=(3094.0,43.0)  BL=(69.0,2151.0)  BR=(3284.0,1832.0)
+
+  Yaw=   -17  Pitch=    34  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   49.0 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=    9.5  TR=    9.0  BL=   24.0  BR=   49.0 px
+    Write坐标: TL=(442.0,832.0)  TR=(3295.0,0.0)  BL=(0.0,2076.0)  BR=(3838.0,1280.0)
+    Read坐标:  TL=(433.0,829.0)  TR=(3304.0,0.0)  BL=(0.0,2100.0)  BR=(3838.0,1329.0)
+
+  Yaw=   -16  Pitch=     7  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   23.3 px  EC=1       None
+    偏差: TL=   23.3  TR=   17.0  BL=   23.1  BR=    0.0 px
+    Write坐标: TL=(111.0,556.0)  TR=(3118.0,0.0)  BL=(0.0,2158.0)  BR=(3215.0,2008.0)
+    Read坐标:  TL=(132.0,566.0)  TR=(3118.0,17.0)  BL=(23.0,2156.0)  BR=(3215.0,2008.0)
+
+  Yaw=   -16  Pitch=    16  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   80.4 px  EC=1       None [!]
+    偏差: TL=   70.2  TR=   47.3  BL=   80.4  BR=    0.0 px
+    Write坐标: TL=(230.0,647.0)  TR=(3168.0,0.0)  BL=(0.0,2158.0)  BR=(3392.0,1827.0)
+    Read坐标:  TL=(296.0,671.0)  TR=(3173.0,47.0)  BL=(80.0,2150.0)  BR=(3392.0,1827.0)
+
+  Yaw=   -16  Pitch=    34  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   48.0 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=    9.5  TR=    9.0  BL=   25.0  BR=   48.0 px
+    Write坐标: TL=(443.0,786.0)  TR=(3300.0,0.0)  BL=(0.0,2018.0)  BR=(3838.0,1262.0)
+    Read坐标:  TL=(434.0,783.0)  TR=(3309.0,0.0)  BL=(0.0,2043.0)  BR=(3838.0,1310.0)
+
+  Yaw=   -15  Pitch=     7  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   23.3 px  EC=1       None
+    偏差: TL=   23.3  TR=   17.0  BL=   23.1  BR=    0.0 px
+    Write坐标: TL=(113.0,530.0)  TR=(3178.0,0.0)  BL=(0.0,2158.0)  BR=(3279.0,2016.0)
+    Read坐标:  TL=(134.0,540.0)  TR=(3178.0,17.0)  BL=(23.0,2156.0)  BR=(3279.0,2016.0)
+
+  Yaw=   -15  Pitch=    17  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   92.4 px  EC=1       None [!]
+    偏差: TL=   78.8  TR=   51.5  BL=   92.4  BR=    1.0 px
+    Write坐标: TL=(248.0,628.0)  TR=(3250.0,0.0)  BL=(0.0,2158.0)  BR=(3506.0,1824.0)
+    Read坐标:  TL=(322.0,655.0)  TR=(3257.0,51.0)  BL=(92.0,2149.0)  BR=(3505.0,1824.0)
+
+  Yaw=   -15  Pitch=    33  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   48.0 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=    9.5  TR=    9.0  BL=   26.0  BR=   48.0 px
+    Write坐标: TL=(434.0,736.0)  TR=(3315.0,0.0)  BL=(0.0,1985.0)  BR=(3838.0,1292.0)
+    Read坐标:  TL=(425.0,733.0)  TR=(3324.0,0.0)  BL=(0.0,2011.0)  BR=(3838.0,1340.0)
+
+  Yaw=   -14  Pitch=     7  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   24.2 px  EC=1       None
+    偏差: TL=   24.2  TR=   17.0  BL=   24.0  BR=    1.0 px
+    Write坐标: TL=(115.0,504.0)  TR=(3237.0,0.0)  BL=(0.0,2158.0)  BR=(3344.0,2025.0)
+    Read坐标:  TL=(137.0,514.0)  TR=(3237.0,17.0)  BL=(24.0,2157.0)  BR=(3343.0,2025.0)
+
+  Yaw=   -14  Pitch=    18  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  105.5 px  EC=1       None [!]
+    偏差: TL=   89.2  TR=   55.6  BL=  105.5  BR=    1.4 px
+    Write坐标: TL=(266.0,608.0)  TR=(3336.0,0.0)  BL=(0.0,2158.0)  BR=(3628.0,1823.0)
+    Read坐标:  TL=(350.0,638.0)  TR=(3344.0,55.0)  BL=(105.0,2148.0)  BR=(3627.0,1822.0)
+
+  Yaw=   -14  Pitch=    19  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  117.6 px  EC=1       None [!]
+    偏差: TL=   98.4  TR=   59.8  BL=  117.6  BR=    0.0 px
+    Write坐标: TL=(279.0,617.0)  TR=(3351.0,0.0)  BL=(0.0,2158.0)  BR=(3664.0,1803.0)
+    Read坐标:  TL=(372.0,649.0)  TR=(3361.0,59.0)  BL=(117.0,2146.0)  BR=(3664.0,1803.0)
+
+  Yaw=   -14  Pitch=    33  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   47.0 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=    9.5  TR=    9.0  BL=   26.0  BR=   47.0 px
+    Write坐标: TL=(435.0,690.0)  TR=(3320.0,0.0)  BL=(0.0,1928.0)  BR=(3838.0,1275.0)
+    Read坐标:  TL=(426.0,687.0)  TR=(3329.0,0.0)  BL=(0.0,1954.0)  BR=(3838.0,1322.0)
+
+  Yaw=   -13  Pitch=     6  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   20.1 px  EC=1       None
+    偏差: TL=   20.1  TR=   14.0  BL=   20.0  BR=    0.0 px
+    Write坐标: TL=(102.0,467.0)  TR=(3291.0,0.0)  BL=(0.0,2158.0)  BR=(3389.0,2050.0)
+    Read坐标:  TL=(120.0,476.0)  TR=(3291.0,14.0)  BL=(20.0,2157.0)  BR=(3389.0,2050.0)
+
+  Yaw=   -13  Pitch=    20  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  133.6 px  EC=1       None [!]
+    偏差: TL=  110.1  TR=   64.1  BL=  133.6  BR=    1.0 px
+    Write坐标: TL=(299.0,595.0)  TR=(3444.0,0.0)  BL=(0.0,2158.0)  BR=(3801.0,1804.0)
+    Read坐标:  TL=(403.0,631.0)  TR=(3456.0,63.0)  BL=(133.0,2145.0)  BR=(3800.0,1804.0)
+
+  Yaw=   -13  Pitch=    21  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  148.8 px  EC=1       None [!]
+    偏差: TL=  120.2  TR=   69.4  BL=  148.8  BR=    0.0 px
+    Write坐标: TL=(313.0,603.0)  TR=(3458.0,0.0)  BL=(0.0,2155.0)  BR=(3838.0,1781.0)
+    Read坐标:  TL=(427.0,641.0)  TR=(3472.0,68.0)  BL=(148.0,2140.0)  BR=(3838.0,1781.0)
+
+  Yaw=   -13  Pitch=    33  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   46.0 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=    9.5  TR=    9.0  BL=   27.0  BR=   46.0 px
+    Write坐标: TL=(436.0,643.0)  TR=(3325.0,0.0)  BL=(0.0,1871.0)  BR=(3838.0,1259.0)
+    Read坐标:  TL=(427.0,640.0)  TR=(3334.0,0.0)  BL=(0.0,1898.0)  BR=(3838.0,1305.0)
+
+  Yaw=   -12  Pitch=     6  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   20.0 px  EC=1       None
+    偏差: TL=   19.7  TR=   13.0  BL=   20.0  BR=    1.0 px
+    Write坐标: TL=(104.0,438.0)  TR=(3348.0,0.0)  BL=(0.0,2158.0)  BR=(3450.0,2058.0)
+    Read坐标:  TL=(122.0,446.0)  TR=(3348.0,13.0)  BL=(20.0,2157.0)  BR=(3449.0,2058.0)
+
+  Yaw=   -12  Pitch=    22  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  151.7 px  EC=1       None [!]
+    偏差: TL=  121.1  TR=   67.5  BL=  151.7  BR=    1.0 px
+    Write坐标: TL=(325.0,563.0)  TR=(3449.0,0.0)  BL=(0.0,2087.0)  BR=(3838.0,1717.0)
+    Read坐标:  TL=(440.0,601.0)  TR=(3463.0,66.0)  BL=(151.0,2072.0)  BR=(3837.0,1717.0)
+
+  Yaw=   -12  Pitch=    32  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   44.0 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=    9.2  TR=    9.0  BL=   27.0  BR=   44.0 px
+    Write坐标: TL=(428.0,593.0)  TR=(3339.0,0.0)  BL=(0.0,1841.0)  BR=(3838.0,1289.0)
+    Read坐标:  TL=(419.0,591.0)  TR=(3348.0,0.0)  BL=(0.0,1868.0)  BR=(3838.0,1333.0)
+
+  Yaw=   -11  Pitch=     6  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   19.7 px  EC=1       None
+    偏差: TL=   19.7  TR=   12.0  BL=   19.0  BR=    0.0 px
+    Write坐标: TL=(106.0,409.0)  TR=(3405.0,0.0)  BL=(0.0,2158.0)  BR=(3511.0,2065.0)
+    Read坐标:  TL=(124.0,417.0)  TR=(3405.0,12.0)  BL=(19.0,2157.0)  BR=(3511.0,2065.0)
+
+  Yaw=   -11  Pitch=    23  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  154.7 px  EC=1       None [!]
+    偏差: TL=  121.8  TR=   64.8  BL=  154.7  BR=    1.4 px
+    Write坐标: TL=(338.0,522.0)  TR=(3440.0,0.0)  BL=(0.0,2017.0)  BR=(3838.0,1655.0)
+    Read坐标:  TL=(454.0,559.0)  TR=(3455.0,63.0)  BL=(154.0,2002.0)  BR=(3837.0,1654.0)
+
+  Yaw=   -11  Pitch=    24  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  165.9 px  EC=1       None [!]
+    偏差: TL=  129.7  TR=   66.9  BL=  165.9  BR=    0.0 px
+    Write坐标: TL=(349.0,525.0)  TR=(3428.0,0.0)  BL=(0.0,1993.0)  BR=(3838.0,1614.0)
+    Read坐标:  TL=(473.0,563.0)  TR=(3444.0,65.0)  BL=(165.0,1976.0)  BR=(3838.0,1614.0)
+
+  Yaw=   -11  Pitch=    32  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   44.0 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=    9.2  TR=   10.0  BL=   29.0  BR=   44.0 px
+    Write坐标: TL=(429.0,546.0)  TR=(3343.0,0.0)  BL=(0.0,1784.0)  BR=(3838.0,1274.0)
+    Read坐标:  TL=(420.0,544.0)  TR=(3353.0,0.0)  BL=(0.0,1813.0)  BR=(3838.0,1318.0)
+
+  Yaw=   -11  Pitch=    33  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   89.0 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   18.4  TR=   19.0  BL=   57.0  BR=   89.0 px
+    Write坐标: TL=(438.0,548.0)  TR=(3334.0,0.0)  BL=(0.0,1756.0)  BR=(3838.0,1229.0)
+    Read坐标:  TL=(420.0,544.0)  TR=(3353.0,0.0)  BL=(0.0,1813.0)  BR=(3838.0,1318.0)
+
+  Yaw=   -10  Pitch=     6  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   19.0 px  EC=1       None
+    偏差: TL=   18.8  TR=   12.0  BL=   19.0  BR=    1.0 px
+    Write坐标: TL=(108.0,379.0)  TR=(3461.0,0.0)  BL=(0.0,2158.0)  BR=(3571.0,2073.0)
+    Read坐标:  TL=(125.0,387.0)  TR=(3461.0,12.0)  BL=(19.0,2157.0)  BR=(3570.0,2073.0)
+
+  Yaw=   -10  Pitch=    25  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  166.8 px  EC=1       None [!]
+    偏差: TL=  127.5  TR=   64.0  BL=  166.8  BR=    0.0 px
+    Write坐标: TL=(361.0,483.0)  TR=(3421.0,0.0)  BL=(0.0,1919.0)  BR=(3838.0,1554.0)
+    Read坐标:  TL=(483.0,520.0)  TR=(3437.0,62.0)  BL=(166.0,1903.0)  BR=(3838.0,1554.0)
+
+  Yaw=   -10  Pitch=    26  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  178.9 px  EC=1       None [!]
+    偏差: TL=  135.4  TR=   66.5  BL=  178.9  BR=    0.0 px
+    Write坐标: TL=(371.0,485.0)  TR=(3409.0,0.0)  BL=(0.0,1893.0)  BR=(3838.0,1513.0)
+    Read坐标:  TL=(501.0,523.0)  TR=(3427.0,64.0)  BL=(178.0,1875.0)  BR=(3838.0,1513.0)
+
+  Yaw=   -10  Pitch=    34  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   44.0 px  EC=3517    LcwKeystoneCornerTopLeftInput
+    偏差: TL=    9.2  TR=    9.0  BL=   30.0  BR=   44.0 px
+    Write坐标: TL=(449.0,502.0)  TR=(3329.0,0.0)  BL=(0.0,1668.0)  BR=(3838.0,1171.0)
+    Read坐标:  TL=(440.0,500.0)  TR=(3338.0,0.0)  BL=(0.0,1698.0)  BR=(3838.0,1215.0)
+
+  Yaw=   -10  Pitch=    35  问题角点=TL    (EC)  偏差最大角=BR      MaxDist=   88.0 px  EC=3517    LcwKeystoneCornerTopLeftInput [!]
+    偏差: TL=   18.2  TR=   18.0  BL=   60.0  BR=   88.0 px
+    Write坐标: TL=(458.0,503.0)  TR=(3320.0,0.0)  BL=(0.0,1638.0)  BR=(3838.0,1127.0)
+    Read坐标:  TL=(440.0,500.0)  TR=(3338.0,0.0)  BL=(0.0,1698.0)  BR=(3838.0,1215.0)
+
+  Yaw=    -9  Pitch=     5  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   15.0 px  EC=1       None
+    偏差: TL=   14.3  TR=    9.0  BL=   15.0  BR=    1.0 px
+    Write坐标: TL=(94.0,340.0)  TR=(3507.0,0.0)  BL=(0.0,2158.0)  BR=(3604.0,2093.0)
+    Read坐标:  TL=(107.0,346.0)  TR=(3507.0,9.0)  BL=(15.0,2157.0)  BR=(3603.0,2093.0)
+
+  Yaw=    -9  Pitch=    26  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  164.7 px  EC=1       None [!]
+    偏差: TL=  125.3  TR=   60.2  BL=  164.7  BR=    0.0 px
+    Write坐标: TL=(373.0,439.0)  TR=(3413.0,0.0)  BL=(0.0,1842.0)  BR=(3838.0,1496.0)
+    Read坐标:  TL=(493.0,475.0)  TR=(3429.0,58.0)  BL=(164.0,1827.0)  BR=(3838.0,1496.0)
+
+  Yaw=    -9  Pitch=    27  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  176.8 px  EC=1       None [!]
+    偏差: TL=  133.2  TR=   62.6  BL=  176.8  BR=    0.0 px
+    Write坐标: TL=(383.0,441.0)  TR=(3402.0,0.0)  BL=(0.0,1815.0)  BR=(3838.0,1455.0)
+    Read坐标:  TL=(511.0,478.0)  TR=(3420.0,60.0)  BL=(176.0,1798.0)  BR=(3838.0,1455.0)
+
+  Yaw=    -9  Pitch=    36  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   44.0 px  EC=3536    LcwKeystoneCornerRightEdgeInput
+    偏差: TL=    8.1  TR=    9.0  BL=   32.0  BR=   44.0 px
+    Write坐标: TL=(467.0,456.0)  TR=(3315.0,0.0)  BL=(0.0,1546.0)  BR=(3838.0,1071.0)
+    Read坐标:  TL=(459.0,455.0)  TR=(3324.0,0.0)  BL=(0.0,1578.0)  BR=(3838.0,1115.0)
+
+  Yaw=    -8  Pitch=     5  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   14.3 px  EC=1       None
+    偏差: TL=   14.3  TR=    8.0  BL=   14.0  BR=    1.0 px
+    Write坐标: TL=(95.0,308.0)  TR=(3560.0,0.0)  BL=(0.0,2158.0)  BR=(3660.0,2100.0)
+    Read坐标:  TL=(108.0,314.0)  TR=(3560.0,8.0)  BL=(14.0,2157.0)  BR=(3659.0,2100.0)
+
+  Yaw=    -8  Pitch=    24  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  130.4 px  EC=1       None [!]
+    偏差: TL=  101.2  TR=   48.5  BL=  130.4  BR=    0.0 px
+    Write坐标: TL=(353.0,388.0)  TR=(3440.0,0.0)  BL=(0.0,1845.0)  BR=(3838.0,1558.0)
+    Read坐标:  TL=(449.0,420.0)  TR=(3452.0,47.0)  BL=(130.0,1835.0)  BR=(3838.0,1558.0)
+
+  Yaw=    -8  Pitch=    25  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  139.4 px  EC=1       None [!]
+    偏差: TL=  108.2  TR=   50.7  BL=  139.4  BR=    0.0 px
+    Write坐标: TL=(364.0,390.0)  TR=(3428.0,0.0)  BL=(0.0,1818.0)  BR=(3838.0,1519.0)
+    Read坐标:  TL=(467.0,423.0)  TR=(3441.0,49.0)  BL=(139.0,1807.0)  BR=(3838.0,1519.0)
+
+  Yaw=    -8  Pitch=    36  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   43.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    9.1  TR=    9.0  BL=   33.0  BR=   43.0 px
+    Write坐标: TL=(469.0,407.0)  TR=(3319.0,0.0)  BL=(0.0,1486.0)  BR=(3838.0,1060.0)
+    Read坐标:  TL=(460.0,406.0)  TR=(3328.0,0.0)  BL=(0.0,1519.0)  BR=(3838.0,1103.0)
+
+  Yaw=    -7  Pitch=     5  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   13.4 px  EC=1       None
+    偏差: TL=   13.4  TR=    8.0  BL=   13.0  BR=    0.0 px
+    Write坐标: TL=(97.0,274.0)  TR=(3612.0,0.0)  BL=(0.0,2158.0)  BR=(3716.0,2107.0)
+    Read坐标:  TL=(109.0,280.0)  TR=(3612.0,8.0)  BL=(13.0,2157.0)  BR=(3716.0,2107.0)
+
+  Yaw=    -7  Pitch=    22  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  100.2 px  EC=1       None [!]
+    偏差: TL=   80.7  TR=   38.8  BL=  100.2  BR=    0.0 px
+    Write坐标: TL=(332.0,337.0)  TR=(3467.0,0.0)  BL=(0.0,1850.0)  BR=(3838.0,1618.0)
+    Read坐标:  TL=(408.0,364.0)  TR=(3475.0,38.0)  BL=(100.0,1843.0)  BR=(3838.0,1618.0)
+
+  Yaw=    -7  Pitch=    23  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=  108.2 px  EC=1       None [!]
+    偏差: TL=   85.7  TR=   41.0  BL=  108.2  BR=    1.4 px
+    Write坐标: TL=(343.0,339.0)  TR=(3455.0,0.0)  BL=(0.0,1824.0)  BR=(3838.0,1580.0)
+    Read坐标:  TL=(424.0,367.0)  TR=(3464.0,40.0)  BL=(108.0,1817.0)  BR=(3837.0,1579.0)
+
+  Yaw=    -7  Pitch=    36  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   43.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    9.1  TR=    8.0  BL=   34.0  BR=   43.0 px
+    Write坐标: TL=(471.0,357.0)  TR=(3323.0,0.0)  BL=(0.0,1425.0)  BR=(3838.0,1050.0)
+    Read坐标:  TL=(462.0,356.0)  TR=(3331.0,0.0)  BL=(0.0,1459.0)  BR=(3838.0,1093.0)
+
+  Yaw=    -6  Pitch=     5  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   12.1 px  EC=1       None
+    偏差: TL=   12.1  TR=    7.0  BL=   12.0  BR=    0.0 px
+    Write坐标: TL=(99.0,239.0)  TR=(3664.0,0.0)  BL=(0.0,2158.0)  BR=(3771.0,2114.0)
+    Read坐标:  TL=(110.0,244.0)  TR=(3664.0,7.0)  BL=(12.0,2157.0)  BR=(3771.0,2114.0)
+
+  Yaw=    -6  Pitch=    20  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   75.1 px  EC=1       None [!]
+    偏差: TL=   62.0  TR=   29.6  BL=   75.1  BR=    0.0 px
+    Write坐标: TL=(310.0,286.0)  TR=(3495.0,0.0)  BL=(0.0,1857.0)  BR=(3838.0,1674.0)
+    Read坐标:  TL=(368.0,308.0)  TR=(3501.0,29.0)  BL=(75.0,1853.0)  BR=(3838.0,1674.0)
+
+  Yaw=    -6  Pitch=    21  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   81.2 px  EC=1       None [!]
+    偏差: TL=   66.1  TR=   31.6  BL=   81.2  BR=    0.0 px
+    Write坐标: TL=(322.0,288.0)  TR=(3483.0,0.0)  BL=(0.0,1830.0)  BR=(3838.0,1637.0)
+    Read坐标:  TL=(384.0,311.0)  TR=(3489.0,31.0)  BL=(81.0,1825.0)  BR=(3838.0,1637.0)
+
+  Yaw=    -6  Pitch=    36  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   42.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    8.0  TR=    9.0  BL=   35.0  BR=   42.0 px
+    Write坐标: TL=(472.0,307.0)  TR=(3326.0,0.0)  BL=(0.0,1364.0)  BR=(3838.0,1040.0)
+    Read坐标:  TL=(464.0,307.0)  TR=(3335.0,0.0)  BL=(0.0,1399.0)  BR=(3838.0,1082.0)
+
+  Yaw=    -5  Pitch=     5  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   11.2 px  EC=1       None
+    偏差: TL=   11.2  TR=    6.0  BL=   10.0  BR=    0.0 px
+    Write坐标: TL=(101.0,203.0)  TR=(3715.0,0.0)  BL=(0.0,2158.0)  BR=(3826.0,2121.0)
+    Read坐标:  TL=(111.0,208.0)  TR=(3715.0,6.0)  BL=(10.0,2157.0)  BR=(3826.0,2121.0)
+
+  Yaw=    -5  Pitch=    19  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   59.1 px  EC=1       None [!]
+    偏差: TL=   49.8  TR=   23.3  BL=   59.1  BR=    0.0 px
+    Write坐标: TL=(300.0,238.0)  TR=(3511.0,0.0)  BL=(0.0,1839.0)  BR=(3838.0,1692.0)
+    Read坐标:  TL=(346.0,257.0)  TR=(3515.0,23.0)  BL=(59.0,1836.0)  BR=(3838.0,1692.0)
+
+  Yaw=    -5  Pitch=    35  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   42.0 px  EC=3536    LcwKeystoneCornerRightEdgeInput
+    偏差: TL=    9.1  TR=    9.0  BL=   35.0  BR=   42.0 px
+    Write坐标: TL=(466.0,257.0)  TR=(3338.0,0.0)  BL=(0.0,1338.0)  BR=(3838.0,1072.0)
+    Read坐标:  TL=(457.0,256.0)  TR=(3347.0,0.0)  BL=(0.0,1373.0)  BR=(3838.0,1114.0)
+
+  Yaw=    -4  Pitch=     5  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=    9.1 px  EC=1       None
+    偏差: TL=    8.9  TR=    5.0  BL=    9.1  BR=    0.0 px
+    Write坐标: TL=(102.0,164.0)  TR=(3727.0,0.0)  BL=(0.0,2136.0)  BR=(3838.0,2105.0)
+    Read坐标:  TL=(110.0,168.0)  TR=(3727.0,5.0)  BL=(9.0,2135.0)  BR=(3838.0,2105.0)
+
+  Yaw=    -4  Pitch=    17  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   41.0 px  EC=1       None
+    偏差: TL=   34.9  TR=   17.1  BL=   41.0  BR=    1.0 px
+    Write坐标: TL=(276.0,189.0)  TR=(3540.0,0.0)  BL=(0.0,1851.0)  BR=(3838.0,1743.0)
+    Read坐标:  TL=(308.0,203.0)  TR=(3542.0,17.0)  BL=(41.0,1849.0)  BR=(3838.0,1742.0)
+
+  Yaw=    -4  Pitch=    18  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   44.0 px  EC=1       None
+    偏差: TL=   38.1  TR=   17.3  BL=   44.0  BR=    0.0 px
+    Write坐标: TL=(289.0,190.0)  TR=(3527.0,0.0)  BL=(0.0,1823.0)  BR=(3838.0,1709.0)
+    Read坐标:  TL=(324.0,205.0)  TR=(3530.0,17.0)  BL=(44.0,1821.0)  BR=(3838.0,1709.0)
+
+  Yaw=    -4  Pitch=    35  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   41.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    9.0  TR=    9.0  BL=   35.0  BR=   41.0 px
+    Write坐标: TL=(468.0,206.0)  TR=(3342.0,0.0)  BL=(0.0,1278.0)  BR=(3838.0,1063.0)
+    Read坐标:  TL=(459.0,206.0)  TR=(3351.0,0.0)  BL=(0.0,1313.0)  BR=(3838.0,1104.0)
+
+  Yaw=    -3  Pitch=     5  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=    6.7 px  EC=1       None
+    偏差: TL=    6.7  TR=    3.0  BL=    6.1  BR=    0.0 px
+    Write坐标: TL=(103.0,124.0)  TR=(3728.0,0.0)  BL=(0.0,2108.0)  BR=(3838.0,2084.0)
+    Read坐标:  TL=(109.0,127.0)  TR=(3728.0,3.0)  BL=(6.0,2107.0)  BR=(3838.0,2084.0)
+
+  Yaw=    -3  Pitch=    16  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   29.0 px  EC=1       None
+    偏差: TL=   25.1  TR=   11.0  BL=   29.0  BR=    1.4 px
+    Write坐标: TL=(265.0,141.0)  TR=(3556.0,0.0)  BL=(0.0,1837.0)  BR=(3838.0,1759.0)
+    Read坐标:  TL=(288.0,151.0)  TR=(3557.0,11.0)  BL=(29.0,1836.0)  BR=(3837.0,1758.0)
+
+  Yaw=    -3  Pitch=    35  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   41.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    9.0  TR=    9.0  BL=   36.0  BR=   41.0 px
+    Write坐标: TL=(470.0,155.0)  TR=(3345.0,0.0)  BL=(0.0,1217.0)  BR=(3838.0,1054.0)
+    Read坐标:  TL=(461.0,155.0)  TR=(3354.0,0.0)  BL=(0.0,1253.0)  BR=(3838.0,1095.0)
+
+  Yaw=    -2  Pitch=     5  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=    4.5 px  EC=1       None
+    偏差: TL=    4.5  TR=    2.0  BL=    4.1  BR=    0.0 px
+    Write坐标: TL=(103.0,83.0)  TR=(3729.0,0.0)  BL=(0.0,2081.0)  BR=(3838.0,2064.0)
+    Read坐标:  TL=(107.0,85.0)  TR=(3729.0,2.0)  BL=(4.0,2080.0)  BR=(3838.0,2064.0)
+
+  Yaw=    -2  Pitch=    14  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   16.0 px  EC=1       None
+    偏差: TL=   14.3  TR=    6.0  BL=   16.0  BR=    0.0 px
+    Write坐标: TL=(240.0,93.0)  TR=(3586.0,0.0)  BL=(0.0,1852.0)  BR=(3838.0,1806.0)
+    Read坐标:  TL=(253.0,99.0)  TR=(3586.0,6.0)  BL=(16.0,1851.0)  BR=(3838.0,1806.0)
+
+  Yaw=    -2  Pitch=    15  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   18.0 px  EC=1       None
+    偏差: TL=   15.2  TR=    7.1  BL=   18.0  BR=    0.0 px
+    Write坐标: TL=(253.0,94.0)  TR=(3572.0,0.0)  BL=(0.0,1824.0)  BR=(3838.0,1775.0)
+    Read坐标:  TL=(267.0,100.0)  TR=(3573.0,7.0)  BL=(18.0,1823.0)  BR=(3838.0,1775.0)
+
+  Yaw=    -2  Pitch=    35  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   40.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    9.0  TR=    9.0  BL=   37.0  BR=   40.0 px
+    Write坐标: TL=(472.0,104.0)  TR=(3348.0,0.0)  BL=(0.0,1155.0)  BR=(3838.0,1046.0)
+    Read坐标:  TL=(463.0,104.0)  TR=(3357.0,0.0)  BL=(0.0,1192.0)  BR=(3838.0,1086.0)
+
+  Yaw=    -1  Pitch=     5  问题角点=EQUAL (EC)  偏差最大角=EQUAL   MaxDist=    2.2 px  EC=1       None
+    偏差: TL=    2.2  TR=    1.0  BL=    2.2  BR=    1.0 px
+    Write坐标: TL=(104.0,42.0)  TR=(3730.0,0.0)  BL=(0.0,2054.0)  BR=(3838.0,2045.0)
+    Read坐标:  TL=(106.0,43.0)  TR=(3730.0,1.0)  BL=(2.0,2053.0)  BR=(3837.0,2045.0)
+
+  Yaw=    -1  Pitch=    13  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=    7.1 px  EC=1       None
+    偏差: TL=    6.7  TR=    3.0  BL=    7.1  BR=    0.0 px
+    Write坐标: TL=(227.0,46.0)  TR=(3603.0,0.0)  BL=(0.0,1843.0)  BR=(3838.0,1821.0)
+    Read坐标:  TL=(233.0,49.0)  TR=(3603.0,3.0)  BL=(7.0,1842.0)  BR=(3838.0,1821.0)
+
+  Yaw=    -1  Pitch=    34  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   40.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    9.0  TR=    9.0  BL=   38.0  BR=   40.0 px
+    Write坐标: TL=(466.0,52.0)  TR=(3359.0,0.0)  BL=(0.0,1131.0)  BR=(3838.0,1077.0)
+    Read坐标:  TL=(457.0,52.0)  TR=(3368.0,0.0)  BL=(0.0,1169.0)  BR=(3838.0,1117.0)
+
+  Yaw=     0  Pitch=     5  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=    3.2 px  EC=1       None
+    偏差: TL=    1.4  TR=    2.2  BL=    0.0  BR=    3.2 px
+    Write坐标: TL=(106.0,0.0)  TR=(3731.0,37.0)  BL=(0.0,2043.0)  BR=(3838.0,2051.0)
+    Read坐标:  TL=(105.0,1.0)  TR=(3729.0,38.0)  BL=(0.0,2043.0)  BR=(3835.0,2050.0)
+
+  Yaw=     0  Pitch=    13  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=    7.1 px  EC=1       None
+    偏差: TL=    2.2  TR=    6.3  BL=    0.0  BR=    7.1 px
+    Write坐标: TL=(231.0,0.0)  TR=(3606.0,41.0)  BL=(0.0,1819.0)  BR=(3838.0,1839.0)
+    Read坐标:  TL=(230.0,2.0)  TR=(3600.0,43.0)  BL=(0.0,1819.0)  BR=(3831.0,1838.0)
+
+  Yaw=     0  Pitch=    34  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   39.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    9.0  TR=    9.0  BL=   39.0  BR=   38.0 px
+    Write坐标: TL=(471.0,0.0)  TR=(3364.0,47.0)  BL=(0.0,1077.0)  BR=(3838.0,1125.0)
+    Read坐标:  TL=(462.0,0.0)  TR=(3373.0,47.0)  BL=(0.0,1116.0)  BR=(3838.0,1163.0)
+
+  Yaw=     1  Pitch=     5  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=    5.4 px  EC=1       None
+    偏差: TL=    2.2  TR=    5.4  BL=    1.0  BR=    5.1 px
+    Write坐标: TL=(107.0,0.0)  TR=(3732.0,79.0)  BL=(0.0,2062.0)  BR=(3838.0,2079.0)
+    Read坐标:  TL=(106.0,2.0)  TR=(3727.0,81.0)  BL=(0.0,2061.0)  BR=(3833.0,2078.0)
+
+  Yaw=     1  Pitch=    14  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   16.0 px  EC=1       None
+    偏差: TL=    6.1  TR=   13.9  BL=    0.0  BR=   16.0 px
+    Write坐标: TL=(247.0,0.0)  TR=(3594.0,88.0)  BL=(0.0,1805.0)  BR=(3838.0,1849.0)
+    Read坐标:  TL=(246.0,6.0)  TR=(3581.0,93.0)  BL=(0.0,1805.0)  BR=(3822.0,1848.0)
+
+  Yaw=     1  Pitch=    15  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   17.0 px  EC=1       None
+    偏差: TL=    6.3  TR=   15.2  BL=    0.0  BR=   17.0 px
+    Write坐标: TL=(261.0,0.0)  TR=(3580.0,89.0)  BL=(0.0,1774.0)  BR=(3838.0,1821.0)
+    Read坐标:  TL=(259.0,6.0)  TR=(3566.0,95.0)  BL=(0.0,1774.0)  BR=(3821.0,1820.0)
+
+  Yaw=     1  Pitch=    35  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   40.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    9.0  TR=    9.0  BL=   40.0  BR=   38.0 px
+    Write坐标: TL=(482.0,0.0)  TR=(3358.0,99.0)  BL=(0.0,1045.0)  BR=(3838.0,1149.0)
+    Read坐标:  TL=(473.0,0.0)  TR=(3367.0,99.0)  BL=(0.0,1085.0)  BR=(3838.0,1187.0)
+
+  Yaw=     2  Pitch=     5  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=    7.6 px  EC=1       None
+    偏差: TL=    3.2  TR=    7.6  BL=    0.0  BR=    7.1 px
+    Write坐标: TL=(108.0,0.0)  TR=(3733.0,120.0)  BL=(0.0,2083.0)  BR=(3838.0,2106.0)
+    Read坐标:  TL=(107.0,3.0)  TR=(3726.0,123.0)  BL=(0.0,2083.0)  BR=(3831.0,2105.0)
+
+  Yaw=     2  Pitch=    16  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   28.0 px  EC=1       None
+    偏差: TL=   11.2  TR=   25.1  BL=    1.0  BR=   28.0 px
+    Write坐标: TL=(277.0,0.0)  TR=(3568.0,136.0)  BL=(0.0,1758.0)  BR=(3838.0,1833.0)
+    Read坐标:  TL=(275.0,11.0)  TR=(3545.0,146.0)  BL=(0.0,1757.0)  BR=(3810.0,1832.0)
+
+  Yaw=     2  Pitch=    35  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   41.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    9.0  TR=    9.0  BL=   41.0  BR=   36.0 px
+    Write坐标: TL=(485.0,0.0)  TR=(3360.0,150.0)  BL=(0.0,1053.0)  BR=(3838.0,1211.0)
+    Read坐标:  TL=(476.0,0.0)  TR=(3369.0,150.0)  BL=(0.0,1094.0)  BR=(3838.0,1247.0)
+
+  Yaw=     3  Pitch=     5  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=    9.1 px  EC=1       None
+    偏差: TL=    4.1  TR=    8.9  BL=    0.0  BR=    9.1 px
+    Write坐标: TL=(109.0,0.0)  TR=(3734.0,160.0)  BL=(0.0,2104.0)  BR=(3838.0,2134.0)
+    Read坐标:  TL=(108.0,4.0)  TR=(3726.0,164.0)  BL=(0.0,2104.0)  BR=(3829.0,2133.0)
+
+  Yaw=     3  Pitch=    17  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   40.0 px  EC=1       None
+    偏差: TL=   16.3  TR=   34.5  BL=    0.0  BR=   40.0 px
+    Write坐标: TL=(292.0,0.0)  TR=(3556.0,184.0)  BL=(0.0,1742.0)  BR=(3838.0,1847.0)
+    Read坐标:  TL=(289.0,16.0)  TR=(3524.0,197.0)  BL=(0.0,1742.0)  BR=(3798.0,1845.0)
+
+  Yaw=     3  Pitch=    18  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   44.0 px  EC=1       None
+    偏差: TL=   17.5  TR=   36.8  BL=    1.0  BR=   44.0 px
+    Write坐标: TL=(306.0,0.0)  TR=(3544.0,185.0)  BL=(0.0,1709.0)  BR=(3838.0,1820.0)
+    Read坐标:  TL=(302.0,17.0)  TR=(3510.0,199.0)  BL=(0.0,1708.0)  BR=(3794.0,1818.0)
+
+  Yaw=     3  Pitch=    35  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   42.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    9.0  TR=    9.0  BL=   42.0  BR=   36.0 px
+    Write坐标: TL=(488.0,0.0)  TR=(3362.0,201.0)  BL=(0.0,1062.0)  BR=(3838.0,1272.0)
+    Read坐标:  TL=(479.0,0.0)  TR=(3371.0,201.0)  BL=(0.0,1104.0)  BR=(3838.0,1308.0)
+
+  Yaw=     4  Pitch=     5  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   11.2 px  EC=1       None
+    偏差: TL=    6.1  TR=   11.2  BL=    0.0  BR=   11.0 px
+    Write坐标: TL=(118.0,0.0)  TR=(3734.0,200.0)  BL=(8.0,2122.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(117.0,6.0)  TR=(3724.0,205.0)  BL=(8.0,2122.0)  BR=(3827.0,2157.0)
+
+  Yaw=     4  Pitch=    19  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   58.1 px  EC=1       None [!]
+    偏差: TL=   22.6  TR=   48.5  BL=    0.0  BR=   58.1 px
+    Write坐标: TL=(321.0,0.0)  TR=(3533.0,234.0)  BL=(0.0,1691.0)  BR=(3838.0,1836.0)
+    Read坐标:  TL=(316.0,22.0)  TR=(3488.0,252.0)  BL=(0.0,1691.0)  BR=(3780.0,1833.0)
+
+  Yaw=     4  Pitch=    35  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   41.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    8.0  TR=    9.1  BL=   41.0  BR=   35.0 px
+    Write坐标: TL=(491.0,0.0)  TR=(3364.0,252.0)  BL=(0.0,1072.0)  BR=(3838.0,1333.0)
+    Read坐标:  TL=(483.0,0.0)  TR=(3373.0,251.0)  BL=(0.0,1113.0)  BR=(3838.0,1368.0)
+
+  Yaw=     5  Pitch=     5  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   12.1 px  EC=1       None
+    偏差: TL=    6.1  TR=   12.1  BL=    0.0  BR=   12.0 px
+    Write坐标: TL=(169.0,0.0)  TR=(3736.0,236.0)  BL=(63.0,2115.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(168.0,6.0)  TR=(3725.0,241.0)  BL=(63.0,2115.0)  BR=(3826.0,2157.0)
+
+  Yaw=     5  Pitch=    20  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   74.1 px  EC=1       None [!]
+    偏差: TL=   29.6  TR=   61.1  BL=    0.0  BR=   74.1 px
+    Write坐标: TL=(337.0,0.0)  TR=(3522.0,282.0)  BL=(0.0,1673.0)  BR=(3838.0,1854.0)
+    Read坐标:  TL=(331.0,29.0)  TR=(3465.0,304.0)  BL=(0.0,1673.0)  BR=(3764.0,1850.0)
+
+  Yaw=     5  Pitch=    21  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   80.1 px  EC=1       None [!]
+    偏差: TL=   30.8  TR=   65.2  BL=    0.0  BR=   80.1 px
+    Write坐标: TL=(349.0,0.0)  TR=(3510.0,284.0)  BL=(0.0,1637.0)  BR=(3838.0,1827.0)
+    Read坐标:  TL=(342.0,30.0)  TR=(3449.0,307.0)  BL=(0.0,1637.0)  BR=(3758.0,1823.0)
+
+  Yaw=     5  Pitch=    36  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   43.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    8.0  TR=    9.1  BL=   43.0  BR=   35.0 px
+    Write坐标: TL=(503.0,0.0)  TR=(3357.0,303.0)  BL=(0.0,1039.0)  BR=(3838.0,1359.0)
+    Read坐标:  TL=(495.0,0.0)  TR=(3366.0,302.0)  BL=(0.0,1082.0)  BR=(3838.0,1394.0)
+
+  Yaw=     6  Pitch=     5  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   13.4 px  EC=1       None
+    偏差: TL=    7.1  TR=   13.4  BL=    1.0  BR=   13.0 px
+    Write坐标: TL=(221.0,0.0)  TR=(3738.0,271.0)  BL=(119.0,2107.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(220.0,7.0)  TR=(3726.0,277.0)  BL=(118.0,2107.0)  BR=(3825.0,2157.0)
+
+  Yaw=     6  Pitch=    22  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   98.2 px  EC=1       None [!]
+    偏差: TL=   38.1  TR=   78.8  BL=    0.0  BR=   98.2 px
+    Write坐标: TL=(365.0,0.0)  TR=(3500.0,332.0)  BL=(0.0,1617.0)  BR=(3838.0,1847.0)
+    Read坐标:  TL=(356.0,37.0)  TR=(3426.0,359.0)  BL=(0.0,1617.0)  BR=(3740.0,1841.0)
+
+  Yaw=     6  Pitch=    23  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  106.2 px  EC=1       None [!]
+    偏差: TL=   39.3  TR=   83.8  BL=    0.0  BR=  106.2 px
+    Write坐标: TL=(376.0,0.0)  TR=(3488.0,334.0)  BL=(0.0,1579.0)  BR=(3838.0,1820.0)
+    Read坐标:  TL=(366.0,38.0)  TR=(3409.0,362.0)  BL=(0.0,1579.0)  BR=(3732.0,1813.0)
+
+  Yaw=     6  Pitch=    36  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   43.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    9.0  TR=    9.0  BL=   43.0  BR=   34.0 px
+    Write坐标: TL=(507.0,0.0)  TR=(3359.0,352.0)  BL=(0.0,1049.0)  BR=(3838.0,1420.0)
+    Read坐标:  TL=(498.0,0.0)  TR=(3368.0,352.0)  BL=(0.0,1092.0)  BR=(3838.0,1454.0)
+
+  Yaw=     7  Pitch=     5  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   14.3 px  EC=1       None
+    偏差: TL=    8.1  TR=   14.3  BL=    0.0  BR=   14.0 px
+    Write坐标: TL=(274.0,0.0)  TR=(3740.0,304.0)  BL=(175.0,2100.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(273.0,8.0)  TR=(3727.0,310.0)  BL=(175.0,2100.0)  BR=(3824.0,2157.0)
+
+  Yaw=     7  Pitch=    24  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  127.4 px  EC=1       None [!]
+    偏差: TL=   47.5  TR=   99.9  BL=    0.0  BR=  127.4 px
+    Write坐标: TL=(392.0,0.0)  TR=(3479.0,383.0)  BL=(0.0,1558.0)  BR=(3838.0,1842.0)
+    Read坐标:  TL=(380.0,46.0)  TR=(3384.0,414.0)  BL=(0.0,1558.0)  BR=(3711.0,1832.0)
+
+  Yaw=     7  Pitch=    25  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  137.4 px  EC=1       None [!]
+    偏差: TL=   49.7  TR=  105.9  BL=    0.0  BR=  137.4 px
+    Write坐标: TL=(403.0,0.0)  TR=(3468.0,385.0)  BL=(0.0,1519.0)  BR=(3838.0,1815.0)
+    Read坐标:  TL=(390.0,48.0)  TR=(3367.0,417.0)  BL=(0.0,1519.0)  BR=(3701.0,1804.0)
+
+  Yaw=     7  Pitch=    36  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   43.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    8.0  TR=    8.1  BL=   43.0  BR=   33.0 px
+    Write坐标: TL=(510.0,0.0)  TR=(3361.0,402.0)  BL=(0.0,1060.0)  BR=(3838.0,1481.0)
+    Read坐标:  TL=(502.0,0.0)  TR=(3369.0,401.0)  BL=(0.0,1103.0)  BR=(3838.0,1514.0)
+
+  Yaw=     8  Pitch=     6  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   19.0 px  EC=1       None
+    偏差: TL=   11.0  TR=   18.8  BL=    0.0  BR=   19.0 px
+    Write坐标: TL=(318.0,0.0)  TR=(3726.0,344.0)  BL=(205.0,2082.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(317.0,11.0)  TR=(3709.0,352.0)  BL=(205.0,2082.0)  BR=(3819.0,2157.0)
+
+  Yaw=     8  Pitch=    26  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  161.7 px  EC=1       None [!]
+    偏差: TL=   58.2  TR=  123.4  BL=    0.0  BR=  161.7 px
+    Write坐标: TL=(418.0,0.0)  TR=(3458.0,434.0)  BL=(0.0,1496.0)  BR=(3838.0,1839.0)
+    Read坐标:  TL=(402.0,56.0)  TR=(3340.0,470.0)  BL=(0.0,1496.0)  BR=(3677.0,1824.0)
+
+  Yaw=     8  Pitch=    36  问题角点=BL    (EC)  偏差最大角=BL      MaxDist=   44.0 px  EC=3537    LcwKeystoneCornerLeftEdgeInput
+    偏差: TL=    8.0  TR=    9.1  BL=   44.0  BR=   32.0 px
+    Write坐标: TL=(514.0,0.0)  TR=(3362.0,451.0)  BL=(0.0,1071.0)  BR=(3838.0,1542.0)
+    Read坐标:  TL=(506.0,0.0)  TR=(3371.0,450.0)  BL=(0.0,1115.0)  BR=(3838.0,1574.0)
+
+  Yaw=     9  Pitch=     6  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   19.7 px  EC=1       None
+    偏差: TL=   12.0  TR=   19.7  BL=    1.0  BR=   19.0 px
+    Write坐标: TL=(374.0,0.0)  TR=(3728.0,376.0)  BL=(265.0,2074.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(373.0,12.0)  TR=(3710.0,384.0)  BL=(265.0,2073.0)  BR=(3819.0,2157.0)
+
+  Yaw=     9  Pitch=    25  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  163.8 px  EC=1       None [!]
+    偏差: TL=   62.1  TR=  125.6  BL=    1.0  BR=  163.8 px
+    Write坐标: TL=(410.0,0.0)  TR=(3471.0,478.0)  BL=(0.0,1554.0)  BR=(3838.0,1916.0)
+    Read坐标:  TL=(394.0,60.0)  TR=(3351.0,515.0)  BL=(0.0,1553.0)  BR=(3675.0,1900.0)
+
+  Yaw=     9  Pitch=    26  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  175.9 px  EC=1       None [!]
+    偏差: TL=   65.5  TR=  133.5  BL=    0.0  BR=  175.9 px
+    Write坐标: TL=(422.0,0.0)  TR=(3460.0,481.0)  BL=(0.0,1513.0)  BR=(3838.0,1890.0)
+    Read坐标:  TL=(404.0,63.0)  TR=(3332.0,519.0)  BL=(0.0,1513.0)  BR=(3663.0,1872.0)
+
+  Yaw=     9  Pitch=    35  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   44.0 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    9.0  TR=    9.2  BL=   44.0  BR=   31.0 px
+    Write坐标: TL=(510.0,0.0)  TR=(3372.0,499.0)  BL=(0.0,1127.0)  BR=(3838.0,1633.0)
+    Read坐标:  TL=(501.0,0.0)  TR=(3381.0,497.0)  BL=(0.0,1171.0)  BR=(3838.0,1664.0)
+
+  Yaw=    10  Pitch=     6  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   20.0 px  EC=1       None
+    偏差: TL=   12.0  TR=   19.7  BL=    0.0  BR=   20.0 px
+    Write坐标: TL=(430.0,0.0)  TR=(3730.0,406.0)  BL=(326.0,2066.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(429.0,12.0)  TR=(3712.0,414.0)  BL=(326.0,2066.0)  BR=(3818.0,2157.0)
+
+  Yaw=    10  Pitch=    23  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  151.7 px  EC=1       None [!]
+    偏差: TL=   62.8  TR=  119.5  BL=    0.0  BR=  151.7 px
+    Write坐标: TL=(391.0,0.0)  TR=(3494.0,518.0)  BL=(0.0,1655.0)  BR=(3838.0,2014.0)
+    Read坐标:  TL=(376.0,61.0)  TR=(3380.0,554.0)  BL=(0.0,1655.0)  BR=(3687.0,1999.0)
+
+  Yaw=    10  Pitch=    24  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  163.8 px  EC=1       None [!]
+    偏差: TL=   66.2  TR=  127.8  BL=    0.0  BR=  163.8 px
+    Write坐标: TL=(403.0,0.0)  TR=(3483.0,521.0)  BL=(0.0,1615.0)  BR=(3838.0,1991.0)
+    Read坐标:  TL=(386.0,64.0)  TR=(3361.0,559.0)  BL=(0.0,1615.0)  BR=(3675.0,1975.0)
+
+  Yaw=    10  Pitch=    32  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   44.0 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=   10.0  TR=    9.2  BL=   44.0  BR=   28.0 px
+    Write坐标: TL=(487.0,0.0)  TR=(3401.0,542.0)  BL=(0.0,1274.0)  BR=(3838.0,1781.0)
+    Read坐标:  TL=(477.0,0.0)  TR=(3410.0,540.0)  BL=(0.0,1318.0)  BR=(3838.0,1809.0)
+
+  Yaw=    10  Pitch=    33  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   89.0 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   19.0  TR=   18.2  BL=   89.0  BR=   57.0 px
+    Write坐标: TL=(496.0,0.0)  TR=(3392.0,543.0)  BL=(0.0,1229.0)  BR=(3838.0,1752.0)
+    Read坐标:  TL=(477.0,0.0)  TR=(3410.0,540.0)  BL=(0.0,1318.0)  BR=(3838.0,1809.0)
+
+  Yaw=    10  Pitch=    34  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=  133.0 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   28.0  TR=   27.5  BL=  133.0  BR=   86.0 px
+    Write坐标: TL=(505.0,0.0)  TR=(3383.0,545.0)  BL=(0.0,1185.0)  BR=(3838.0,1723.0)
+    Read坐标:  TL=(477.0,0.0)  TR=(3410.0,540.0)  BL=(0.0,1318.0)  BR=(3838.0,1809.0)
+
+  Yaw=    11  Pitch=     6  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   20.6 px  EC=1       None
+    偏差: TL=   13.0  TR=   20.6  BL=    0.0  BR=   20.0 px
+    Write坐标: TL=(487.0,0.0)  TR=(3731.0,436.0)  BL=(387.0,2058.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(486.0,13.0)  TR=(3712.0,444.0)  BL=(387.0,2058.0)  BR=(3818.0,2157.0)
+
+  Yaw=    11  Pitch=    22  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  149.8 px  EC=1       None [!]
+    偏差: TL=   65.7  TR=  119.9  BL=    1.0  BR=  149.8 px
+    Write坐标: TL=(383.0,0.0)  TR=(3507.0,559.0)  BL=(0.0,1718.0)  BR=(3838.0,2085.0)
+    Read坐标:  TL=(368.0,64.0)  TR=(3393.0,596.0)  BL=(0.0,1717.0)  BR=(3689.0,2070.0)
+
+  Yaw=    11  Pitch=    32  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   45.0 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    9.0  TR=   10.2  BL=   45.0  BR=   27.0 px
+    Write坐标: TL=(491.0,0.0)  TR=(3402.0,589.0)  BL=(0.0,1289.0)  BR=(3838.0,1838.0)
+    Read坐标:  TL=(482.0,0.0)  TR=(3412.0,587.0)  BL=(0.0,1334.0)  BR=(3838.0,1865.0)
+
+  Yaw=    12  Pitch=     7  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   24.2 px  EC=1       None
+    偏差: TL=   16.0  TR=   24.2  BL=    1.0  BR=   24.0 px
+    Write坐标: TL=(539.0,0.0)  TR=(3719.0,473.0)  BL=(429.0,2035.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(538.0,16.0)  TR=(3697.0,483.0)  BL=(428.0,2035.0)  BR=(3814.0,2157.0)
+
+  Yaw=    12  Pitch=    20  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  132.6 px  EC=1       None [!]
+    偏差: TL=   63.3  TR=  108.8  BL=    0.0  BR=  132.6 px
+    Write坐标: TL=(386.0,0.0)  TR=(3533.0,591.0)  BL=(33.0,1806.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(373.0,62.0)  TR=(3430.0,626.0)  BL=(33.0,1806.0)  BR=(3706.0,2145.0)
+
+  Yaw=    12  Pitch=    21  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  146.8 px  EC=1       None [!]
+    偏差: TL=   68.7  TR=  118.0  BL=    1.0  BR=  146.8 px
+    Write坐标: TL=(374.0,0.0)  TR=(3519.0,599.0)  BL=(0.0,1782.0)  BR=(3838.0,2153.0)
+    Read坐标:  TL=(359.0,67.0)  TR=(3407.0,636.0)  BL=(0.0,1781.0)  BR=(3692.0,2138.0)
+
+  Yaw=    12  Pitch=    33  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   45.0 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    9.0  TR=    9.2  BL=   45.0  BR=   27.0 px
+    Write坐标: TL=(505.0,0.0)  TR=(3394.0,638.0)  BL=(0.0,1260.0)  BR=(3838.0,1867.0)
+    Read坐标:  TL=(496.0,0.0)  TR=(3403.0,636.0)  BL=(0.0,1305.0)  BR=(3838.0,1894.0)
+
+  Yaw=    13  Pitch=     7  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   24.2 px  EC=1       None
+    偏差: TL=   16.0  TR=   24.2  BL=    1.0  BR=   24.0 px
+    Write坐标: TL=(599.0,0.0)  TR=(3720.0,501.0)  BL=(494.0,2026.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(598.0,16.0)  TR=(3698.0,511.0)  BL=(494.0,2025.0)  BR=(3814.0,2157.0)
+
+  Yaw=    13  Pitch=    19  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  116.6 px  EC=1       None [!]
+    偏差: TL=   59.0  TR=   97.4  BL=    1.0  BR=  116.6 px
+    Write坐标: TL=(479.0,0.0)  TR=(3553.0,614.0)  BL=(170.0,1805.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(468.0,58.0)  TR=(3461.0,646.0)  BL=(170.0,1804.0)  BR=(3722.0,2146.0)
+
+  Yaw=    13  Pitch=    33  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   46.0 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    9.0  TR=    9.5  BL=   46.0  BR=   26.0 px
+    Write坐标: TL=(510.0,0.0)  TR=(3395.0,686.0)  BL=(0.0,1276.0)  BR=(3838.0,1925.0)
+    Read坐标:  TL=(501.0,0.0)  TR=(3404.0,683.0)  BL=(0.0,1322.0)  BR=(3838.0,1951.0)
+
+  Yaw=    14  Pitch=     7  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   24.2 px  EC=1       None
+    偏差: TL=   16.0  TR=   24.2  BL=    1.4  BR=   24.1 px
+    Write坐标: TL=(658.0,0.0)  TR=(3722.0,528.0)  BL=(558.0,2017.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(657.0,16.0)  TR=(3700.0,538.0)  BL=(557.0,2016.0)  BR=(3814.0,2156.0)
+
+  Yaw=    14  Pitch=    17  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   91.4 px  EC=1       None [!]
+    偏差: TL=   50.5  TR=   78.8  BL=    1.4  BR=   91.4 px
+    Write坐标: TL=(582.0,0.0)  TR=(3585.0,625.0)  BL=(330.0,1826.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(575.0,50.0)  TR=(3511.0,652.0)  BL=(329.0,1825.0)  BR=(3747.0,2149.0)
+
+  Yaw=    14  Pitch=    18  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  102.6 px  EC=1       None [!]
+    偏差: TL=   54.7  TR=   86.6  BL=    1.0  BR=  102.6 px
+    Write坐标: TL=(568.0,0.0)  TR=(3572.0,635.0)  BL=(298.0,1805.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(559.0,54.0)  TR=(3490.0,663.0)  BL=(297.0,1805.0)  BR=(3736.0,2147.0)
+
+  Yaw=    14  Pitch=    33  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   47.0 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    9.0  TR=    9.2  BL=   47.0  BR=   26.0 px
+    Write坐标: TL=(515.0,0.0)  TR=(3396.0,732.0)  BL=(0.0,1293.0)  BR=(3838.0,1982.0)
+    Read坐标:  TL=(506.0,0.0)  TR=(3405.0,730.0)  BL=(0.0,1340.0)  BR=(3838.0,2008.0)
+
+  Yaw=    15  Pitch=     8  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   28.1 px  EC=1       None
+    偏差: TL=   19.1  TR=   27.3  BL=    1.0  BR=   28.1 px
+    Write坐标: TL=(716.0,0.0)  TR=(3710.0,564.0)  BL=(609.0,1989.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(714.0,19.0)  TR=(3685.0,575.0)  BL=(609.0,1988.0)  BR=(3810.0,2156.0)
+
+  Yaw=    15  Pitch=    16  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   79.4 px  EC=1       None [!]
+    偏差: TL=   46.4  TR=   69.3  BL=    0.0  BR=   79.4 px
+    Write坐标: TL=(664.0,0.0)  TR=(3603.0,644.0)  BL=(445.0,1829.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(658.0,46.0)  TR=(3538.0,668.0)  BL=(445.0,1829.0)  BR=(3759.0,2150.0)
+
+  Yaw=    15  Pitch=    34  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   48.0 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    9.0  TR=   10.4  BL=   48.0  BR=   25.0 px
+    Write坐标: TL=(529.0,0.0)  TR=(3387.0,782.0)  BL=(0.0,1263.0)  BR=(3838.0,2015.0)
+    Read坐标:  TL=(520.0,0.0)  TR=(3397.0,779.0)  BL=(0.0,1311.0)  BR=(3838.0,2040.0)
+
+  Yaw=    16  Pitch=     8  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   27.3 px  EC=1       None
+    偏差: TL=   19.1  TR=   27.3  BL=    1.0  BR=   27.1 px
+    Write坐标: TL=(778.0,0.0)  TR=(3712.0,589.0)  BL=(677.0,1980.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(776.0,19.0)  TR=(3687.0,600.0)  BL=(677.0,1979.0)  BR=(3811.0,2156.0)
+
+  Yaw=    16  Pitch=    15  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   69.4 px  EC=1       None [!]
+    偏差: TL=   42.3  TR=   60.7  BL=    0.0  BR=   69.4 px
+    Write坐标: TL=(743.0,0.0)  TR=(3620.0,661.0)  BL=(552.0,1834.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(738.0,42.0)  TR=(3563.0,682.0)  BL=(552.0,1834.0)  BR=(3769.0,2151.0)
+
+  Yaw=    16  Pitch=    34  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   49.0 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    9.0  TR=    9.5  BL=   49.0  BR=   25.0 px
+    Write坐标: TL=(535.0,0.0)  TR=(3388.0,828.0)  BL=(0.0,1281.0)  BR=(3838.0,2073.0)
+    Read坐标:  TL=(526.0,0.0)  TR=(3397.0,825.0)  BL=(0.0,1330.0)  BR=(3838.0,2098.0)
+
+  Yaw=    17  Pitch=     9  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   31.1 px  EC=1       None
+    偏差: TL=   22.1  TR=   29.5  BL=    0.0  BR=   31.1 px
+    Write坐标: TL=(838.0,0.0)  TR=(3701.0,623.0)  BL=(732.0,1949.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(836.0,22.0)  TR=(3674.0,635.0)  BL=(732.0,1949.0)  BR=(3807.0,2155.0)
+
+  Yaw=    17  Pitch=    13  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   52.2 px  EC=1       None [!]
+    偏差: TL=   34.1  TR=   48.1  BL=    1.0  BR=   52.2 px
+    Write坐标: TL=(825.0,0.0)  TR=(3650.0,666.0)  BL=(672.0,1863.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(822.0,34.0)  TR=(3605.0,683.0)  BL=(672.0,1862.0)  BR=(3786.0,2153.0)
+
+  Yaw=    17  Pitch=    14  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   59.3 px  EC=1       None [!]
+    偏差: TL=   38.2  TR=   53.5  BL=    0.0  BR=   59.3 px
+    Write坐标: TL=(819.0,0.0)  TR=(3637.0,676.0)  BL=(654.0,1840.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(815.0,38.0)  TR=(3587.0,695.0)  BL=(654.0,1840.0)  BR=(3779.0,2152.0)
+
+  Yaw=    17  Pitch=    33  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   57.7 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   22.0  TR=   15.6  BL=   57.7  BR=    2.0 px
+    Write坐标: TL=(531.0,0.0)  TR=(3398.0,872.0)  BL=(0.0,1350.0)  BR=(3838.0,2156.0)
+    Read坐标:  TL=(553.0,0.0)  TR=(3410.0,862.0)  BL=(48.0,1382.0)  BR=(3838.0,2158.0)
+
+  Yaw=    18  Pitch=     9  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   30.1 px  EC=1       None
+    偏差: TL=   22.1  TR=   28.2  BL=    0.0  BR=   30.1 px
+    Write坐标: TL=(901.0,0.0)  TR=(3703.0,647.0)  BL=(802.0,1939.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(899.0,22.0)  TR=(3677.0,658.0)  BL=(802.0,1939.0)  BR=(3808.0,2155.0)
+
+  Yaw=    18  Pitch=    12  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   44.3 px  EC=1       None
+    偏差: TL=   31.1  TR=   40.9  BL=    1.4  BR=   44.3 px
+    Write坐标: TL=(895.0,0.0)  TR=(3665.0,680.0)  BL=(764.0,1872.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(892.0,31.0)  TR=(3627.0,695.0)  BL=(763.0,1871.0)  BR=(3794.0,2153.0)
+
+  Yaw=    18  Pitch=    30  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   51.9 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   20.0  TR=   17.0  BL=   51.9  BR=    0.0 px
+    Write坐标: TL=(682.0,0.0)  TR=(3444.0,868.0)  BL=(268.0,1415.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(702.0,0.0)  TR=(3457.0,857.0)  BL=(311.0,1444.0)  BR=(3838.0,2158.0)
+
+  Yaw=    18  Pitch=    31  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=  104.6 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   40.0  TR=   32.6  BL=  104.6  BR=    0.0 px
+    Write坐标: TL=(662.0,0.0)  TR=(3432.0,878.0)  BL=(224.0,1386.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(702.0,0.0)  TR=(3457.0,857.0)  BL=(311.0,1444.0)  BR=(3838.0,2158.0)
+
+  Yaw=    18  Pitch=    32  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=  160.3 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   62.0  TR=   49.7  BL=  160.3  BR=    0.0 px
+    Write坐标: TL=(640.0,0.0)  TR=(3419.0,889.0)  BL=(177.0,1356.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(702.0,0.0)  TR=(3457.0,857.0)  BL=(311.0,1444.0)  BR=(3838.0,2158.0)
+
+  Yaw=    19  Pitch=    10  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   33.1 px  EC=1       None
+    偏差: TL=   24.1  TR=   31.4  BL=    0.0  BR=   33.1 px
+    Write坐标: TL=(964.0,0.0)  TR=(3693.0,681.0)  BL=(862.0,1906.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(962.0,24.0)  TR=(3664.0,693.0)  BL=(862.0,1906.0)  BR=(3805.0,2155.0)
+
+  Yaw=    19  Pitch=    12  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   43.3 px  EC=1       None
+    偏差: TL=   30.1  TR=   39.6  BL=    0.0  BR=   43.3 px
+    Write坐标: TL=(961.0,0.0)  TR=(3668.0,703.0)  BL=(839.0,1859.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(958.0,30.0)  TR=(3631.0,717.0)  BL=(839.0,1859.0)  BR=(3795.0,2153.0)
+
+  Yaw=    19  Pitch=    28  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   45.5 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=   16.0  TR=   15.6  BL=   45.5  BR=    0.0 px
+    Write坐标: TL=(802.0,0.0)  TR=(3476.0,872.0)  BL=(463.0,1449.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(818.0,0.0)  TR=(3488.0,862.0)  BL=(498.0,1478.0)  BR=(3838.0,2158.0)
+
+  Yaw=    19  Pitch=    29  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   93.2 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   34.0  TR=   31.9  BL=   93.2  BR=    0.0 px
+    Write坐标: TL=(784.0,0.0)  TR=(3464.0,883.0)  BL=(425.0,1420.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(818.0,0.0)  TR=(3488.0,862.0)  BL=(498.0,1478.0)  BR=(3838.0,2158.0)
+
+  Yaw=    20  Pitch=    11  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=   36.2 px  EC=1       None
+    偏差: TL=   27.1  TR=   33.2  BL=    0.0  BR=   36.2 px
+    Write坐标: TL=(1028.0,0.0)  TR=(3683.0,714.0)  BL=(924.0,1871.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1026.0,27.0)  TR=(3652.0,726.0)  BL=(924.0,1871.0)  BR=(3802.0,2154.0)
+
+  Yaw=    20  Pitch=    25  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   38.2 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=   13.0  TR=   15.6  BL=   38.2  BR=    0.0 px
+    Write坐标: TL=(926.0,0.0)  TR=(3518.0,865.0)  BL=(664.0,1512.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(939.0,0.0)  TR=(3529.0,854.0)  BL=(691.0,1539.0)  BR=(3838.0,2158.0)
+
+  Yaw=    20  Pitch=    26  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   78.5 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   27.0  TR=   31.8  BL=   78.5  BR=    0.0 px
+    Write坐标: TL=(912.0,0.0)  TR=(3506.0,876.0)  BL=(635.0,1484.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(939.0,0.0)  TR=(3529.0,854.0)  BL=(691.0,1539.0)  BR=(3838.0,2158.0)
+
+  Yaw=    20  Pitch=    27  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=  120.2 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   42.0  TR=   46.7  BL=  120.2  BR=    0.0 px
+    Write坐标: TL=(897.0,0.0)  TR=(3495.0,886.0)  BL=(604.0,1456.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(939.0,0.0)  TR=(3529.0,854.0)  BL=(691.0,1539.0)  BR=(3838.0,2158.0)
+
+  Yaw=    21  Pitch=    23  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   35.6 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=   10.0  TR=   15.6  BL=   35.6  BR=    0.0 px
+    Write坐标: TL=(1025.0,0.0)  TR=(3546.0,867.0)  BL=(812.0,1547.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1035.0,0.0)  TR=(3557.0,856.0)  BL=(834.0,1575.0)  BR=(3838.0,2158.0)
+
+  Yaw=    21  Pitch=    24  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   71.7 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   22.0  TR=   31.1  BL=   71.7  BR=    0.0 px
+    Write坐标: TL=(1013.0,0.0)  TR=(3535.0,878.0)  BL=(788.0,1520.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1035.0,0.0)  TR=(3557.0,856.0)  BL=(834.0,1575.0)  BR=(3838.0,2158.0)
+
+  Yaw=    22  Pitch=    21  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   32.4 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    8.0  TR=   15.6  BL=   32.4  BR=    0.0 px
+    Write坐标: TL=(1116.0,0.0)  TR=(3573.0,867.0)  BL=(944.0,1584.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1124.0,0.0)  TR=(3584.0,856.0)  BL=(962.0,1611.0)  BR=(3838.0,2158.0)
+
+  Yaw=    22  Pitch=    22  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   66.3 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   17.0  TR=   31.1  BL=   66.3  BR=    0.0 px
+    Write坐标: TL=(1107.0,0.0)  TR=(3562.0,878.0)  BL=(925.0,1556.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1124.0,0.0)  TR=(3584.0,856.0)  BL=(962.0,1611.0)  BR=(3838.0,2158.0)
+
+  Yaw=    23  Pitch=    19  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   31.3 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    5.0  TR=   15.6  BL=   31.3  BR=    0.0 px
+    Write坐标: TL=(1201.0,0.0)  TR=(3599.0,866.0)  BL=(1063.0,1622.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1206.0,0.0)  TR=(3610.0,855.0)  BL=(1077.0,1650.0)  BR=(3838.0,2158.0)
+
+  Yaw=    23  Pitch=    20  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   62.2 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   12.0  TR=   30.4  BL=   62.2  BR=    0.0 px
+    Write坐标: TL=(1194.0,0.0)  TR=(3589.0,877.0)  BL=(1048.0,1595.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1206.0,0.0)  TR=(3610.0,855.0)  BL=(1077.0,1650.0)  BR=(3838.0,2158.0)
+
+  Yaw=    24  Pitch=    18  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   30.1 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    4.0  TR=   15.6  BL=   30.1  BR=    0.0 px
+    Write坐标: TL=(1275.0,0.0)  TR=(3614.0,875.0)  BL=(1159.0,1635.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1279.0,0.0)  TR=(3625.0,864.0)  BL=(1170.0,1663.0)  BR=(3838.0,2158.0)
+
+  Yaw=    25  Pitch=    16  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   29.1 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    2.0  TR=   14.9  BL=   29.1  BR=    0.0 px
+    Write坐标: TL=(1349.0,0.0)  TR=(3639.0,872.0)  BL=(1259.0,1677.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1351.0,0.0)  TR=(3649.0,861.0)  BL=(1267.0,1705.0)  BR=(3838.0,2158.0)
+
+  Yaw=    25  Pitch=    17  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   58.5 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=    5.0  TR=   30.4  BL=   58.5  BR=    0.0 px
+    Write坐标: TL=(1346.0,0.0)  TR=(3628.0,883.0)  BL=(1250.0,1649.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1351.0,0.0)  TR=(3649.0,861.0)  BL=(1267.0,1705.0)  BR=(3838.0,2158.0)
+
+  Yaw=    26  Pitch=    14  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   29.4 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    0.0  TR=   14.9  BL=   29.4  BR=    0.0 px
+    Write坐标: TL=(1418.0,0.0)  TR=(3663.0,867.0)  BL=(1349.0,1721.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1418.0,0.0)  TR=(3673.0,856.0)  BL=(1354.0,1750.0)  BR=(3838.0,2158.0)
+
+  Yaw=    26  Pitch=    15  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   58.9 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=    1.0  TR=   31.1  BL=   58.9  BR=    0.0 px
+    Write坐标: TL=(1417.0,0.0)  TR=(3652.0,879.0)  BL=(1344.0,1692.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1418.0,0.0)  TR=(3673.0,856.0)  BL=(1354.0,1750.0)  BR=(3838.0,2158.0)
+
+  Yaw=    27  Pitch=    13  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   30.1 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    1.0  TR=   15.6  BL=   30.1  BR=    0.0 px
+    Write坐标: TL=(1483.0,0.0)  TR=(3676.0,873.0)  BL=(1428.0,1738.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1482.0,0.0)  TR=(3686.0,861.0)  BL=(1431.0,1768.0)  BR=(3838.0,2158.0)
+
+  Yaw=    28  Pitch=     9  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   31.1 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    5.0  TR=   16.3  BL=   31.1  BR=    0.0 px
+    Write坐标: TL=(1537.0,0.0)  TR=(3721.0,841.0)  BL=(1503.0,1847.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1532.0,0.0)  TR=(3732.0,829.0)  BL=(1500.0,1878.0)  BR=(3838.0,2158.0)
+
+  Yaw=    28  Pitch=    10  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   61.1 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=    9.0  TR=   33.3  BL=   61.1  BR=    0.0 px
+    Write坐标: TL=(1541.0,0.0)  TR=(3710.0,854.0)  BL=(1504.0,1817.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1532.0,0.0)  TR=(3732.0,829.0)  BL=(1500.0,1878.0)  BR=(3838.0,2158.0)
+
+  Yaw=    28  Pitch=    11  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   91.1 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   13.0  TR=   49.6  BL=   91.1  BR=    0.0 px
+    Write坐标: TL=(1545.0,0.0)  TR=(3699.0,866.0)  BL=(1504.0,1787.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1532.0,0.0)  TR=(3732.0,829.0)  BL=(1500.0,1878.0)  BR=(3838.0,2158.0)
+
+  Yaw=    28  Pitch=    12  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=  121.0 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   15.0  TR=   65.9  BL=  121.0  BR=    0.0 px
+    Write坐标: TL=(1547.0,0.0)  TR=(3688.0,878.0)  BL=(1503.0,1757.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1532.0,0.0)  TR=(3732.0,829.0)  BL=(1500.0,1878.0)  BR=(3838.0,2158.0)
+
+  Yaw=    29  Pitch=     2  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   33.8 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=   14.0  TR=   18.4  BL=   33.8  BR=    0.0 px
+    Write坐标: TL=(1541.0,0.0)  TR=(3802.0,765.0)  BL=(1531.0,2060.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1527.0,0.0)  TR=(3814.0,751.0)  BL=(1520.0,2092.0)  BR=(3838.0,2158.0)
+
+  Yaw=    29  Pitch=     3  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=   67.1 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   26.0  TR=   36.9  BL=   67.1  BR=    0.0 px
+    Write坐标: TL=(1553.0,0.0)  TR=(3790.0,779.0)  BL=(1540.0,2028.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1527.0,0.0)  TR=(3814.0,751.0)  BL=(1520.0,2092.0)  BR=(3838.0,2158.0)
+
+  Yaw=    29  Pitch=     4  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=  100.0 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   37.0  TR=   54.6  BL=  100.0  BR=    0.0 px
+    Write坐标: TL=(1564.0,0.0)  TR=(3778.0,792.0)  BL=(1548.0,1996.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1527.0,0.0)  TR=(3814.0,751.0)  BL=(1520.0,2092.0)  BR=(3838.0,2158.0)
+
+  Yaw=    29  Pitch=     5  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=  132.7 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   47.0  TR=   73.0  BL=  132.7  BR=    0.0 px
+    Write坐标: TL=(1574.0,0.0)  TR=(3766.0,806.0)  BL=(1555.0,1964.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1527.0,0.0)  TR=(3814.0,751.0)  BL=(1520.0,2092.0)  BR=(3838.0,2158.0)
+
+  Yaw=    29  Pitch=     6  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=  165.2 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   55.0  TR=   90.0  BL=  165.2  BR=    0.0 px
+    Write坐标: TL=(1582.0,0.0)  TR=(3755.0,819.0)  BL=(1561.0,1932.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1527.0,0.0)  TR=(3814.0,751.0)  BL=(1520.0,2092.0)  BR=(3838.0,2158.0)
+
+  Yaw=    29  Pitch=     7  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=  196.5 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   63.0  TR=  107.1  BL=  196.5  BR=    0.0 px
+    Write坐标: TL=(1590.0,0.0)  TR=(3744.0,832.0)  BL=(1566.0,1901.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1527.0,0.0)  TR=(3814.0,751.0)  BL=(1520.0,2092.0)  BR=(3838.0,2158.0)
+
+  Yaw=    29  Pitch=     8  问题角点=TR    (EC)  偏差最大角=BL      MaxDist=  227.6 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   69.0  TR=  124.1  BL=  227.6  BR=    0.0 px
+    Write坐标: TL=(1596.0,0.0)  TR=(3733.0,845.0)  BL=(1570.0,1870.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1527.0,0.0)  TR=(3814.0,751.0)  BL=(1520.0,2092.0)  BR=(3838.0,2158.0)
+
+  Yaw=    30  Pitch=    -4  问题角点=TR    (EC)  偏差最大角=BR      MaxDist=   25.1 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    4.0  TR=   23.0  BL=    1.0  BR=   25.1 px
+    Write坐标: TL=(1550.0,0.0)  TR=(3838.0,648.0)  BL=(1564.0,2158.0)  BR=(3788.0,2071.0)
+    Read坐标:  TL=(1546.0,0.0)  TR=(3838.0,625.0)  BL=(1563.0,2158.0)  BR=(3776.0,2049.0)
+
+  Yaw=    30  Pitch=    -3  问题角点=TR    (EC)  偏差最大角=BR      MaxDist=   50.1 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=    8.0  TR=   45.0  BL=    1.0  BR=   50.1 px
+    Write坐标: TL=(1554.0,0.0)  TR=(3838.0,670.0)  BL=(1564.0,2158.0)  BR=(3800.0,2093.0)
+    Read坐标:  TL=(1546.0,0.0)  TR=(3838.0,625.0)  BL=(1563.0,2158.0)  BR=(3776.0,2049.0)
+
+  Yaw=    30  Pitch=    -2  问题角点=TR    (EC)  偏差最大角=BR      MaxDist=   75.7 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   10.0  TR=   68.0  BL=    0.0  BR=   75.7 px
+    Write坐标: TL=(1556.0,0.0)  TR=(3838.0,693.0)  BL=(1563.0,2158.0)  BR=(3813.0,2115.0)
+    Read坐标:  TL=(1546.0,0.0)  TR=(3838.0,625.0)  BL=(1563.0,2158.0)  BR=(3776.0,2049.0)
+
+  Yaw=    30  Pitch=    -1  问题角点=TR    (EC)  偏差最大角=BR      MaxDist=  100.7 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   12.0  TR=   91.0  BL=    2.0  BR=  100.7 px
+    Write坐标: TL=(1558.0,0.0)  TR=(3838.0,716.0)  BL=(1561.0,2158.0)  BR=(3825.0,2137.0)
+    Read坐标:  TL=(1546.0,0.0)  TR=(3838.0,625.0)  BL=(1563.0,2158.0)  BR=(3776.0,2049.0)
+
+  Yaw=    30  Pitch=     0  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  126.6 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   30.0  TR=  126.6  BL=   35.4  BR=  125.4 px
+    Write坐标: TL=(1576.0,0.0)  TR=(3826.0,751.0)  BL=(1573.0,2124.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1546.0,0.0)  TR=(3838.0,625.0)  BL=(1563.0,2158.0)  BR=(3776.0,2049.0)
+
+  Yaw=    30  Pitch=     1  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  143.0 px  EC=3518    LcwKeystoneCornerTopRightInput [!]
+    偏差: TL=   45.0  TR=  143.0  BL=   71.5  BR=  125.4 px
+    Write坐标: TL=(1591.0,0.0)  TR=(3814.0,766.0)  BL=(1585.0,2090.0)  BR=(3838.0,2158.0)
+    Read坐标:  TL=(1546.0,0.0)  TR=(3838.0,625.0)  BL=(1563.0,2158.0)  BR=(3776.0,2049.0)
+
+  Yaw=    31  Pitch=    -4  问题角点=TR    (EC)  偏差最大角=BR      MaxDist=   25.1 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    4.0  TR=   23.0  BL=    1.0  BR=   25.1 px
+    Write坐标: TL=(1614.0,0.0)  TR=(3838.0,660.0)  BL=(1625.0,2158.0)  BR=(3789.0,2069.0)
+    Read坐标:  TL=(1610.0,0.0)  TR=(3838.0,637.0)  BL=(1624.0,2158.0)  BR=(3777.0,2047.0)
+
+  Yaw=    32  Pitch=    -5  问题角点=TR    (EC)  偏差最大角=BR      MaxDist=   24.6 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    6.0  TR=   23.0  BL=    3.0  BR=   24.6 px
+    Write坐标: TL=(1675.0,0.0)  TR=(3838.0,648.0)  BL=(1686.0,2158.0)  BR=(3777.0,2045.0)
+    Read坐标:  TL=(1669.0,0.0)  TR=(3838.0,625.0)  BL=(1683.0,2158.0)  BR=(3766.0,2023.0)
+
+  Yaw=    33  Pitch=   -40  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  720.9 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  514.0  TR=  625.0  BL=  124.0  BR=  720.9 px
+    Write坐标: TL=(1428.0,454.0)  TR=(3838.0,0.0)  BL=(1559.0,2158.0)  BR=(3438.0,1381.0)
+    Read坐标:  TL=(1669.0,0.0)  TR=(3838.0,625.0)  BL=(1683.0,2158.0)  BR=(3766.0,2023.0)
+
+  Yaw=    33  Pitch=   -39  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  707.5 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  483.1  TR=  625.0  BL=  132.0  BR=  707.5 px
+    Write坐标: TL=(1420.0,414.0)  TR=(3838.0,0.0)  BL=(1551.0,2158.0)  BR=(3444.0,1393.0)
+    Read坐标:  TL=(1669.0,0.0)  TR=(3838.0,625.0)  BL=(1683.0,2158.0)  BR=(3766.0,2023.0)
+
+  Yaw=    33  Pitch=   -38  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  693.6 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  454.1  TR=  625.0  BL=  141.0  BR=  693.6 px
+    Write坐标: TL=(1410.0,373.0)  TR=(3838.0,0.0)  BL=(1542.0,2158.0)  BR=(3451.0,1405.0)
+    Read坐标:  TL=(1669.0,0.0)  TR=(3838.0,625.0)  BL=(1683.0,2158.0)  BR=(3766.0,2023.0)
+
+  Yaw=    33  Pitch=    -5  问题角点=TR    (EC)  偏差最大角=BR      MaxDist=   25.1 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    5.0  TR=   24.0  BL=    4.0  BR=   25.1 px
+    Write坐标: TL=(1740.0,0.0)  TR=(3838.0,659.0)  BL=(1748.0,2158.0)  BR=(3778.0,2043.0)
+    Read坐标:  TL=(1735.0,0.0)  TR=(3838.0,635.0)  BL=(1744.0,2158.0)  BR=(3766.0,2021.0)
+
+  Yaw=    34  Pitch=   -37  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  687.8 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  429.7  TR=  635.0  BL=  158.0  BR=  687.8 px
+    Write坐标: TL=(1471.0,339.0)  TR=(3838.0,0.0)  BL=(1586.0,2158.0)  BR=(3460.0,1405.0)
+    Read坐标:  TL=(1735.0,0.0)  TR=(3838.0,635.0)  BL=(1744.0,2158.0)  BR=(3766.0,2021.0)
+
+  Yaw=    34  Pitch=   -36  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  673.1 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  404.7  TR=  635.0  BL=  168.0  BR=  673.1 px
+    Write坐标: TL=(1459.0,296.0)  TR=(3838.0,0.0)  BL=(1576.0,2158.0)  BR=(3467.0,1418.0)
+    Read坐标:  TL=(1735.0,0.0)  TR=(3838.0,635.0)  BL=(1744.0,2158.0)  BR=(3766.0,2021.0)
+
+  Yaw=    34  Pitch=   -35  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  659.6 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  384.2  TR=  635.0  BL=  180.0  BR=  659.6 px
+    Write坐标: TL=(1445.0,252.0)  TR=(3838.0,0.0)  BL=(1564.0,2158.0)  BR=(3473.0,1430.0)
+    Read坐标:  TL=(1735.0,0.0)  TR=(3838.0,635.0)  BL=(1744.0,2158.0)  BR=(3766.0,2021.0)
+
+  Yaw=    34  Pitch=   -34  问题角点=BR    (EC)  偏差最大角=BR      MaxDist=  645.3 px  EC=3520    LcwKeystoneCornerBottomRightInput [!]
+    偏差: TL=  368.6  TR=  635.0  BL=  192.0  BR=  645.3 px
+    Write坐标: TL=(1430.0,207.0)  TR=(3838.0,0.0)  BL=(1552.0,2158.0)  BR=(3479.0,1443.0)
+    Read坐标:  TL=(1735.0,0.0)  TR=(3838.0,635.0)  BL=(1744.0,2158.0)  BR=(3766.0,2021.0)
+
+  Yaw=    34  Pitch=   -33  问题角点=BR    (EC)  偏差最大角=TR      MaxDist=  635.0 px  EC=3520    LcwKeystoneCornerBottomRightInput [!]
+    偏差: TL=  360.0  TR=  635.0  BL=  206.0  BR=  630.6 px
+    Write坐标: TL=(1413.0,161.0)  TR=(3838.0,0.0)  BL=(1538.0,2158.0)  BR=(3486.0,1456.0)
+    Read坐标:  TL=(1735.0,0.0)  TR=(3838.0,635.0)  BL=(1744.0,2158.0)  BR=(3766.0,2021.0)
+
+  Yaw=    34  Pitch=    -5  问题角点=TR    (EC)  偏差最大角=BR      MaxDist=   25.5 px  EC=3518    LcwKeystoneCornerTopRightInput
+    偏差: TL=    5.0  TR=   24.0  BL=    4.0  BR=   25.5 px
+    Write坐标: TL=(1806.0,0.0)  TR=(3838.0,670.0)  BL=(1811.0,2158.0)  BR=(3778.0,2041.0)
+    Read坐标:  TL=(1801.0,0.0)  TR=(3838.0,646.0)  BL=(1807.0,2158.0)  BR=(3767.0,2018.0)
+
+  Yaw=    35  Pitch=   -32  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  646.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  353.9  TR=  646.0  BL=  230.0  BR=  622.6 px
+    Write坐标: TL=(1467.0,117.0)  TR=(3838.0,0.0)  BL=(1577.0,2158.0)  BR=(3495.0,1458.0)
+    Read坐标:  TL=(1801.0,0.0)  TR=(3838.0,646.0)  BL=(1807.0,2158.0)  BR=(3767.0,2018.0)
+
+  Yaw=    35  Pitch=   -31  问题角点=BR    (EC)  偏差最大角=TR      MaxDist=  646.0 px  EC=3520    LcwKeystoneCornerBottomRightInput [!]
+    偏差: TL=  360.3  TR=  646.0  BL=  246.0  BR=  606.9 px
+    Write坐标: TL=(1447.0,67.0)  TR=(3838.0,0.0)  BL=(1561.0,2158.0)  BR=(3502.0,1472.0)
+    Read坐标:  TL=(1801.0,0.0)  TR=(3838.0,646.0)  BL=(1807.0,2158.0)  BR=(3767.0,2018.0)
+
+  Yaw=    35  Pitch=   -30  问题角点=BR    (EC)  偏差最大角=TR      MaxDist=  646.0 px  EC=3520    LcwKeystoneCornerBottomRightInput [!]
+    偏差: TL=  375.4  TR=  646.0  BL=  264.0  BR=  591.3 px
+    Write坐标: TL=(1426.0,17.0)  TR=(3838.0,0.0)  BL=(1543.0,2158.0)  BR=(3509.0,1486.0)
+    Read坐标:  TL=(1801.0,0.0)  TR=(3838.0,646.0)  BL=(1807.0,2158.0)  BR=(3767.0,2018.0)
+
+  Yaw=    35  Pitch=   -29  问题角点=BR    (EC)  偏差最大角=TR      MaxDist=  625.0 px  EC=3520    LcwKeystoneCornerBottomRightInput [!]
+    偏差: TL=  359.0  TR=  625.0  BL=  254.0  BR=  569.3 px
+    Write坐标: TL=(1442.0,0.0)  TR=(3838.0,21.0)  BL=(1553.0,2158.0)  BR=(3518.0,1506.0)
+    Read坐标:  TL=(1801.0,0.0)  TR=(3838.0,646.0)  BL=(1807.0,2158.0)  BR=(3767.0,2018.0)
+
+  Yaw=    35  Pitch=   -24  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   29.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput
+    偏差: TL=   27.0  TR=   29.0  BL=   19.0  BR=   24.6 px
+    Write坐标: TL=(1592.0,0.0)  TR=(3838.0,175.0)  BL=(1655.0,2158.0)  BR=(3573.0,1617.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -23  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   59.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=   53.0  TR=   59.0  BL=   38.0  BR=   48.8 px
+    Write坐标: TL=(1618.0,0.0)  TR=(3838.0,205.0)  BL=(1674.0,2158.0)  BR=(3583.0,1639.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -22  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   87.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=   77.0  TR=   87.0  BL=   55.0  BR=   73.3 px
+    Write坐标: TL=(1642.0,0.0)  TR=(3838.0,233.0)  BL=(1691.0,2158.0)  BR=(3594.0,1661.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -21  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  116.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  100.0  TR=  116.0  BL=   72.0  BR=   97.0 px
+    Write坐标: TL=(1665.0,0.0)  TR=(3838.0,262.0)  BL=(1708.0,2158.0)  BR=(3605.0,1682.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -20  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  144.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  121.0  TR=  144.0  BL=   88.0  BR=  121.2 px
+    Write坐标: TL=(1686.0,0.0)  TR=(3838.0,290.0)  BL=(1724.0,2158.0)  BR=(3615.0,1704.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -19  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  172.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  142.0  TR=  172.0  BL=  103.0  BR=  145.8 px
+    Write坐标: TL=(1707.0,0.0)  TR=(3838.0,318.0)  BL=(1739.0,2158.0)  BR=(3626.0,1726.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -18  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  199.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  161.0  TR=  199.0  BL=  118.0  BR=  170.4 px
+    Write坐标: TL=(1726.0,0.0)  TR=(3838.0,345.0)  BL=(1754.0,2158.0)  BR=(3637.0,1748.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -17  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  226.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  178.0  TR=  226.0  BL=  131.0  BR=  194.6 px
+    Write坐标: TL=(1743.0,0.0)  TR=(3838.0,372.0)  BL=(1767.0,2158.0)  BR=(3647.0,1770.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -16  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  253.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  195.0  TR=  253.0  BL=  144.0  BR=  219.1 px
+    Write坐标: TL=(1760.0,0.0)  TR=(3838.0,399.0)  BL=(1780.0,2158.0)  BR=(3658.0,1792.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -15  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  280.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  211.0  TR=  280.0  BL=  157.0  BR=  243.7 px
+    Write坐标: TL=(1776.0,0.0)  TR=(3838.0,426.0)  BL=(1793.0,2158.0)  BR=(3669.0,1814.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -14  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  306.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  225.0  TR=  306.0  BL=  168.0  BR=  268.3 px
+    Write坐标: TL=(1790.0,0.0)  TR=(3838.0,452.0)  BL=(1804.0,2158.0)  BR=(3680.0,1836.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -13  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  332.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  238.0  TR=  332.0  BL=  179.0  BR=  292.5 px
+    Write坐标: TL=(1803.0,0.0)  TR=(3838.0,478.0)  BL=(1815.0,2158.0)  BR=(3690.0,1858.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -12  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  358.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  251.0  TR=  358.0  BL=  189.0  BR=  317.1 px
+    Write坐标: TL=(1816.0,0.0)  TR=(3838.0,504.0)  BL=(1825.0,2158.0)  BR=(3701.0,1880.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -11  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  384.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  262.0  TR=  384.0  BL=  198.0  BR=  342.6 px
+    Write坐标: TL=(1827.0,0.0)  TR=(3838.0,530.0)  BL=(1834.0,2158.0)  BR=(3712.0,1903.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=   -10  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  409.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  272.0  TR=  409.0  BL=  207.0  BR=  367.2 px
+    Write坐标: TL=(1837.0,0.0)  TR=(3838.0,555.0)  BL=(1843.0,2158.0)  BR=(3723.0,1925.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=    -9  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  434.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  281.0  TR=  434.0  BL=  215.0  BR=  392.7 px
+    Write坐标: TL=(1846.0,0.0)  TR=(3838.0,580.0)  BL=(1851.0,2158.0)  BR=(3734.0,1948.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=    -8  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  460.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  289.0  TR=  460.0  BL=  222.0  BR=  417.3 px
+    Write坐标: TL=(1854.0,0.0)  TR=(3838.0,606.0)  BL=(1858.0,2158.0)  BR=(3745.0,1970.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=    -7  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  485.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  296.0  TR=  485.0  BL=  228.0  BR=  442.8 px
+    Write坐标: TL=(1861.0,0.0)  TR=(3838.0,631.0)  BL=(1864.0,2158.0)  BR=(3756.0,1993.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    35  Pitch=    -6  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=  510.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=  302.0  TR=  510.0  BL=  233.0  BR=  468.7 px
+    Write坐标: TL=(1867.0,0.0)  TR=(3838.0,656.0)  BL=(1869.0,2158.0)  BR=(3768.0,2016.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    36  Pitch=   -28  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   92.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=   18.0  TR=   92.0  BL=    6.0  BR=   82.6 px
+    Write坐标: TL=(1547.0,0.0)  TR=(3838.0,54.0)  BL=(1630.0,2158.0)  BR=(3532.0,1518.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    36  Pitch=   -27  问题角点=TR    (EC)  偏差最大角=TR      MaxDist=   60.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=   14.0  TR=   60.0  BL=   16.0  BR=   58.5 px
+    Write坐标: TL=(1579.0,0.0)  TR=(3838.0,86.0)  BL=(1652.0,2158.0)  BR=(3542.0,1540.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    36  Pitch=   -26  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   43.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput
+    偏差: TL=   43.0  TR=   29.0  BL=   37.0  BR=   33.2 px
+    Write坐标: TL=(1608.0,0.0)  TR=(3838.0,117.0)  BL=(1673.0,2158.0)  BR=(3553.0,1563.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+  Yaw=    36  Pitch=   -25  问题角点=TL    (EC)  偏差最大角=TL      MaxDist=   71.0 px  EC=3538    LcwKeystoneCornerBottomEdgeInput [!]
+    偏差: TL=   71.0  TR=    2.0  BL=   57.0  BR=   10.2 px
+    Write坐标: TL=(1636.0,0.0)  TR=(3838.0,148.0)  BL=(1693.0,2158.0)  BR=(3564.0,1585.0)
+    Read坐标:  TL=(1565.0,0.0)  TR=(3838.0,146.0)  BL=(1636.0,2158.0)  BR=(3562.0,1595.0)
+
+
+========================================================================
+报告结束

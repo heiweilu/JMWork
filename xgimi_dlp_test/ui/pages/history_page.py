@@ -136,9 +136,11 @@ class HistoryPage(QWidget):
             root_path = os.path.join(
                 self._config_mgr.get_project_root(), 'reports')
         if not root_path or not os.path.isdir(root_path):
-            # 回退到上级 reports 目录搜索
-            code_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            root_path = os.path.join(code_dir, '..', '202602027_dlp_auto', 'reports')
+            # 回退到本工程（xgimi_dlp_test）的 reports 目录
+            # file 在 ui/pages/ 下，上两级到 xgimi_dlp_test/
+            app_root = os.path.normpath(
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+            root_path = os.path.join(app_root, 'reports')
             root_path = os.path.normpath(root_path)
 
         if os.path.isdir(root_path):
