@@ -28,21 +28,20 @@ SVM 模型训练模块
 
 【输入数据格式】
 模块支持两种输入格式：
-  1. 自动解析（CSV 模式）：我们工程输出的角度/梯形测试 CSV/TXT，
-     含列：WriteCoords(坐标), Result(PASS/FAIL), ErrorCode
-  2. 原始 TXT 模式：每行 "x1,x2,...,x8 label"（逗号特征 空格 标签）
+  1. 预处理 TXT 模式（推荐）：先经过 [SVM训练数据预处理]，
+      每行 "x1,x2,...,x8 label"（无表头）
+    2. 多列结果直输模式（兼容）：直接读取角度/梯形测试结果文件，
+      含列：WriteCoords(坐标) 或 Write_TL_x~Write_BR_y、Result、ErrorCode
 
-【ErrorCode 处理策略】
- • ErrorCode = 0：正常执行成功，通常对应 PASS → label=1
- • ErrorCode = 1：触发坐标边界限制（硬件拒绝） → label=0（FAIL）
- • ErrorCode > 1：其他硬件/系统错误（非真实坐标边界反馈）
-   - 默认策略：以 Result 列为准（PASS→1，FAIL→0），忽略具体 ErrorCode 值
-   - 可选策略：过滤掉 ErrorCode>1 的行（"硬件错误行"），减少噪声
-   - 建议：大多数情况下使用默认策略即可，模型精度差异不大
+【CSV 直输时的标签规则】
+ • ErrorCode > 1 → label = 0（失败）
+ • ErrorCode ≤ 1 且 Result == PASS → label = 1
+ • 其余 → label = 0
+ • 严格模式可选：ErrorCode > 0 一律视为失败
 
 【训练流程】
  1. 加载 + 解析数据（自动格式检测）
- 2. 处理 ErrorCode（可选过滤）
+ 2. 按输入模式生成/读取标签
  3. 随机打乱
  4. Z-score 归一化（均值0方差1）
  5. 划分训练集/测试集（可配置比例）
@@ -67,16 +66,17 @@ MODULE_INFO = {
     "category": "svm",
     "description": (
         "将坐标测试数据训练为 SVM 二分类模型，输出可直接部署到 ARM 平台的 .xml 模型文件。\n\n"
-        "【输入】角度/梯形坐标测试 CSV 或 TXT 文件（支持两种格式自动识别）\n"
+        "【推荐流程】先执行 [SVM训练数据预处理]，再将生成的无表头 TXT 导入本模块训练。\n"
+        "【输入】预处理TXT（推荐）或角度/梯形测试原始结果文件（自动识别）\n"
         "【输出】svm_model.xml + norm_params.yaml + 训练报告\n\n"
         "模型可通过 C++ OpenCV 在 MTK9660-ARM 平台加载推理，\n"
         "预测任意坐标是否在投影仪可达范围内（PASS/FAIL 二分类）。"
     ),
     "input_type": "data",
     "input_description": (
-        "角度/梯形测试结果文件（.csv / .tsv / .txt）。\n"
-        "• 多列CSV模式：含 Write_TL_x~Write_BR_y 或 WriteCoords 列 + Result + ErrorCode\n"
-        "• 预处理TXT模式：由 [SVM训练数据预处理] 模块生成，每行 x1,x2,...,x8 label（无表头）"
+        "推荐输入：先经过 [SVM训练数据预处理] 生成的 .txt 文件。\n"
+        "• 预处理TXT模式（推荐）：每行 x1,x2,...,x8 label（无表头）\n"
+        "• 多列CSV模式（兼容直输）：含 Write_TL_x~Write_BR_y 或 WriteCoords 列 + Result + ErrorCode"
     ),
     "output_type": "model",
     "params": [
@@ -84,24 +84,25 @@ MODULE_INFO = {
             "key": "input_format",
             "label": "输入数据格式",
             "type": "choice",
-            "options": ["多列CSV自动识别（角度/梯形测试结果）", "预处理TXT（SVM训练数据预处理生成）"],
-            "values":  ["csv_auto", "txt_raw"],
-            "default": "csv_auto",
+            "options": ["预处理TXT（推荐）", "多列CSV自动识别（兼容直输）"],
+            "values":  ["txt_raw", "csv_auto"],
+            "default": "txt_raw",
             "tooltip": (
-                "csv_auto：自动识别多列测试结果，支持扁平列(Write_TL_x~Write_BR_y)和WriteCoords单列格式\n"
-                "txt_raw：由 [SVM训练数据预处理] 生成的简洁格式，每行 'x1,x2,...,x8 label'（无表头）"
+                "txt_raw：由 [SVM训练数据预处理] 生成的简洁格式，每行 'x1,x2,...,x8 label'（无表头，推荐）\n"
+                "csv_auto：兼容直接导入多列测试结果，内部按与预处理一致的 ErrorCode 规则自动生成标签"
             ),
         },
         {
             "key": "errorcode_filter",
-            "label": "ErrorCode 处理策略",
+            "label": "CSV直输标签策略",
             "type": "choice",
-            "options": ["以Result列为准（推荐）", "过滤ErrorCode>1的行（减少噪声）"],
-            "values":  ["use_result", "filter_ec_gt1"],
-            "default": "use_result",
+            "options": ["按预处理规则：ErrorCode>1失败（推荐）", "严格：ErrorCode>0失败"],
+            "values":  ["label_ec_gt1", "label_ec_gt0"],
+            "default": "label_ec_gt1",
             "tooltip": (
-                "use_result：PASS→label=1，FAIL→label=0，无论 ErrorCode 是什么\n"
-                "filter_ec_gt1：跳过 ErrorCode>1 的行（硬件错误，非正常测试结果）"
+                "label_ec_gt1：ErrorCode>1 → 0；ErrorCode≤1 且 PASS → 1；其余 → 0\n"
+                "label_ec_gt0：ErrorCode>0 一律视为失败；其余按 Result 生成标签\n"
+                "仅在多列CSV直输模式下生效；预处理TXT模式不使用该参数"
             ),
         },
         {
@@ -195,6 +196,17 @@ MODULE_INFO = {
 # 数据加载
 # ─────────────────────────────────────────────────────────────────
 
+def _normalize_ec_policy(policy: str) -> str:
+    """兼容旧参数值并归一化 ErrorCode 策略。"""
+    policy = str(policy or "label_ec_gt1").strip()
+    if policy in ("label_ec_gt1", "label_ec_gt0"):
+        return policy
+    # 兼容历史配置：旧版 use_result/filter_ec_gt1 都映射为当前推荐规则
+    if policy in ("use_result", "filter_ec_gt1"):
+        return "label_ec_gt1"
+    return "label_ec_gt1"
+
+
 def _parse_csv_format(filepath: str, errorcode_filter: str,
                       log_cb) -> tuple:
     """
@@ -209,13 +221,14 @@ def _parse_csv_format(filepath: str, errorcode_filter: str,
       WriteCoords  Result  ErrorCode
 
     分隔符自动识别：先尝试 TAB，若仍为单列再尝试逗号/空白。
-    标签：Result==PASS → 1，否则 0
-    ErrorCode 过滤策略：
-      use_result    : 以 Result 列为标签，忽略 ErrorCode
-      filter_ec_gt1 : 跳过 ErrorCode > 1 的行（硬件错误行）
+    标签规则与 [SVM训练数据预处理] 保持一致：
+        label_ec_gt1 : ErrorCode>1 → 0；ErrorCode≤1 且 PASS → 1；其余 → 0
+        label_ec_gt0 : ErrorCode>0 → 0；其余按 Result 生成标签
     """
     import pandas as pd
     from io import StringIO
+
+    ec_policy = _normalize_ec_policy(errorcode_filter)
 
     with open(filepath, "r", encoding="utf-8-sig", errors="replace") as f:
         raw = f.readlines()
@@ -289,18 +302,15 @@ def _parse_csv_format(filepath: str, errorcode_filter: str,
 
     features = []
     labels = []
-    skipped = 0
+    fail_ec = 0
 
     for idx, row in df.iterrows():
-        # ErrorCode 过滤
-        if errorcode_filter == "filter_ec_gt1" and ec_col:
+        ec_val = None
+        if ec_col:
             try:
                 ec_val = int(float(str(row[ec_col])))
-                if ec_val > 1:
-                    skipped += 1
-                    continue
             except (ValueError, TypeError):
-                pass
+                ec_val = None
 
         # 提取 8 维坐标
         if is_flat:
@@ -319,21 +329,35 @@ def _parse_csv_format(filepath: str, errorcode_filter: str,
             if len(vals) != 8:
                 continue
 
-        # 标签
+        # 标签：与 svm_data_prep.py 保持一致
         result_str = str(row[res_col]).strip().upper()
-        label = 1 if result_str in ("PASS", "1", "TRUE") else 0
+        if ec_val is not None:
+            if ec_policy == "label_ec_gt0":
+                forced_fail = ec_val > 0
+            else:
+                forced_fail = ec_val > 1
+        else:
+            forced_fail = False
+
+        if forced_fail:
+            label = 0
+            fail_ec += 1
+        else:
+            label = 1 if result_str in ("PASS", "1", "TRUE") else 0
 
         features.append(vals)
         labels.append(label)
 
-    if skipped:
-        log_cb(f"  ErrorCode>1 过滤跳过 {skipped} 行")
+    if fail_ec:
+        log_cb(f"  ErrorCode 策略强制为 FAIL: {fail_ec} 行")
     return np.array(features, dtype=np.float32), np.array(labels, dtype=np.int32)
 
 
 def _parse_txt_format(filepath: str, log_cb) -> tuple:
     """
-    解析原始 train.txt 格式：每行 "x1,x2,...,x8 label"
+        解析预处理 TXT：兼容以下两种格式
+            1. 每行 "x1,x2,...,x8 label"
+            2. 每行 "x1 x2 ... x8 label"
     标签二值化：原始 label==1 → 1，其他 → 0
     """
     features = []
@@ -346,10 +370,19 @@ def _parse_txt_format(filepath: str, log_cb) -> tuple:
             parts = re.split(r"\s+", line)
             if len(parts) < 2:
                 continue
-            feat_str = parts[0]
+
+            # 兼容两种预处理文本布局：
+            # 1) x1,x2,...,x8 label
+            # 2) x1 x2 ... x8 label
+            feat_vals = None
             label_str = parts[-1]
             try:
-                feat_vals = list(map(float, feat_str.split(",")))
+                if len(parts) == 2 and "," in parts[0]:
+                    feat_vals = list(map(float, parts[0].split(",")))
+                elif len(parts) >= 9:
+                    feat_vals = list(map(float, parts[:8]))
+                else:
+                    continue
                 orig_label = float(label_str)
             except ValueError:
                 continue
@@ -549,8 +582,8 @@ def run(input_path: str, output_dir: str, params: dict,
 
     try:
         # ── 解析参数 ────────────────────────────────────────────────
-        fmt          = params.get("input_format", "csv_auto")
-        ec_filter    = params.get("errorcode_filter", "use_result")
+        fmt          = params.get("input_format", "txt_raw")
+        ec_filter    = _normalize_ec_policy(params.get("errorcode_filter", "label_ec_gt1"))
         seed         = int(params.get("shuffle_seed", 42))
         train_ratio  = float(params.get("train_ratio", 0.8))
         kernel       = params.get("svm_kernel", "rbf")
@@ -572,7 +605,10 @@ def run(input_path: str, output_dir: str, params: dict,
         _rpt(f"开始时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         _rpt(f"输入文件: {input_path}")
         _rpt(f"输入格式: {fmt}")
-        _rpt(f"ErrorCode 策略: {ec_filter}")
+        if fmt == "csv_auto":
+            _rpt(f"CSV标签策略: {ec_filter}")
+        else:
+            _rpt("CSV标签策略: 不适用（当前为预处理TXT）")
         _rpt("=" * 60)
         _prog(1, 10)
 
