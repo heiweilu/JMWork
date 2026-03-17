@@ -43,6 +43,12 @@ MODULE_INFO = {
          "tooltip": "可手动指定历史 angle_test_result_*.txt 文件。为空时会自动优先查找输入数据同工程下的 reports/Angle_test_results 最新结果文件。"},
         {"key": "execute_delay", "label": "执行延迟(秒)", "type": "float", "default": 0.3,
          "tooltip": "WriteExecuteDisplay后的等待时间，建议0.3秒"},
+        {"key": "precheck_enabled", "label": "预检查快速中断", "type": "combo",
+         "options": ["启用", "禁用"], "default": "启用",
+         "tooltip": "前若干个测试点若全部失败且硬件错误码完全一致，则提前停止，避免无效长跑"},
+        {"key": "precheck_sample_count", "label": "预检查样本数", "type": "int", "default": 20,
+         "min": 3, "max": 200,
+         "tooltip": "预检查观察的前N个有效执行点；建议10~30"},
     ],
 }
 
@@ -282,6 +288,33 @@ def _format_scalar(value) -> str:
     return text
 
 
+def _evaluate_precheck(records: list) -> tuple:
+    """评估预检查窗口，返回 (should_stop, reason)。"""
+    if not records:
+        return False, ""
+
+    fail_records = [record for record in records if not record['ok']]
+    if len(fail_records) != len(records):
+        return False, ""
+
+    hw_error_codes = [record['ec'] for record in fail_records if record['ec'] > 1]
+    if len(hw_error_codes) != len(fail_records):
+        return False, ""
+
+    uniq_ec = sorted(set(hw_error_codes))
+    if len(uniq_ec) != 1:
+        return False, ""
+
+    uniq_read = sorted(set(record['read_coords'] for record in fail_records if record['read_coords']))
+    reason = (
+        f"预检查命中：前 {len(records)} 个有效测试点全部 FAIL，且硬件错误码一致 EC={uniq_ec[0]}"
+    )
+    if len(uniq_read) == 1:
+        reason += "，回读坐标也完全一致"
+    reason += "。疑似当前批次输入整体超出硬件可接受边界，已提前停止。"
+    return True, reason
+
+
 def run(input_path: str, output_dir: str, params: dict,
     progress_callback=None, log_callback=None, stop_event=None) -> dict:
     """
@@ -350,6 +383,8 @@ def run(input_path: str, output_dir: str, params: dict,
     resume = params.get('resume', '启用') == '启用'
     resume_result_file = str(params.get('resume_result_file', '') or '').strip()
     execute_delay = float(params.get('execute_delay', 0.3))
+    precheck_enabled = params.get('precheck_enabled', '启用') == '启用'
+    precheck_sample_count = max(3, int(params.get('precheck_sample_count', 20) or 20))
     start_time = time.time()
 
     log("=" * 60, "INFO")
@@ -406,6 +441,8 @@ def run(input_path: str, output_dir: str, params: dict,
     passed = 0
     failed = 0
     skipped = 0
+    early_stop_reason = ""
+    precheck_records = []
 
     _HEADER = ('VerticalAngle(Yaw)\tHorizontalAngle(Pitch)\tAngleDesc\t'
                'WriteCoords\tReadCoords\t'
@@ -528,6 +565,18 @@ def run(input_path: str, output_dir: str, params: dict,
                 else:
                     failed += 1
 
+                if precheck_enabled and not early_stop_reason:
+                    precheck_records.append({
+                        'ok': ok,
+                        'ec': ec,
+                        'read_coords': r_str,
+                    })
+                    if len(precheck_records) == precheck_sample_count:
+                        should_stop, reason = _evaluate_precheck(precheck_records)
+                        if should_stop:
+                            early_stop_reason = reason
+                            log(reason, "WARNING")
+
                 executed = passed + failed
                 _es = max(0.0, time.time() - start_time)
                 _rt = _es / executed if executed > 0 else 0
@@ -540,6 +589,8 @@ def run(input_path: str, output_dir: str, params: dict,
                     f"Elapsed:{_es / 60:.1f}min | Rate:{_rt:.3f}s/test | ETA:{_eta:.1f}min",
                     "INFO" if ok else "WARNING"
                 )
+                if early_stop_reason:
+                    break
                 if _stopped():
                     break
 
@@ -560,6 +611,8 @@ def run(input_path: str, output_dir: str, params: dict,
     log("=" * 60, "INFO")
     if _stopped():
         log("测试已手动停止", "WARNING")
+    elif early_stop_reason:
+        log("测试已触发预检查快速中断", "WARNING")
     else:
         log("测试完成", "SUCCESS")
     log(f"总计: {total}, 执行: {executed}, 跳过: {skipped}", "INFO")
@@ -573,10 +626,12 @@ def run(input_path: str, output_dir: str, params: dict,
 
     _log_file.close()
     return {
-        'status': 'cancelled' if _stopped() else ('success' if failed == 0 else 'warning'),
+        'status': 'cancelled' if _stopped() else ('warning' if early_stop_reason else ('success' if failed == 0 else 'warning')),
         'message': (
                    f"角度测试已停止: {passed} PASS / {failed} FAIL (共 {executed} 条)\n"
                    if _stopped() else
+                   f"角度测试已提前停止: {passed} PASS / {failed} FAIL (共 {executed} 条)\n{early_stop_reason}\n"
+                   if early_stop_reason else
                    f"角度测试完成: {passed} PASS / {failed} FAIL (共 {executed} 条)\n"
                    ) +
                    f"结果文件: {txt_path}",
