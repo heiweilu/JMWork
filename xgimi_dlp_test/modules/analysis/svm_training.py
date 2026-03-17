@@ -11,10 +11,9 @@ SVM 模型训练模块
 
 【本模块的作用】
 将极米投影仪角度/梯形坐标测试数据（WriteCoords 8 维坐标特征）训练成
-一个轻量 SVM 分类模型，输出：
+一个轻量 SVM 分类模型，支持历史脚本对比与当前优化训练两种模式，输出：
   • svm_model.xml          — 主模型文件，C++ OpenCV 可直接加载
   • norm_params.yaml       — 归一化参数（mean/std），推理时需配套使用
-  • svm_model_optimized.xml — 网格搜索调参后的最优模型（可选）
   • training_report.txt    — 训练/测试精度、混淆矩阵等详细报告
 
 【如何使用训练出来的模型？】
@@ -55,20 +54,27 @@ SVM 模型训练模块
 import os
 import re
 import math
+import json
 import random
+import shutil
 import datetime
 import traceback
 
 import numpy as np
+
+
+LEGACY_SCRIPT_REF = r"D:\software\heiweilu\tempfile\svm.py"
+MAX_PARSE_ERROR_SAMPLES = 50
 
 MODULE_INFO = {
     "name": "SVM 模型训练",
     "category": "svm",
     "description": (
         "将坐标测试数据训练为 SVM 二分类模型，输出可直接部署到 ARM 平台的 .xml 模型文件。\n\n"
+        f"【训练模式】支持旧脚本兼容模式（参考 {LEGACY_SCRIPT_REF}）与当前优化模式，可直接对比模型精度。\n"
         "【推荐流程】先执行 [SVM训练数据预处理]，再将生成的无表头 TXT 导入本模块训练。\n"
         "【输入】预处理TXT（推荐）或角度/梯形测试原始结果文件（自动识别）\n"
-        "【输出】svm_model.xml + norm_params.yaml + 训练报告\n\n"
+        "【输出】svm_model.xml + norm_params.yaml + 训练报告；每次训练会自动归档到 history 文件夹。\n\n"
         "模型可通过 C++ OpenCV 在 MTK9660-ARM 平台加载推理，\n"
         "预测任意坐标是否在投影仪可达范围内（PASS/FAIL 二分类）。"
     ),
@@ -80,6 +86,18 @@ MODULE_INFO = {
     ),
     "output_type": "model",
     "params": [
+        {
+            "key": "training_mode",
+            "label": "训练脚本模式",
+            "type": "choice",
+            "options": ["旧脚本兼容模式（用于对比）", "当前优化模式（推荐）"],
+            "values": ["legacy_compat", "optimized_builtin"],
+            "default": "optimized_builtin",
+            "tooltip": (
+                f"legacy_compat：按历史脚本 {LEGACY_SCRIPT_REF} 的核心训练思路执行，便于做精度对比\n"
+                "optimized_builtin：使用当前工程增强版训练流程，支持更完整的参数与日志控制"
+            ),
+        },
         {
             "key": "input_format",
             "label": "输入数据格式",
@@ -130,6 +148,7 @@ MODULE_INFO = {
             "options": ["RBF（径向基，推荐）", "LINEAR（线性）", "POLY（多项式）"],
             "values":  ["rbf", "linear", "poly"],
             "default": "rbf",
+            "visible_when": {"key": "training_mode", "value": "optimized_builtin"},
             "tooltip": (
                 "RBF 核适合非线性分布的坐标数据（推荐）\n"
                 "LINEAR 适合线性可分数据，速度快\n"
@@ -143,6 +162,7 @@ MODULE_INFO = {
             "default": 1.0,
             "min": 0.001,
             "max": 1000.0,
+            "visible_when": {"key": "training_mode", "value": "optimized_builtin"},
             "tooltip": (
                 "C 越大：对错误分类惩罚越重，可能过拟合\n"
                 "C 越小：允许更多误分，模型更泛化\n"
@@ -156,6 +176,7 @@ MODULE_INFO = {
             "default": 0.1,
             "min": 0.0001,
             "max": 100.0,
+            "visible_when": {"key": "training_mode", "value": "optimized_builtin"},
             "tooltip": (
                 "gamma 越大：决策边界越复杂，过拟合风险高\n"
                 "gamma 越小：决策边界越平滑，欠拟合风险高\n"
@@ -185,7 +206,7 @@ MODULE_INFO = {
             "default": False,
             "tooltip": (
                 "自动搜索最优 C 和 gamma 组合（耗时较长）\n"
-                "搜索结果会保存为额外的 svm_model_optimized.xml"
+                "启用后最终导出的优化模型会直接命名为 svm_model.xml，基础模型不再单独落盘"
             ),
         },
     ],
@@ -205,6 +226,77 @@ def _normalize_ec_policy(policy: str) -> str:
     if policy in ("use_result", "filter_ec_gt1"):
         return "label_ec_gt1"
     return "label_ec_gt1"
+
+
+def _log_capped_parse_samples(log_cb, title: str, samples: list, total_count: int):
+    """限制异常样本日志数量，避免一次输出过多无效数据。"""
+    if total_count <= 0:
+        return
+    log_cb(f"  {title}: {total_count} 条（最多展示 {MAX_PARSE_ERROR_SAMPLES} 条）", "WARNING")
+    for sample in samples[:MAX_PARSE_ERROR_SAMPLES]:
+        log_cb(f"    {sample}", "WARNING")
+    if total_count > len(samples):
+        log_cb(f"    ... 其余 {total_count - len(samples)} 条已省略", "WARNING")
+
+
+def _prepare_history_dir(output_dir: str, input_path: str, params: dict, log_cb) -> str:
+    """为本次训练创建 history 目录，并先备份已有模型文件。"""
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    history_root = os.path.join(output_dir, "history")
+    run_dir = os.path.join(history_root, ts)
+    os.makedirs(run_dir, exist_ok=True)
+
+    with open(os.path.join(run_dir, "params_snapshot.json"), "w", encoding="utf-8") as f:
+        json.dump(params, f, ensure_ascii=False, indent=2)
+
+    if os.path.isfile(input_path):
+        input_dir = os.path.join(run_dir, "input_snapshot")
+        os.makedirs(input_dir, exist_ok=True)
+        shutil.copy2(input_path, os.path.join(input_dir, os.path.basename(input_path)))
+
+    backup_names = [
+        "svm_model.xml",
+        "svm_model_optimized.xml",
+        "norm_params.yaml",
+        "model_info.txt",
+        "training_report.txt",
+    ]
+    previous_dir = os.path.join(run_dir, "previous_outputs")
+    backup_count = 0
+    for name in backup_names:
+        src = os.path.join(output_dir, name)
+        if os.path.isfile(src):
+            os.makedirs(previous_dir, exist_ok=True)
+            shutil.copy2(src, os.path.join(previous_dir, name))
+            backup_count += 1
+
+    if backup_count:
+        log_cb(f"历史备份: 已备份 {backup_count} 个旧文件到 {previous_dir}")
+    else:
+        log_cb(f"历史备份: 本次创建历史目录 {run_dir}")
+    return run_dir
+
+
+def _archive_current_outputs(run_dir: str, report_text: str, output_files: list):
+    """归档本次训练产物，便于后续对比不同模式的输出。"""
+    current_dir = os.path.join(run_dir, "current_outputs")
+    os.makedirs(current_dir, exist_ok=True)
+    for path in output_files:
+        if path and os.path.isfile(path):
+            shutil.copy2(path, os.path.join(current_dir, os.path.basename(path)))
+    with open(os.path.join(current_dir, "training_report.txt"), "w", encoding="utf-8") as f:
+        f.write(report_text)
+
+
+def _resolve_training_profile(training_mode: str, params: dict) -> tuple:
+    """根据训练模式选择超参数来源。"""
+    if training_mode == "legacy_compat":
+        return "rbf", 1.0, 0.1
+    return (
+        params.get("svm_kernel", "rbf"),
+        float(params.get("svm_c", 1.0)),
+        float(params.get("svm_gamma", 0.1)),
+    )
 
 
 def _parse_csv_format(filepath: str, errorcode_filter: str,
@@ -303,6 +395,8 @@ def _parse_csv_format(filepath: str, errorcode_filter: str,
     features = []
     labels = []
     fail_ec = 0
+    bad_samples = []
+    bad_total = 0
 
     for idx, row in df.iterrows():
         ec_val = None
@@ -317,6 +411,9 @@ def _parse_csv_format(filepath: str, errorcode_filter: str,
             try:
                 vals = [float(row[col_lower[k]]) for k in _flat_keys]
             except (ValueError, TypeError):
+                bad_total += 1
+                if len(bad_samples) < MAX_PARSE_ERROR_SAMPLES:
+                    bad_samples.append(f"第{idx+1}行: 扁平坐标列存在非数字值")
                 continue
         else:
             raw_coords = str(row[wc_col]).strip().strip('"').strip("'")
@@ -325,8 +422,14 @@ def _parse_csv_format(filepath: str, errorcode_filter: str,
             try:
                 vals = [float(p) for p in parts if p]
             except ValueError:
+                bad_total += 1
+                if len(bad_samples) < MAX_PARSE_ERROR_SAMPLES:
+                    bad_samples.append(f"第{idx+1}行: WriteCoords 无法解析 -> {raw_coords[:120]}")
                 continue
             if len(vals) != 8:
+                bad_total += 1
+                if len(bad_samples) < MAX_PARSE_ERROR_SAMPLES:
+                    bad_samples.append(f"第{idx+1}行: WriteCoords 维度={len(vals)}，期望 8")
                 continue
 
         # 标签：与 svm_data_prep.py 保持一致
@@ -350,25 +453,31 @@ def _parse_csv_format(filepath: str, errorcode_filter: str,
 
     if fail_ec:
         log_cb(f"  ErrorCode 策略强制为 FAIL: {fail_ec} 行")
+    _log_capped_parse_samples(log_cb, "CSV 异常样本", bad_samples, bad_total)
     return np.array(features, dtype=np.float32), np.array(labels, dtype=np.int32)
 
 
 def _parse_txt_format(filepath: str, log_cb) -> tuple:
     """
-        解析预处理 TXT：兼容以下两种格式
-            1. 每行 "x1,x2,...,x8 label"
-            2. 每行 "x1 x2 ... x8 label"
+    解析预处理 TXT：兼容以下两种格式
+        1. 每行 "x1,x2,...,x8 label"
+        2. 每行 "x1 x2 ... x8 label"
     标签二值化：原始 label==1 → 1，其他 → 0
     """
     features = []
     labels = []
-    with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+    bad_samples = []
+    bad_total = 0
+    with open(filepath, "r", encoding="utf-8-sig", errors="replace") as f:
         for lineno, line in enumerate(f, 1):
             line = line.strip()
             if not line:
                 continue
             parts = re.split(r"\s+", line)
             if len(parts) < 2:
+                bad_total += 1
+                if len(bad_samples) < MAX_PARSE_ERROR_SAMPLES:
+                    bad_samples.append(f"第{lineno}行: 字段数不足 -> {line[:120]}")
                 continue
 
             # 兼容两种预处理文本布局：
@@ -382,16 +491,26 @@ def _parse_txt_format(filepath: str, log_cb) -> tuple:
                 elif len(parts) >= 9:
                     feat_vals = list(map(float, parts[:8]))
                 else:
+                    bad_total += 1
+                    if len(bad_samples) < MAX_PARSE_ERROR_SAMPLES:
+                        bad_samples.append(f"第{lineno}行: 无法识别为预处理TXT格式 -> {line[:120]}")
                     continue
                 orig_label = float(label_str)
             except ValueError:
+                bad_total += 1
+                if len(bad_samples) < MAX_PARSE_ERROR_SAMPLES:
+                    bad_samples.append(f"第{lineno}行: 数值转换失败 -> {line[:120]}")
                 continue
             if len(feat_vals) != 8:
+                bad_total += 1
+                if len(bad_samples) < MAX_PARSE_ERROR_SAMPLES:
+                    bad_samples.append(f"第{lineno}行: 特征维度={len(feat_vals)}，期望 8")
                 continue
             features.append(feat_vals)
             labels.append(1 if orig_label == 1.0 else 0)
 
     log_cb(f"  TXT 解析: {len(features)} 行")
+    _log_capped_parse_samples(log_cb, "TXT 异常样本", bad_samples, bad_total)
     return np.array(features, dtype=np.float32), np.array(labels, dtype=np.int32)
 
 
@@ -476,16 +595,20 @@ def _cross_validate(features: np.ndarray, labels: np.ndarray,
 
 
 def _grid_search(features: np.ndarray, labels: np.ndarray,
-                 k_folds: int, log_cb) -> dict:
-    """网格搜索最优 C 和 gamma"""
+                 k_folds: int, log_cb, training_mode: str = "optimized_builtin") -> dict:
+    """按训练模式执行网格搜索，便于和旧脚本做公平对比。"""
     import cv2
-    C_vals = [0.1, 1.0, 10.0, 100.0]
-    g_vals = [0.001, 0.01, 0.1, 1.0]
+    if training_mode == "legacy_compat":
+        C_vals = [0.1, 1.0, 10.0]
+        g_vals = [0.01, 0.1, 1.0]
+    else:
+        C_vals = [0.1, 1.0, 10.0, 100.0]
+        g_vals = [0.001, 0.01, 0.1, 1.0]
     best = {"C": 1.0, "gamma": 0.1, "acc": 0.0}
     n = len(features)
     indices = np.arange(n)
     fold_size = n // k_folds
-    log_cb("  网格搜索 C × gamma 组合...")
+    log_cb(f"  网格搜索 C × gamma 组合...（mode={training_mode}）")
     for C in C_vals:
         for g in g_vals:
             fold_accs = []
@@ -582,18 +705,18 @@ def run(input_path: str, output_dir: str, params: dict,
 
     try:
         # ── 解析参数 ────────────────────────────────────────────────
+        training_mode = str(params.get("training_mode", "optimized_builtin"))
         fmt          = params.get("input_format", "txt_raw")
         ec_filter    = _normalize_ec_policy(params.get("errorcode_filter", "label_ec_gt1"))
         seed         = int(params.get("shuffle_seed", 42))
         train_ratio  = float(params.get("train_ratio", 0.8))
-        kernel       = params.get("svm_kernel", "rbf")
-        C            = float(params.get("svm_c", 1.0))
-        gamma        = float(params.get("svm_gamma", 0.1))
+        kernel, C, gamma = _resolve_training_profile(training_mode, params)
         run_cv       = bool(params.get("run_cv", True))
         k_folds      = int(params.get("k_folds", 5))
         run_gs       = bool(params.get("run_grid_search", False))
 
         os.makedirs(output_dir, exist_ok=True)
+        history_run_dir = _prepare_history_dir(output_dir, input_path, params, _log)
         report_lines = []
 
         def _rpt(msg, level="INFO"):
@@ -603,12 +726,16 @@ def run(input_path: str, output_dir: str, params: dict,
         _rpt("=" * 60)
         _rpt("SVM 模型训练  —  xgimi_dlp_test")
         _rpt(f"开始时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        _rpt(f"训练模式: {training_mode}")
         _rpt(f"输入文件: {input_path}")
         _rpt(f"输入格式: {fmt}")
         if fmt == "csv_auto":
             _rpt(f"CSV标签策略: {ec_filter}")
         else:
             _rpt("CSV标签策略: 不适用（当前为预处理TXT）")
+        if training_mode == "legacy_compat":
+            _rpt(f"旧脚本参考: {LEGACY_SCRIPT_REF}")
+            _rpt("训练超参数: legacy 兼容固定值 kernel=rbf, C=1.0, gamma=0.1")
         _rpt("=" * 60)
         _prog(1, 10)
 
@@ -687,19 +814,21 @@ def run(input_path: str, output_dir: str, params: dict,
             _rpt(f"\n[步骤7] {k_folds} 折交叉验证...")
             cv_accs = _cross_validate(norm_feat, labels, kernel, C, gamma, k_folds, _rpt)
             _rpt(f"  CV 均值: {np.mean(cv_accs):.2f}%  (±{np.std(cv_accs):.2f}%)")
+        else:
+            cv_accs = []
         _prog(8, 10)
 
         # ── 8. 可选：网格搜索 ──────────────────────────────────────
         best_params_gs = None
+        final_svm = svm
         if run_gs and not _cancelled():
             _rpt("\n[步骤8] 网格搜索参数优化（时间较长）...")
-            best_params_gs = _grid_search(norm_feat, labels, max(k_folds, 3), _rpt)
+            best_params_gs = _grid_search(norm_feat, labels, max(k_folds, 3), _rpt, training_mode)
             _rpt(f"\n[步骤8b] 使用最优参数重新训练...")
             svm_opt = _make_svm("rbf", best_params_gs["C"], best_params_gs["gamma"])
             svm_opt.train(norm_feat, cv2.ml.ROW_SAMPLE, labels)   # 用全量数据
-            xml_opt = os.path.join(output_dir, "svm_model_optimized.xml")
-            svm_opt.save(xml_opt)
-            _rpt(f"  优化模型已保存: {xml_opt}", "SUCCESS")
+            final_svm = svm_opt
+            _rpt("  已启用网格搜索：最终导出优化模型为 svm_model.xml，基础模型不单独落盘")
         _prog(9, 10)
 
         if _cancelled():
@@ -710,8 +839,13 @@ def run(input_path: str, output_dir: str, params: dict,
         xml_path  = os.path.join(output_dir, "svm_model.xml")
         yaml_path = os.path.join(output_dir, "norm_params.yaml")
         info_path = os.path.join(output_dir, "model_info.txt")
+        stale_opt_path = os.path.join(output_dir, "svm_model_optimized.xml")
 
-        _save_model(svm, mean, std, xml_path, yaml_path, info_path)
+        if os.path.isfile(stale_opt_path):
+            os.remove(stale_opt_path)
+            _rpt(f"  已清理旧命名模型: {stale_opt_path}")
+
+        _save_model(final_svm, mean, std, xml_path, yaml_path, info_path)
         _rpt(f"  svm_model.xml  → {xml_path}", "SUCCESS")
         _rpt(f"  norm_params.yaml → {yaml_path}", "SUCCESS")
         _rpt(f"  model_info.txt → {info_path}", "SUCCESS")
@@ -722,19 +856,23 @@ def run(input_path: str, output_dir: str, params: dict,
         _rpt(f"  1. {xml_path}")
         _rpt(f"  2. {yaml_path}")
         if best_params_gs:
-            _rpt(f"  3. {os.path.join(output_dir, 'svm_model_optimized.xml')} (优化版)")
+            _rpt("  3. 已使用网格搜索最优参数导出到 svm_model.xml")
         _rpt("\nC++ 使用示例:\n"
              "  auto svm = cv::ml::SVM::load(\"svm_model.xml\");\n"
              "  // 读取 norm_params.yaml 中的 mean/std 数组\n"
              "  // 对输入坐标归一化后调用 svm->predict(sample);")
         _rpt("=" * 60)
 
+        report_text = "\n".join(report_lines)
+        _archive_current_outputs(history_run_dir, report_text, [xml_path, yaml_path, info_path])
+        _rpt(f"历史归档目录: {history_run_dir}")
+
         _prog(10, 10)
         return {
             "status": "success",
             "output_path": xml_path,
             "figure": None,
-            "report_text": "\n".join(report_lines),   # 显示在 UI "分析报告" Tab
+            "report_text": report_text,   # 显示在 UI "分析报告" Tab
             "message": (
                 f"SVM 训练完成：测试集精度 {te_ev['accuracy']:.1f}%"
                 + (f"，CV均值 {np.mean(cv_accs):.1f}%" if run_cv else "")
