@@ -6,10 +6,11 @@ Analysis 功能页
 """
 
 import os
+from datetime import datetime
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                               QComboBox, QLabel, QPushButton, QGroupBox,
                               QMessageBox, QFileDialog, QScrollArea,
-                              QTabWidget, QSizePolicy, QTextBrowser, QFrame)
+                              QTabWidget, QSizePolicy, QTextBrowser, QTextEdit, QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap
 
@@ -202,6 +203,37 @@ class AnalysisPage(QWidget):
         # Tab1: 分析结果
         self.plot_widget = PlotWidget()
         self.right_tabs.addTab(self.plot_widget, "📈  分析结果")
+
+        # Tab2: 分析报告
+        report_tab = QWidget()
+        report_layout = QVBoxLayout(report_tab)
+        report_layout.setContentsMargins(8, 6, 8, 8)
+        report_layout.setSpacing(6)
+        _rpt_bar = QHBoxLayout()
+        _rpt_bar.setContentsMargins(0, 0, 0, 0)
+        self._btn_export_report = QPushButton("💾 导出报告为 TXT")
+        self._btn_export_report.setEnabled(False)
+        self._btn_export_report.setFixedHeight(28)
+        self._btn_export_report.setStyleSheet(
+            "QPushButton{font-size:12px;padding:2px 12px;border-radius:5px;}")
+        self._btn_export_report.clicked.connect(self._on_export_report)
+        _rpt_label = QLabel("执行含报告输出的模块后，结果会显示在此处")
+        _rpt_label.setStyleSheet("color:#888;font-size:11px;")
+        _rpt_bar.addWidget(self._btn_export_report)
+        _rpt_bar.addSpacing(10)
+        _rpt_bar.addWidget(_rpt_label)
+        _rpt_bar.addStretch()
+        report_layout.addLayout(_rpt_bar)
+        self._report_text = QTextEdit()
+        self._report_text.setReadOnly(True)
+        self._report_text.setFontFamily("Consolas")
+        self._report_text.setFontPointSize(10)
+        self._report_text.setStyleSheet(
+            "QTextEdit{background:#1E1E2E; color:#CDD6F4; border-radius:8px;"
+            " padding:10px; line-height:1.6;}")
+        self._report_text.setPlaceholderText("（执行后，含报告的模块输出会自动显示在此处）")
+        report_layout.addWidget(self._report_text, 1)
+        self.right_tabs.addTab(report_tab, "📝  分析报告")
 
         splitter.addWidget(left_panel)
         splitter.addWidget(self.right_tabs)
@@ -414,9 +446,7 @@ class AnalysisPage(QWidget):
                                     "请选择有效的输入文件或目录")
                 return
 
-        # 获取输出目录
-        # 始终以本工程（xgimi_dlp_test）为根目录，
-        # 避免因输入文件来自其他工程而把结果写到那个工程里
+        # 获取输出目录：每个模块独立命名子文件夹 reports/{模块py文件名}/{YYYYMMDD}/
         _app_root = os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.abspath(__file__))))
         project_root = ''
@@ -425,7 +455,10 @@ class AnalysisPage(QWidget):
         if not project_root:
             project_root = _app_root
 
-        output_dir = os.path.join(project_root, 'reports')
+        py_modname = mid.split('.')[-1]           # e.g. "angle_boundary_stats"
+        date_str   = datetime.now().strftime('%Y%m%d')
+        output_dir = os.path.join(project_root, 'reports', py_modname, date_str)
+        os.makedirs(output_dir, exist_ok=True)
 
         # 获取参数
         params = self.param_editor.get_values()
@@ -500,6 +533,17 @@ class AnalysisPage(QWidget):
                 self._btn_send_to_expand.setVisible(bool(self._last_data_path))
             elif "角度扩圆坐标生成" in cur_name:
                 self._btn_send_to_svm.setVisible(bool(output_path))
+
+            # 分析报告：若模块返回 report_text，显示在"分析报告"Tab
+            report_text = result.get('report_text', '')
+            if report_text:
+                self._report_text.setPlainText(report_text)
+                self._btn_export_report.setEnabled(True)
+                self._current_report_text = report_text
+                self.right_tabs.setCurrentIndex(2)  # 自动切到报告 Tab
+            else:
+                self._current_report_text = ''
+                self._btn_export_report.setEnabled(False)
 
             # 显示图表：优先用已保存 PNG（支持旋转/缩放），无文件时降级用 Figure
             fig = result.get('figure')
@@ -665,9 +709,27 @@ class AnalysisPage(QWidget):
     def _on_clear_ref_image(self):
         """清除手动导入的参考图，恢复当前模块的默认参考图。"""
         self._btn_clear_ref.setVisible(False)
-        # 重新加载当前模块的默认参考图
         idx = self.combo_type.currentIndex()
         if 0 <= idx < len(self._module_ids):
             mdata = task_registry.get_module(self._module_ids[idx])
             if mdata:
                 self._update_reference_panel(mdata['info'])
+
+    def _on_export_report(self):
+        """将分析报告导出为 TXT 文件。"""
+        text = getattr(self, '_current_report_text', '')
+        if not text:
+            return
+        default_name = f"analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "导出分析报告", default_name,
+            "文本文件 (*.txt);;所有文件 (*)")
+        if not filepath:
+            return
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(text)
+            if self._log_panel:
+                self._log_panel.append_log(f"报告已导出: {filepath}", "SUCCESS")
+        except Exception as e:
+            QMessageBox.critical(self, "导出失败", f"无法写入文件:\n{e}")

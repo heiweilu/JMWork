@@ -156,10 +156,10 @@ def run(input_path: str, output_dir: str, params: dict,
             ax.grid(True, alpha=0.2)
 
         fig.tight_layout(rect=[0, 0, 1, 0.96])
-        _, output_path = make_output_path(
-            project_root, 'Data_Analysis_Result',
-            os.path.join('Angle', 'quadrant_limit'),
-            prefix='quadrant_limit_overview', ext='.png')
+        os.makedirs(output_dir, exist_ok=True)
+        from datetime import datetime as _dt
+        ts = _dt.now().strftime('%Y%m%d_%H%M%S')
+        output_path = os.path.join(output_dir, f"quadrant_limit_overview_{ts}.png")
         fig.savefig(output_path, dpi=dpi, bbox_inches='tight')
         _log(f"汇总图已保存: {output_path}", "SUCCESS")
         _progress(10, 10)

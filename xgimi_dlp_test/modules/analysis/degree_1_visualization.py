@@ -184,11 +184,10 @@ def run(input_path: str, output_dir: str, params: dict,
         _progress(9, 10)
 
         # 保存
-        from core.file_utils import make_output_path
-        project_root = params.get('project_root', output_dir)
-        _, output_path = make_output_path(
-            project_root, 'Data_Analysis_Result', os.path.join('Angle', '1'),
-            prefix='angle_test_visualization', ext='.png')
+        os.makedirs(output_dir, exist_ok=True)
+        from datetime import datetime as _dt
+        ts = _dt.now().strftime('%Y%m%d_%H%M%S')
+        output_path = os.path.join(output_dir, f"angle_1deg_vis_{ts}.png")
         dpi = params.get('dpi', 200)
         fig.savefig(output_path, dpi=dpi, bbox_inches='tight')
         _log(f"图片已保存: {output_path}", "SUCCESS")

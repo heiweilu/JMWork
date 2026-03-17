@@ -21,13 +21,17 @@ from core.data_loader import load_dataframe
 
 MODULE_INFO = {
     "name": "角度扩圆坐标生成",
+    "script_file": "angle_coord_expand.py",
     "category": "preprocessing",
     "description": (
         "对《角度边界统计（FAIL边界提取）》输出的每个边界点：\n"
         "  • 以问题角点(ProblemCorner)的 Write 坐标为圆心\n"
         "  • 在半径 r 内按步长 s 采样所有网格坐标点\n"
         "  • 每个采样点与其余 3 个正常 Write 角点组合 → 新梯形坐标组\n"
-        "输出 TXT（TSV），包含 WriteCoords 列，可直接送入 SVM 训练。"
+        "输出 TXT（TSV，含 Yaw/Pitch/WriteCoords/ProblemCorner 列）\n"
+        "★ 下一步用途：将输出文件导入《角度测试(硬件)》模块进行实测验证，\n"
+        "  验证每个采样坐标在真实硬件上的 PASS/FAIL 边界，\n"
+        "  或导入《SVM 模型训练》用于训练边界分类模型。"
     ),
     "input_type": "data",
     "input_description": "角度边界统计（FAIL边界提取）输出的结构化 TXT 文件",

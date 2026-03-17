@@ -12,14 +12,15 @@ import math
 from datetime import datetime
 
 MODULE_INFO = {
-    "name": "坐标测试结果分布图",
+    "name": "DLP写坐标测试 - 通过率可视化",
+    "script_file": "coord_result_vis.py",
     "category": "analysis",
     "description": (
-        "读取梯形坐标/角度测试结果 TXT，生成三面板直观报告：\n"
-        "  【左】屏幕模拟：叠加 PASS(绿)/FAIL(红) 梯形轮廓  绿区=有效范围\n"
+        "读取 DLP 硬件写坐标测试结果 TXT，生成三面板直观报告：\n"
+        "  【左】屏幕模拟：叠加 PASS(绿)/FAIL(红) 梯形轮廓，直观看清有效坐标区域\n"
         "  【中】变动角散点：变动角坐标的 PASS/FAIL 分布 + 采样圆 + 原始边界点\n"
-        "  【右】距离通过率：采样半径 vs 通过率柱状图（仅扩圆模式）\n"
-        "支持：传统 WriteCoords TSV  |  角度扩圆 TSV（含 ProblemCorner/SampleDist_px）"
+        "  【右】距离通过率：采样半径 vs 通过率柱状图（扩圆模式）\n"
+        "适用数据：梯形坐标测试(硬件) 或 角度测试(硬件) 输出的 TXT 结果文件"
     ),
     "input_type": "data",
     "input_description": (

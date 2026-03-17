@@ -621,14 +621,13 @@ def run(input_path: str, output_dir: str, params: dict,
         xml_path  = os.path.join(output_dir, "svm_model.xml")
         yaml_path = os.path.join(output_dir, "norm_params.yaml")
         info_path = os.path.join(output_dir, "model_info.txt")
-        report_path = os.path.join(output_dir, "training_report.txt")
 
         _save_model(svm, mean, std, xml_path, yaml_path, info_path)
         _rpt(f"  svm_model.xml  → {xml_path}", "SUCCESS")
         _rpt(f"  norm_params.yaml → {yaml_path}", "SUCCESS")
         _rpt(f"  model_info.txt → {info_path}", "SUCCESS")
 
-        # 写训练报告
+        # 训练报告文本（返回 report_text 供 UI 显示，不再写入磁盘）
         _rpt("\n" + "=" * 60)
         _rpt("训练完成！关键文件:")
         _rpt(f"  1. {xml_path}")
@@ -641,14 +640,12 @@ def run(input_path: str, output_dir: str, params: dict,
              "  // 对输入坐标归一化后调用 svm->predict(sample);")
         _rpt("=" * 60)
 
-        with open(report_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(report_lines))
-
         _prog(10, 10)
         return {
             "status": "success",
             "output_path": xml_path,
             "figure": None,
+            "report_text": "\n".join(report_lines),   # 显示在 UI "分析报告" Tab
             "message": (
                 f"SVM 训练完成：测试集精度 {te_ev['accuracy']:.1f}%"
                 + (f"，CV均值 {np.mean(cv_accs):.1f}%" if run_cv else "")

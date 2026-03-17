@@ -148,11 +148,9 @@ def run(input_path: str, output_dir: str, params: dict,
         ws.column_dimensions['A'].width = 12
 
         # 保存
-        from core.file_utils import make_output_path
-        project_root = params.get('project_root', output_dir)
-        _, output_path = make_output_path(
-            project_root, 'Angle_test_results', '',
-            prefix='test_result_table', ext='.xlsx')
+        os.makedirs(output_dir, exist_ok=True)
+        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        output_path = os.path.join(output_dir, f"angle_test_table_{ts}.xlsx")
         wb.save(output_path)
         _log(f"Excel已保存: {output_path}", "SUCCESS")
         _log(f"矩阵大小: {len(yaw_values)} × {len(pitch_values)}")

@@ -23,6 +23,7 @@ from core.data_loader import load_angle_test_result
 
 MODULE_INFO = {
     "name": "角度边界统计（FAIL边界提取）",
+    "script_file": "angle_boundary_stats.py",
     "category": "analysis",
     "description": (
         "两步合并模块：\n"
@@ -360,10 +361,10 @@ def run(input_path, output_dir, params,
     if _stopped():
         return {"status":"error","output_path":"","figure":None,"message":"已停止"}
 
-    # ── 8. 人可读 TXT 报告 ────────────────────────────────
-    rpt_path = os.path.join(output_dir, f"{base}_boundary_report.txt")
+    # ── 8. 生成可读报告文本（不写文件，返回 report_text 供 UI 显示）──
+    rpt_lines = []
     try:
-        L = []
+        L = rpt_lines
         L += ["="*72, "  角度边界统计（FAIL边界提取）报告",
               f"  输入文件 : {input_path}",
               f"  边界点数 : {len(bdf)}",
@@ -414,24 +415,23 @@ def run(input_path, output_dir, params,
                 f"{cn}={_coord(r,'Read',cn)}"  for cn in CORNERS))
             L.append("")
         L += ["", "="*72, "报告结束"]
-        with open(rpt_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(L))
-        _log(f"TXT 报告: {rpt_path}")
     except Exception as e:
-        _log(f"报告生成失败: {e}", "WARNING")
-        rpt_path = ""
+        rpt_lines.append(f"[报告生成异常: {e}]")
 
+    report_text = "\n".join(rpt_lines)
+    _log("报告已生成（可在'分析报告'Tab 查看并导出）")
     _prog(100)
     return {
         "status":       "success",
         "output_path":  tsv_path,          # 主输出（结构化 TSV，供下游）
         "output_files": [fig_path] if fig_path else [],
         "figure":       saved_fig,
-        "extra": {"report_path": rpt_path, "data_path": tsv_path},
+        "report_text":  report_text,       # UI 显示在"分析报告"Tab
+        "extra": {"data_path": tsv_path},
         "message": (
             f"边界点 {len(bdf)} 个；"
             f"TSV={os.path.basename(tsv_path)}；"
-            f"报告={os.path.basename(rpt_path) if rpt_path else '无'}；"
-            f"PNG={os.path.basename(fig_path) if fig_path else '无'}"
+            f"PNG={os.path.basename(fig_path) if fig_path else '无'}；"
+            f"报告见「分析报告」Tab"
         ),
     }
