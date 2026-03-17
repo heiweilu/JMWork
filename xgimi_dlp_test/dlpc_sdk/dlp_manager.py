@@ -282,24 +282,31 @@ class DLPManager:
             time.sleep(0.3)
 
             # ReadExecuteDisplayStatus 可能超时或 TI SDK finally 块 NameError
-            # 若失败则假定写入已生效（ec=1），不设置 _write_only_mode，允许后续坐标读取继续尝试
+            # ReadExecuteDisplayStatus 失败不代表写入一定失败，但错误码不可用。
+            # 这里返回软件层哨兵值 -2，避免把 GeneralFailure(0) 或成功(1) 混淆。
             if self._read_status_unavailable:
-                # ReadExecuteDisplayStatus 已确认不可用，直接跳过，免除 2s 超时
-                ec = 1
+                # ReadExecuteDisplayStatus 已确认不可用，直接跳过，免除每次 2s 超时
+                ec = -2
                 state_name = 'SkippedStatusUnavailable'
                 ok = True
             else:
                 try:
                     summary, state, error_code = sdk.ReadExecuteDisplayStatus()
-                    ec = int(error_code)
+                    if not summary.Successful:
+                        # dlpc843x.py 的 finally 吞掉了超时异常并以 Successful=False 返回
+                        # 主动抛出使外层 except 捕获并设置 _read_status_unavailable
+                        raise RuntimeError(
+                            f"ReadExecuteDisplayStatus Successful=False（USB 超时被内部捕获）"
+                        )
+                    # error_code 可能是 ErrCodeT 枚举成员或原始 int（0=NoError 不在枚举中）
+                    ec = error_code.value if hasattr(error_code, 'value') else int(error_code)
                     state_name = state.name if hasattr(state, 'name') else str(state)
                     ok = summary.Successful
                 except Exception as read_e:
-                    logger.debug("ReadExecuteDisplayStatus 不可用 (%s)，假定执行成功", read_e)
-                    # 仅标记该命令不可用，不影响坐标读取
+                    logger.debug("ReadExecuteDisplayStatus 不可用 (%s)，标记跳过后续调用", read_e)
                     self._read_status_unavailable = True
-                    ec = 1
-                    state_name = 'Assumed'
+                    ec = -2
+                    state_name = 'ReadUnavailable'
                     ok = True
 
             return {
@@ -349,21 +356,26 @@ class DLPManager:
                     'write_coords': write_coords, 'read_coords': [],
                     'error_code': -1, 'match': False, 'delta': 0}
 
-        # 3. 读回坐标（USB 读超时时降级处理：用写入坐标代替，记为 PASS）
+        # 3. 读回坐标
         r_res = self.read_corners()
         if not r_res['success']:
-            # 写入和执行均已成功；USB 读取不可用时，
-            # 以写入坐标作为"读回坐标"，delta=0，与原始脚本全 PASS 的行为保持一致
-            logger.debug("read_corners 不可用 (%s)，以写入坐标替代读回坐标",
+            # 不再用写入坐标伪装成读回坐标，否则会把整批数据误记为 PASS。
+            # 若执行状态已知且为真实硬件错误码，则保留该错误码；
+            # 若执行状态成功(1)但坐标读失败，则使用 -3 明确表示读回不可用。
+            logger.debug("read_corners 不可用 (%s)，返回明确失败而非 PASS 兜底",
                          r_res.get('message', ''))
+            final_ec = error_code if error_code != 1 else -3
             return {
-                'success': True,
+                'success': False,
                 'write_coords': write_coords,
-                'read_coords': write_coords,
-                'match': True,
-                'error_code': error_code,
+                'read_coords': [],
+                'match': False,
+                'error_code': final_ec,
                 'delta': 0,
-                'message': f"PASS (write-only, read unavailable) ErrorCode={error_code} Delta=0px"
+                'message': (
+                    f"FAIL (read unavailable) ErrorCode={final_ec} "
+                    f"ExecErrorCode={error_code} Delta=0px"
+                )
             }
 
         # 4. 比对
@@ -373,7 +385,7 @@ class DLPManager:
         delta = max(diffs) if diffs else 0
 
         return {
-            'success': error_code == 1,
+            'success': match and error_code == 1,
             'write_coords': write_coords,
             'read_coords': read_coords,
             'match': match,

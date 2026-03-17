@@ -3019,17 +3019,31 @@ def ReadExecuteDisplayStatus():
     Summary.Successful = True
     global ProtocolData
     ProtocolData.CommandDestination = 1;
+    # 预初始化：防止 _readcommand 抛异常导致 finally 中变量未定义
+    # DispExecuteCommandStateT.NotStarted = 0；ErrCodeT 无 0 值，原始 int 0 = NoError
+    ExecuteCommandStateObj = 0
+    ErrorCodeObj = 0
     try:
         writebytes=list(struct.pack('B',226))
         ProtocolData.OpcodeLength = 1;
         readbytes = _readcommand(3, writebytes, ProtocolData)
         ExecuteCommandStateObj = struct.unpack_from ('B', bytearray(readbytes), 0)[0]
         ErrorCodeObj = struct.unpack_from ('H', bytearray(readbytes), 1)[0]
-    except ValueError as ve:
+    except Exception as ve:
         print("Exception Occurred ", ve)
         Summary.Successful = False
     finally:
-        return Summary, DispExecuteCommandStateT(ExecuteCommandStateObj), ErrCodeT(ErrorCodeObj)
+        # DispExecuteCommandStateT 安全转换（枚举外的值回落为原始 int）
+        try:
+            state_enum = DispExecuteCommandStateT(ExecuteCommandStateObj)
+        except (ValueError, KeyError):
+            state_enum = ExecuteCommandStateObj
+        # ErrCodeT 安全转换（0=TI NoError 不在枚举中，直接用原始 int）
+        try:
+            err_enum = ErrCodeT(ErrorCodeObj)
+        except (ValueError, KeyError):
+            err_enum = ErrorCodeObj
+        return Summary, state_enum, err_enum
 
 def WriteInputImageSizeQueued(PixelsPerLine,  LinesPerFrame):
     "<br>This command specifies the active data size of the internal/external input image to the controller.<br> <br>The parameter values are 1-based (for example, a value of 1280 pixels specifies 1280 pixels per line).<br> <br>This command must be followed with a Write Execute Display command to be applied. <br>"

@@ -408,10 +408,7 @@ def run(input_path: str, output_dir: str, params: dict,
     skipped = 0
 
     _HEADER = ('VerticalAngle(Yaw)\tHorizontalAngle(Pitch)\tAngleDesc\t'
-               'Write_TL_x\tWrite_TL_y\tWrite_TR_x\tWrite_TR_y\t'
-               'Write_BL_x\tWrite_BL_y\tWrite_BR_x\tWrite_BR_y\t'
-               'Read_TL_x\tRead_TL_y\tRead_TR_x\tRead_TR_y\t'
-               'Read_BL_x\tRead_BL_y\tRead_BR_x\tRead_BR_y\t'
+               'WriteCoords\tReadCoords\t'
                'Result\tErrorCode\tDelta\n')
 
     try:
@@ -471,10 +468,10 @@ def run(input_path: str, output_dir: str, params: dict,
 
                 # 坐标越界立即 FAIL，不发送 USB 命令（与原始脚本行为一致）
                 if any(c < 0 or c > 65535 for c in flat_write):
-                    txtfile.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(
+                    w_coord_str = ','.join(map(str, flat_write))
+                    txtfile.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(
                         _format_scalar(yaw), _format_scalar(pitch), angle_desc,
-                        '\t'.join(map(str, flat_write)),
-                        '\t'.join([''] * 8),
+                        w_coord_str, '',
                         'FAIL', '-1', '0'
                     ))
                     txtfile.flush()
@@ -505,12 +502,17 @@ def run(input_path: str, output_dir: str, params: dict,
                 if _stopped():
                     log("检测到停止信号，停止后续测试点", "WARNING")
 
-                w_str = '\t'.join(map(str, flat_write))  # 始终来自输入数据
+                w_str = ','.join(map(str, flat_write))  # 始终来自输入数据
                 read_coords = result.get('read_coords', [])
-                r_str = '\t'.join(map(str, read_coords)) if len(read_coords) >= 8 else '\t'.join([''] * 8)
+                r_str = ','.join(map(str, read_coords)) if len(read_coords) >= 8 else ''
                 ec = result.get('error_code', -1)
                 delta = result.get('delta', 0)
                 match = result.get('match', False)
+                # 仅 ErrorCode=1 表示执行成功；
+                # -1: 输入越界（软件预检）
+                # -2: 执行状态读取不可用
+                # -3: 坐标回读不可用
+                # 其他正数: 真实硬件错误码
                 ok = match and ec == 1
 
                 txtfile.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(

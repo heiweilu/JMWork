@@ -6,16 +6,27 @@ USB Bulk 通信层
 使用 pyusb 直接与 DLPC8430 设备进行 USB Bulk 通信。
 
 协议参数 (与 TI connection.py 保持一致):
-  - InsertByteLength = True
-  - InsertChecksum   = False
-    - RequestACK       = False
+    - InsertByteLength = True
+    - InsertChecksum   = False
+    - RequestACK       = True
   - Timeout          = 2000 ms
   - VID  = 0x0451 (Texas Instruments)
   - PID  = 0x8430 (DLPC8430)
 
 帧格式:
-  Write: [ByteLength(2)] + [Opcode + Data]
-  Read:  发送 [ByteLength(2)] + [Opcode]  → 接收 [ByteLength(2)] + [Data]
+    Write: [Header] + [OpcodeBytes] + [DataLen(2)] + [Data]
+    Read:  [Header] + [OpcodeBytes] + [DataLen(2)]
+
+其中 Header 按 TI StandaloneScript SampleScript 规则拼接:
+    - bit7: Read
+    - bit6: RequestACK
+    - bit5: InsertChecksum
+    - bit4: InsertByteLength
+    - bit3: InsertSequenceByte
+    - bit2..0: Destination
+
+例如 TI 原工具中的 Read Execute Display Status 请求为:
+    D1 E2 00 00
 """
 
 import struct
@@ -35,7 +46,7 @@ EP_IN = 0x81   # Device → Host
 # Protocol settings (匹配 TI connection.py)
 INSERT_BYTE_LENGTH = True
 INSERT_CHECKSUM = False
-REQUEST_ACK = False
+REQUEST_ACK = True
 USB_TIMEOUT_MS = 2000
 
 
@@ -189,14 +200,9 @@ class USBBulkConnection:
                     self._connected = False
                 raise USBConnectionError(f"USB 写入失败: {e}")
 
-            # RequestACK — 等待 ACK 响应
-            if REQUEST_ACK:
-                try:
-                    ack = self._ep_in.read(64, timeout=self.timeout)
-                    logger.debug("ACK [%d bytes]: %s", len(ack), bytes(ack).hex())
-                except Exception as e:
-                    logger.warning("ACK 读取超时: %s", e)
-                    self._emit_log(f"ACK 读取超时: {e}", "WARNING")
+            # TI 原样例通过 Header 的 ACK 标志请求设备确认，
+            # 不会额外显式读取一个独立 ACK 包。此处不再进行额外读操作，
+            # 避免吞掉后续真正的响应数据。
 
     def read_command(self, read_length, writebytes, protocol_data):
         """
@@ -268,81 +274,90 @@ class USBBulkConnection:
         """
         构建写命令数据包
 
-        TI 协议格式: [ByteLength(2)] + [CommandByte] + [Data]
-        CommandByte 高2位: destination (00=broadcast, 01=controller)
-        CommandByte bit5: 0=write
+        TI 协议格式: [Header] + [OpcodeBytes] + [DataLen(2)] + [Data]
         """
-        cmd_byte = self._make_command_byte(
-            destination=protocol_data.CommandDestination,
-            is_read=False)
-        opcode = writebytes[0]
-        data = writebytes[1:] if len(writebytes) > 1 else []
-
-        payload = [cmd_byte, opcode] + data
-
-        if INSERT_BYTE_LENGTH:
-            length = len(payload)
-            packet = list(struct.pack('<H', length)) + payload
-        else:
-            packet = payload
-
-        return bytes(packet)
+        return bytes(self._build_command_packet(writebytes, protocol_data, is_read=False))
 
     def _build_read_packet(self, writebytes, protocol_data):
         """
         构建读命令数据包
 
-        TI 协议格式: [ByteLength(2)] + [CommandByte] + [Opcode]
-        CommandByte bit5: 1=read
+        TI 协议格式: [Header] + [OpcodeBytes] + [DataLen(2)]
         """
-        cmd_byte = self._make_command_byte(
-            destination=protocol_data.CommandDestination,
-            is_read=True)
-        opcode = writebytes[0]
+        return bytes(self._build_command_packet(writebytes, protocol_data, is_read=True))
 
-        payload = [cmd_byte, opcode]
+    def _build_command_packet(self, writebytes, protocol_data, is_read):
+        """按 TI SampleScript 的规则构建 Header + Opcode + Length + Data 包。"""
+        packet = []
+        packet.append(self._make_command_byte(
+            destination=protocol_data.CommandDestination,
+            is_read=is_read,
+        ))
+
+        opcode_len = int(getattr(protocol_data, 'OpcodeLength', 1) or 1)
+        opcode_bytes = list(writebytes[:opcode_len])
+        data_bytes = list(writebytes[opcode_len:])
+
+        packet.extend(opcode_bytes)
 
         if INSERT_BYTE_LENGTH:
-            length = len(payload)
-            packet = list(struct.pack('<H', length)) + payload
-        else:
-            packet = payload
+            data_len = len(data_bytes)
+            packet.append(data_len & 0xFF)
+            packet.append((data_len >> 8) & 0xFF)
 
-        return bytes(packet)
+        packet.extend(data_bytes)
+        return packet
 
     def _make_command_byte(self, destination, is_read):
         """
         构建命令字节
 
-        Bit 7-6: Destination (0=broadcast, 1=controller)
-        Bit 7:   R/W overlay — TI 协议: read=0xC0(1=1,dest=1), write=0x40(1=0,dest=1)
-        即: write_byte = (dest << 6), read_byte = (dest << 6) | 0x80
-
-        0x40 = write to controller  (已验证可用)
-        0xC0 = read  from controller
+        TI SampleScript 规则:
+        - 低 3 bit: Destination 原始值
+        - 0x80: Read
+        - 0x40: RequestACK
+        - 0x20: InsertChecksum
+        - 0x10: InsertByteLength
+        - 0x08: InsertSequenceByte
         """
-        cmd = (destination & 0x03) << 6
+        cmd = int(destination) & 0x07
         if is_read:
-            cmd |= 0x80  # bit 7 flags read
+            cmd |= 0x80
+        if REQUEST_ACK:
+            cmd |= 0x40
+        if INSERT_CHECKSUM:
+            cmd |= 0x20
+        if INSERT_BYTE_LENGTH:
+            cmd |= 0x10
         return cmd
 
     def _parse_read_response(self, raw, expected_length):
         """
         解析读响应数据
 
-        响应格式: [ByteLength(2)] + [Header(1)] + [Data(N)]
+        响应格式: [Header(1)] + [Length(2)] + [Data(N)]
         """
-        if INSERT_BYTE_LENGTH:
-            if len(raw) < 3:
+        if len(raw) < 1:
+            return raw
+
+        header = raw[0]
+        idx = 1
+
+        if header & 0x08:
+            idx += 1
+
+        payload_len = None
+        if header & 0x10:
+            if len(raw) < idx + 2:
                 logger.warning("响应数据过短: %d bytes", len(raw))
                 self._emit_log(f"响应数据过短: {len(raw)} bytes", "WARNING")
-                return raw
-            # 跳过 2 字节长度 + 1 字节 header
-            data = raw[3:]
-        else:
-            if len(raw) < 1:
-                return raw
-            data = raw[1:]
+                return []
+            payload_len = raw[idx] | (raw[idx + 1] << 8)
+            idx += 2
+
+        data = raw[idx:]
+        if payload_len is not None:
+            data = data[:payload_len]
 
         return data[:expected_length]
 
