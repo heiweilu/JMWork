@@ -162,6 +162,28 @@ class AnalysisPage(QWidget):
         self.ref_content = QWidget()
         self.ref_layout = QVBoxLayout(self.ref_content)
         self.ref_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # 参考图操作栏
+        _ref_bar = QHBoxLayout()
+        _ref_bar.setContentsMargins(8, 4, 8, 0)
+        self._btn_import_ref = QPushButton("📂 导入参考图")
+        self._btn_import_ref.setToolTip("从本地文件导入参考图片，叠加展示与分析结果对比")
+        self._btn_import_ref.setFixedHeight(26)
+        self._btn_import_ref.setStyleSheet(
+            "QPushButton{font-size:11px;padding:2px 10px;border-radius:5px;}")
+        self._btn_import_ref.clicked.connect(self._on_import_ref_image)
+        self._btn_clear_ref = QPushButton("✕ 清除")
+        self._btn_clear_ref.setToolTip("清除手动导入的参考图，恢复模块默认参考图")
+        self._btn_clear_ref.setFixedHeight(26)
+        self._btn_clear_ref.setStyleSheet(
+            "QPushButton{font-size:11px;padding:2px 8px;border-radius:5px;}")
+        self._btn_clear_ref.setVisible(False)
+        self._btn_clear_ref.clicked.connect(self._on_clear_ref_image)
+        _ref_bar.addWidget(self._btn_import_ref)
+        _ref_bar.addWidget(self._btn_clear_ref)
+        _ref_bar.addStretch()
+        self.ref_layout.addLayout(_ref_bar)
+
         self.ref_image_label = QLabel()
         self.ref_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.ref_image_label.setScaledContents(False)
@@ -479,18 +501,20 @@ class AnalysisPage(QWidget):
             elif "角度扩圆坐标生成" in cur_name:
                 self._btn_send_to_svm.setVisible(bool(output_path))
 
-            # 显示图表，并自动切换到"分析结果" Tab
+            # 显示图表：优先用已保存 PNG（支持旋转/缩放），无文件时降级用 Figure
             fig = result.get('figure')
-            if fig:
+            _img_exts = ('.png', '.jpg', '.jpeg', '.bmp')
+            image_paths = [p for p in (output_files or []) if p and p.lower().endswith(_img_exts)]
+            if not image_paths:
+                image_paths = self._collect_result_images(output_path)
+            if image_paths:
+                self.plot_widget.display_image_paths(image_paths)
+                self.btn_export.setEnabled(True)
+                self.right_tabs.setCurrentIndex(1)
+            elif fig:
                 self.plot_widget.display_figure(fig)
                 self.btn_export.setEnabled(True)
-                self.right_tabs.setCurrentIndex(1)  # 切到"分析结果"Tab
-            else:
-                image_paths = output_files or self._collect_result_images(output_path)
-                if image_paths:
-                    self.plot_widget.display_image_paths(image_paths)
-                    self.btn_export.setEnabled(True)
-                    self.right_tabs.setCurrentIndex(1)
+                self.right_tabs.setCurrentIndex(1)
             if self._log_panel:
                 self._log_panel.append_log(
                     f"执行成功! 输出: {output_path}", "SUCCESS")
@@ -610,3 +634,40 @@ class AnalysisPage(QWidget):
                         images.append(os.path.join(root, name))
         images.sort(key=lambda p: (os.path.dirname(p), os.path.basename(p)))
         return images
+
+    def _on_import_ref_image(self):
+        """手动导入参考图片，显示在"参考结果"Tab 中供对比分析。"""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "选择参考图片", "",
+            "图片文件 (*.png *.jpg *.jpeg *.bmp);;所有文件 (*)")
+        if not path or not os.path.isfile(path):
+            return
+        pixmap = QPixmap(path)
+        if pixmap.isNull():
+            QMessageBox.warning(self, "导入失败", f"无法加载图片:\n{path}")
+            return
+        # 自适应缩放显示
+        scaled = pixmap.scaled(
+            900, 600,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation)
+        self.ref_image_label.setPixmap(scaled)
+        self.ref_image_label.show()
+        self.ref_text_label.setText(f"手动导入参考图: {os.path.basename(path)}")
+        self.ref_text_label.setStyleSheet("font-size:11px; color:#888; padding:4px 16px;")
+        self.ref_text_label.show()
+        self._btn_clear_ref.setVisible(True)
+        # 切换到参考结果 Tab
+        self.right_tabs.setCurrentIndex(0)
+        if self._log_panel:
+            self._log_panel.append_log(f"已导入参考图: {path}", "INFO")
+
+    def _on_clear_ref_image(self):
+        """清除手动导入的参考图，恢复当前模块的默认参考图。"""
+        self._btn_clear_ref.setVisible(False)
+        # 重新加载当前模块的默认参考图
+        idx = self.combo_type.currentIndex()
+        if 0 <= idx < len(self._module_ids):
+            mdata = task_registry.get_module(self._module_ids[idx])
+            if mdata:
+                self._update_reference_panel(mdata['info'])

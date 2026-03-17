@@ -92,6 +92,9 @@ def _load_csv_data(csv_path: str, config: dict, log_cb=None) -> list:
                 header = [h.strip() for h in stripped.split(delim)]
             else:
                 header = stripped.split()
+            # 规范化 Yaw/Pitch 大小写（兼容扩圆 TSV 中的大写列名）
+            _norm = {'Yaw': 'yaw', 'Pitch': 'pitch'}
+            header = [_norm.get(h, h) for h in header]
             data_start = i + 1
             if log_cb:
                 log_cb(f"分隔符: {repr(delim) if delim else 'whitespace'}  列: {header}", "INFO")
@@ -100,11 +103,18 @@ def _load_csv_data(csv_path: str, config: dict, log_cb=None) -> list:
     if header is None:
         raise ValueError("数据文件中无有效表头行")
 
-    required = ['yaw', 'pitch', 'TL_X', 'TL_Y', 'TR_X', 'TR_Y',
-                'BL_X', 'BL_Y', 'BR_X', 'BR_Y']
-    missing = [col for col in required if col not in header]
+    _FLAT_COLS = ['TL_X', 'TL_Y', 'TR_X', 'TR_Y', 'BL_X', 'BL_Y', 'BR_X', 'BR_Y']
+    # 若包含 WriteCoords 列且缺少扁平坐标列 → 扩圆 TSV 模式
+    use_write_coords = ('WriteCoords' in header and
+                        not all(c in header for c in _FLAT_COLS))
+    if use_write_coords:
+        missing = [c for c in ['yaw', 'pitch', 'WriteCoords'] if c not in header]
+    else:
+        missing = [c for c in ['yaw', 'pitch'] + _FLAT_COLS if c not in header]
     if missing:
         raise ValueError(f"数据文件缺少必要列: {missing}")
+    if use_write_coords and log_cb:
+        log_cb("检测到 WriteCoords 列，自动展开坐标（扩圆 TSV 模式）", "INFO")
 
     for line_num in range(data_start, len(lines)):
         line = lines[line_num].strip()
@@ -138,12 +148,20 @@ def _load_csv_data(csv_path: str, config: dict, log_cb=None) -> list:
                 filtered += 1
                 continue
 
-            points = [
-                [int(float(row['TL_X'])), int(float(row['TL_Y']))],
-                [int(float(row['TR_X'])), int(float(row['TR_Y']))],
-                [int(float(row['BL_X'])), int(float(row['BL_Y']))],
-                [int(float(row['BR_X'])), int(float(row['BR_Y']))],
-            ]
+            if use_write_coords:
+                wc = row.get('WriteCoords', '').strip().strip("\"'")
+                wc_vals = [int(float(v)) for v in wc.split(',') if v.strip()]
+                if len(wc_vals) < 8:
+                    continue
+                points = [[wc_vals[0], wc_vals[1]], [wc_vals[2], wc_vals[3]],
+                          [wc_vals[4], wc_vals[5]], [wc_vals[6], wc_vals[7]]]
+            else:
+                points = [
+                    [int(float(row['TL_X'])), int(float(row['TL_Y']))],
+                    [int(float(row['TR_X'])), int(float(row['TR_Y']))],
+                    [int(float(row['BL_X'])), int(float(row['BL_Y']))],
+                    [int(float(row['BR_X'])), int(float(row['BR_Y']))],
+                ]
             test_data.append({'yaw': yaw, 'pitch': pitch, 'points': points})
             loaded += 1
         except (ValueError, KeyError, IndexError):
