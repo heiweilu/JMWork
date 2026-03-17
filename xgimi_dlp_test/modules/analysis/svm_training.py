@@ -74,9 +74,9 @@ MODULE_INFO = {
     ),
     "input_type": "data",
     "input_description": (
-        "角度/梯形测试结果文件（.csv 或 .txt）。\n"
-        "• CSV 模式：含 WriteCoords、Result、ErrorCode 列（工程标准输出格式）\n"
-        "• TXT 模式：每行 \"x1,x2,...,x8 label\"（原始 train.txt 格式）"
+        "角度/梯形测试结果文件（.csv / .tsv / .txt）。\n"
+        "• 多列CSV模式：含 Write_TL_x~Write_BR_y 或 WriteCoords 列 + Result + ErrorCode\n"
+        "• 预处理TXT模式：由 [SVM训练数据预处理] 模块生成，每行 x1,x2,...,x8 label（无表头）"
     ),
     "output_type": "model",
     "params": [
@@ -84,12 +84,12 @@ MODULE_INFO = {
             "key": "input_format",
             "label": "输入数据格式",
             "type": "choice",
-            "options": ["自动识别（CSV含WriteCoords列）", "原始TXT（逗号特征 空格 标签）"],
+            "options": ["多列CSV自动识别（角度/梯形测试结果）", "预处理TXT（SVM训练数据预处理生成）"],
             "values":  ["csv_auto", "txt_raw"],
             "default": "csv_auto",
             "tooltip": (
-                "csv_auto：自动从 WriteCoords 列解析8维坐标特征，从 Result 列获取标签\n"
-                "txt_raw：每行格式为 'x1,x2,...,x8 label'（与原始 train.txt 兼容）"
+                "csv_auto：自动识别多列测试结果，支持扁平列(Write_TL_x~Write_BR_y)和WriteCoords单列格式\n"
+                "txt_raw：由 [SVM训练数据预处理] 生成的简洁格式，每行 'x1,x2,...,x8 label'（无表头）"
             ),
         },
         {
@@ -198,14 +198,20 @@ MODULE_INFO = {
 def _parse_csv_format(filepath: str, errorcode_filter: str,
                       log_cb) -> tuple:
     """
-    解析工程标准 CSV 格式。
+    解析工程标准 CSV/TSV 格式，支持两种列布局：
 
-    列：WriteCoords(TL_x,TL_y,TR_x,TR_y,BL_x,BL_y,BR_x,BR_y) | Result | ErrorCode
-    特征：WriteCoords 解析为 8 个浮点数
+    格式A（角度测试扁平列）：
+      Write_TL_x  Write_TL_y  Write_TR_x  Write_TR_y
+      Write_BL_x  Write_BL_y  Write_BR_x  Write_BR_y
+      Result  ErrorCode
+
+    格式B（扩圆TSV单列）：
+      WriteCoords  Result  ErrorCode
+
+    分隔符自动识别：先尝试 TAB，若仍为单列再尝试逗号/空白。
     标签：Result==PASS → 1，否则 0
-
     ErrorCode 过滤策略：
-      use_result : 以 Result 列为标签，忽略 ErrorCode
+      use_result    : 以 Result 列为标签，忽略 ErrorCode
       filter_ec_gt1 : 跳过 ErrorCode > 1 的行（硬件错误行）
     """
     import pandas as pd
@@ -219,34 +225,67 @@ def _parse_csv_format(filepath: str, errorcode_filter: str,
     if not lines:
         raise ValueError("文件无有效数据行")
 
-    sep = "\t" if "\t" in lines[0] else ","
     header = lines[0].strip()
     filtered = [lines[0]]
     for l in lines[1:]:
         if l.strip() != header:
             filtered.append(l)
 
-    df = pd.read_csv(StringIO("".join(filtered)), sep=sep, engine="python",
-                     on_bad_lines="skip")
+    content = "".join(filtered)
+
+    # 自动检测分隔符：依次尝试 TAB、逗号、空白
+    df = None
+    for try_sep in ["\t", ",", r"\s+"]:
+        try:
+            _df = pd.read_csv(StringIO(content), sep=try_sep, engine="python",
+                              on_bad_lines="skip")
+            if len(_df.columns) > 1:
+                df = _df
+                break
+        except Exception:
+            continue
+    if df is None:
+        raise ValueError("无法解析文件：尝试 TAB/逗号/空白分隔符后仍只有 1 列")
+
     log_cb(f"  CSV 解析: {len(df)} 行，列: {[c[:30] for c in df.columns]}")
 
-    # 找 WriteCoords 列（模糊匹配）
-    wc_col = None
-    ec_col = None
-    res_col = None
-    for col in df.columns:
-        cl = col.lower()
-        if "writecoords" in cl or "write_coords" in cl:
-            wc_col = col
-        elif "errorcode" in cl or cl.strip() == "ec":
-            ec_col = col
-        elif cl.strip() == "result":
-            res_col = col
+    # --- 识别列布局 ---
+    col_lower = {c.lower(): c for c in df.columns}
 
-    if wc_col is None:
-        raise ValueError(f"找不到 WriteCoords 列，当前列: {list(df.columns)}")
+    # 优先检测格式A：扁平 Write_TL_x 等 8 列
+    _flat_keys = ["write_tl_x", "write_tl_y", "write_tr_x", "write_tr_y",
+                  "write_bl_x", "write_bl_y", "write_br_x", "write_br_y"]
+    is_flat = all(k in col_lower for k in _flat_keys)
+
+    # 格式B：单 WriteCoords 列
+    wc_col = None
+    if not is_flat:
+        for orig, mapped in col_lower.items():
+            if "writecoords" in orig or "write_coords" in orig:
+                wc_col = mapped
+                break
+
+    # 找 Result / ErrorCode 列
+    res_col = None
+    ec_col = None
+    for orig, mapped in col_lower.items():
+        if orig.strip() == "result":
+            res_col = mapped
+        elif "errorcode" in orig or orig.strip() == "ec":
+            ec_col = mapped
+
+    if not is_flat and wc_col is None:
+        raise ValueError(
+            f"找不到坐标列（需要 Write_TL_x..Write_BR_y 或 WriteCoords），"
+            f"当前列: {list(df.columns)}"
+        )
     if res_col is None:
         raise ValueError(f"找不到 Result 列，当前列: {list(df.columns)}")
+
+    if is_flat:
+        log_cb("  列布局: 格式A（扁平 Write_* 列）")
+    else:
+        log_cb("  列布局: 格式B（WriteCoords 单列）")
 
     features = []
     labels = []
@@ -263,16 +302,22 @@ def _parse_csv_format(filepath: str, errorcode_filter: str,
             except (ValueError, TypeError):
                 pass
 
-        # 解析坐标（去掉括号类字符，按逗号分割）
-        raw_coords = str(row[wc_col]).strip().strip('"').strip("'")
-        raw_coords = re.sub(r"[()[\]{}]", "", raw_coords)
-        parts = re.split(r"[,\s]+", raw_coords.strip())
-        try:
-            vals = [float(p) for p in parts if p]
-        except ValueError:
-            continue
-        if len(vals) != 8:
-            continue
+        # 提取 8 维坐标
+        if is_flat:
+            try:
+                vals = [float(row[col_lower[k]]) for k in _flat_keys]
+            except (ValueError, TypeError):
+                continue
+        else:
+            raw_coords = str(row[wc_col]).strip().strip('"').strip("'")
+            raw_coords = re.sub(r"[()[\]{}]", "", raw_coords)
+            parts = re.split(r"[,\s]+", raw_coords.strip())
+            try:
+                vals = [float(p) for p in parts if p]
+            except ValueError:
+                continue
+            if len(vals) != 8:
+                continue
 
         # 标签
         result_str = str(row[res_col]).strip().upper()
@@ -488,11 +533,19 @@ def run(input_path: str, output_dir: str, params: dict,
     def _cancelled():
         return stop_event is not None and stop_event.is_set()
 
+    import sys as _sys
+    _log(f"Python: {_sys.executable}", "INFO")
+
     try:
         import cv2
-    except ImportError:
+        _log(f"cv2 {cv2.__version__} 加载成功", "INFO")
+    except (ImportError, OSError) as _cv2_err:
         return {"status": "error",
-                "message": "缺少 opencv-python 依赖，请执行：pip install opencv-python"}
+                "message": (
+                    f"无法加载 opencv-python (cv2)：{_cv2_err}\n"
+                    f"Python: {_sys.executable}\n"
+                    f"请在此解释器下执行：\n  {_sys.executable} -m pip install opencv-python"
+                )}
 
     try:
         # ── 解析参数 ────────────────────────────────────────────────

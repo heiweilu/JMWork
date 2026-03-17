@@ -55,46 +55,92 @@ _CORNER_CN = {
 #  文件解析
 # ─────────────────────────────────────────────────────────────────
 def _parse_file(path, log):
+    """
+    支持三种格式（自动检测）：
+      格式A — 角度测试结果(flat): VerticalAngle(Yaw) / Write_TL_x / Write_TL_y / ... / Result
+      格式B — 扩圆 TSV: Yaw / Pitch / WriteCoords / ProblemCorner / OrigCorner_x/y / SampleDist_px
+      格式C — 传统梯形 TXT: 首列=WriteCoords(x,x,x,x,x,x,x,x) / 末列=ErrorCode
+    """
     rows = []
     with open(path, "r", encoding="utf-8-sig", errors="ignore") as f:
         lines = f.readlines()
     if not lines:
         return rows
 
-    wc_idx = result_idx = pc_idx = orig_x_idx = orig_y_idx = dist_idx = None
-    has_header = False
     first = lines[0].strip()
-    if "\t" in first:
-        cols = first.split("\t")
-        cl = [c.strip().lower() for c in cols]
-        if "writecoords" in cl:
-            has_header = True
-            wc_idx      = cl.index("writecoords")
-            result_idx  = next((i for i, c in enumerate(cl) if c == "result"), None)
-            pc_idx      = next((i for i, c in enumerate(cl) if c == "problemcorner"), None)
-            orig_x_idx  = next((i for i, c in enumerate(cl) if c == "origcorner_x"), None)
-            orig_y_idx  = next((i for i, c in enumerate(cl) if c == "origcorner_y"), None)
-            dist_idx    = next((i for i, c in enumerate(cl) if c == "sampledist_px"), None)
+    cols_header = first.split("\t") if "\t" in first else []
+    cl = [c.strip().lower() for c in cols_header]
+
+    # ── 检测格式 ──
+    # 格式A: 有 write_tl_x 这样的扁平坐标列
+    _flat_keys = ["write_tl_x", "write_tl_y", "write_tr_x", "write_tr_y",
+                  "write_bl_x", "write_bl_y", "write_br_x", "write_br_y"]
+    is_flat = all(k in cl for k in _flat_keys)
+
+    # 格式B: 有 writecoords 列
+    is_wc = (not is_flat) and ("writecoords" in cl)
+
+    has_header = is_flat or is_wc
+
+    if is_flat:
+        # 格式A 索引
+        def _ci(name): return cl.index(name) if name in cl else None
+        idx_tl_x = _ci("write_tl_x"); idx_tl_y = _ci("write_tl_y")
+        idx_tr_x = _ci("write_tr_x"); idx_tr_y = _ci("write_tr_y")
+        idx_bl_x = _ci("write_bl_x"); idx_bl_y = _ci("write_bl_y")
+        idx_br_x = _ci("write_br_x"); idx_br_y = _ci("write_br_y")
+        result_idx = _ci("result")
+        pc_idx      = _ci("problemcorner")
+        orig_x_idx  = _ci("origcorner_x")
+        orig_y_idx  = _ci("origcorner_y")
+        dist_idx    = _ci("sampledist_px")
+        log("检测到格式A（角度测试扁平列）", "INFO")
+    elif is_wc:
+        # 格式B 索引
+        def _ci(name): return cl.index(name) if name in cl else None
+        wc_idx      = _ci("writecoords")
+        result_idx  = _ci("result")
+        pc_idx      = _ci("problemcorner")
+        orig_x_idx  = _ci("origcorner_x")
+        orig_y_idx  = _ci("origcorner_y")
+        dist_idx    = _ci("sampledist_px")
+        log("检测到格式B（扩圆 TSV / WriteCoords 列）", "INFO")
+    else:
+        log("检测到格式C（传统梯形 TXT，首列=坐标串）", "INFO")
 
     data_lines = lines[1:] if has_header else lines
     skipped = 0
+
     for raw in data_lines:
         s = raw.strip()
         if not s or s.startswith("#"):
             continue
         cols = s.split("\t")
-        # — 坐标串
-        if wc_idx is not None and wc_idx < len(cols):
-            cs = cols[wc_idx].strip().strip("\"'")
-        elif len(cols) >= 1 and "," in cols[0]:
-            cs = cols[0].strip().strip("\"'")
-        else:
-            skipped += 1; continue
+
         try:
-            p = [int(float(v)) for v in cs.split(",") if v.strip()]
-        except ValueError:
-            skipped += 1; continue
-        if len(p) < 8:
+            if is_flat:
+                # 格式A：直接读各列
+                p = [int(float(cols[i])) for i in [
+                    idx_tl_x, idx_tl_y, idx_tr_x, idx_tr_y,
+                    idx_bl_x, idx_bl_y, idx_br_x, idx_br_y]]
+            elif is_wc:
+                # 格式B：展开 WriteCoords
+                cs = cols[wc_idx].strip().strip("\"'")
+                p = [int(float(v)) for v in cs.split(",") if v.strip()]
+                if len(p) < 8:
+                    skipped += 1; continue
+            else:
+                # 格式C：首列是逗号分隔坐标串
+                if len(cols) < 1 or "," not in cols[0]:
+                    skipped += 1; continue
+                cs = cols[0].strip().strip("\"'")
+                p = [int(float(v)) for v in cs.split(",") if v.strip()]
+                if len(p) < 8:
+                    skipped += 1; continue
+                result_idx = next((i for i, c in enumerate(cols)
+                                   if c.strip().upper() in ("PASS","FAIL")), None)
+                pc_idx = orig_x_idx = orig_y_idx = dist_idx = None
+        except (ValueError, IndexError, TypeError):
             skipped += 1; continue
 
         # — Result
@@ -219,6 +265,30 @@ def _draw_corner_zoom(ax, rows, pc_set, show_circle):
         ax.text(0.5, 0.5, "未检测到变动角点",
                 ha="center", va="center", transform=ax.transAxes, fontsize=9)
         ax.set_title("变动角坐标分布", fontsize=9)
+        return
+
+    # 若全部 4 个角点都在变化（混合多角测试），改为显示 FAIL 点多角叠加分布
+    all_vary = (pc_set == set(_CORNERS))
+    if all_vary:
+        # 显示四个角点的 FAIL 坐标，用颜色区分角点
+        clrs = {"TL": "#E74C3C", "TR": "#E67E22", "BL": "#9B59B6", "BR": "#2980B9"}
+        for c in _CORNERS:
+            fx = [_get_xy(r,c)[0] for r in rows if not r["ok"]]
+            fy = [_get_xy(r,c)[1] for r in rows if not r["ok"]]
+            if fx:
+                ax.scatter(fx, fy, c=clrs[c], s=12, alpha=0.60, linewidths=0,
+                           zorder=4, label=f"FAIL-{c}({len(fx)})")
+        n_f = sum(1 for r in rows if not r["ok"])
+        ax.invert_yaxis()
+        ax.set_title(
+            f"各角点 FAIL 坐标叠加分布\n（混合多角测试，共 {n_f} 个 FAIL 点）",
+            fontsize=9)
+        ax.set_xlabel("X (px)", fontsize=8)
+        ax.set_ylabel("Y (px)", fontsize=8)
+        ax.tick_params(labelsize=7)
+        ax.legend(fontsize=7, loc="best", framealpha=0.7)
+        ax.grid(True, alpha=0.18, linewidth=0.5)
+        ax.set_facecolor("#FDFDFD")
         return
 
     c = sorted(pc_set)[0]
