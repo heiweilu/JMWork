@@ -1,0 +1,85 @@
+============================================================
+SVM 模型训练  —  xgimi_dlp_test
+开始时间: 2026-03-18 13:52:01
+训练模式: optimized_builtin
+输入文件: D:/software/heiweilu/workspace/xgimi/code/xgimi_dlp_test/reports/svm_training/data/02_train.txt
+输入格式: txt_raw
+CSV标签策略: 不适用（当前为预处理TXT）
+============================================================
+
+[步骤1] 加载并解析数据...
+  TXT 解析: 25816 行
+  总样本数: 25816
+  特征维度: 8
+  类别分布: label=0 (16088), label=1 (9728)
+
+[步骤2] 随机打乱数据...
+  随机种子: 42
+
+[步骤3] Z-score 归一化...
+  均值: [665.75, 240.64999389648438, 3350.179931640625, 228.49000549316406, 486.07000732421875, 1905.5799560546875, 3383.110107421875, 1913.7900390625]
+  标准差: [716.280029296875, 332.9800109863281, 635.52001953125, 327.6099853515625, 650.72998046875, 335.1400146484375, 648.469970703125, 335.5899963378906]
+
+[步骤4] 划分训练集/测试集（80/19）...
+  训练集: 20652 样本
+  测试集: 5164 样本
+
+[步骤5] 训练 SVM（kernel=rbf, C=1.0, gamma=0.1）...
+  训练完成
+
+[步骤6] 模型评估...
+  训练集精度: 94.35%  (class0=98.4%, class1=87.7%)
+  测试集精度: 94.23%  (class0=98.1%, class1=87.9%)
+  混淆矩阵（测试集）:
+           预测0   预测1
+  实际0      3135      60
+  实际1       238    1731
+
+[步骤7] 5 折交叉验证...
+    第 1/5 折: 94.23%
+    第 2/5 折: 94.21%
+    第 3/5 折: 94.38%
+    第 4/5 折: 94.15%
+    第 5/5 折: 94.38%
+  交叉验证均值: 94.27%  (±0.10%)
+  CV 均值: 94.27%  (±0.10%)
+
+[步骤8] 网格搜索参数优化（时间较长）...
+  网格搜索 C × gamma 组合...（mode=optimized_builtin）
+    C=   0.100  gamma=  0.0010  → 81.02%
+    C=   0.100  gamma=  0.0100  → 85.15%
+    C=   0.100  gamma=  0.1000  → 91.66%
+    C=   0.100  gamma=  1.0000  → 94.30%
+    C=   1.000  gamma=  0.0010  → 82.17%
+    C=   1.000  gamma=  0.0100  → 88.50%
+    C=   1.000  gamma=  0.1000  → 94.25%
+    C=   1.000  gamma=  1.0000  → 96.90%
+    C=  10.000  gamma=  0.0010  → 85.18%
+    C=  10.000  gamma=  0.0100  → 92.43%
+    C=  10.000  gamma=  0.1000  → 95.59%
+    C=  10.000  gamma=  1.0000  → 97.88%
+    C= 100.000  gamma=  0.0010  → 88.62%
+    C= 100.000  gamma=  0.0100  → 66.42%
+    C= 100.000  gamma=  0.1000  → 78.93%
+    C= 100.000  gamma=  1.0000  → 95.24%
+  最优参数: C=10.0  gamma=1.0  精度=97.88%
+
+[步骤8b] 使用最优参数重新训练...
+  已启用网格搜索：最终导出优化模型为 svm_model.xml，基础模型不单独落盘
+
+[步骤9] 保存模型文件...
+  svm_model.xml  → D:\software\heiweilu\workspace\xgimi\code\xgimi_dlp_test\reports\svm_training\20260318\svm_model.xml
+  norm_params.yaml → D:\software\heiweilu\workspace\xgimi\code\xgimi_dlp_test\reports\svm_training\20260318\norm_params.yaml
+  model_info.txt → D:\software\heiweilu\workspace\xgimi\code\xgimi_dlp_test\reports\svm_training\20260318\model_info.txt
+
+============================================================
+训练完成！关键文件:
+  1. D:\software\heiweilu\workspace\xgimi\code\xgimi_dlp_test\reports\svm_training\20260318\svm_model.xml
+  2. D:\software\heiweilu\workspace\xgimi\code\xgimi_dlp_test\reports\svm_training\20260318\norm_params.yaml
+  3. 已使用网格搜索最优参数导出到 svm_model.xml
+
+C++ 使用示例:
+  auto svm = cv::ml::SVM::load("svm_model.xml");
+  // 读取 norm_params.yaml 中的 mean/std 数组
+  // 对输入坐标归一化后调用 svm->predict(sample);
+============================================================

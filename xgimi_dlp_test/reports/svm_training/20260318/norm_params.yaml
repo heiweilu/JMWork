@@ -1,0 +1,17 @@
+%YAML:1.0
+---
+mean: !!opencv-matrix
+   rows: 8
+   cols: 1
+   dt: f
+   data: [ 665.75293, 240.649094, 3350.17529, 228.491135, 486.074921,
+       1905.58044, 3383.11206, 1913.78577 ]
+std: !!opencv-matrix
+   rows: 8
+   cols: 1
+   dt: f
+   data: [ 716.283508, 332.979736, 635.524048, 327.608704, 650.729248,
+       335.138977, 648.473511, 335.591461 ]
+feature_dim: 8
+description: SVM normalization parameters (z-score)
+date: "2026-03-18"
