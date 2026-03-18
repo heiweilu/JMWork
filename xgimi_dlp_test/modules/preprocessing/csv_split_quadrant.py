@@ -64,8 +64,8 @@ def run(input_path: str, output_dir: str, params: dict,
         if not os.path.exists(input_path):
             return {"status": "error", "message": f"文件不存在: {input_path}"}
 
-        project_root = params.get('project_root', output_dir)
-        out_dir = os.path.join(project_root, 'data', 'CSV_quadrant_data')
+        # 输出到指定的 reports 目录，而非 data 目录
+        out_dir = output_dir
         os.makedirs(out_dir, exist_ok=True)
 
         yaw_min = params.get('yaw_min', -40)

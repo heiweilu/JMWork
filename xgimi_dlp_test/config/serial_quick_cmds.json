@@ -1,38 +1,70 @@
-[
-  {
-    "name": "关闭AVB",
-    "cmd": "avb init 0;avb set-devicestate 0;avb set-verity disable;save;reset"
-  },
-  {
-    "name": "还原备份的so",
-    "cmd": "cp /data/libxgimi.so /vendor/lib"
-  },
-  {
-    "name": "打印tag版本",
-    "cmd": "getprop | grep apollo"
-  },
-  {
-    "name": "打印硬件版本",
-    "cmd": "getprop | grep model"
-  },
-  {
-    "name": "关风控",
-    "cmd": "stop xgimi_middle;\ncri temperature_bypass true;  \nreboot"
-  },
-  {
-    "name": "set dlp_bypass",
-    "cmd": "cri set dlp_bypass 1"
-  },
-  {
-    "name": "get dlp_bypass",
-    "cmd": "cri get dlp_bypass"
-  },
-  {
-    "name": "reset",
-    "cmd": "reset"
-  },
-  {
-    "name": "reboot",
-    "cmd": "reboot"
-  }
-]
+{
+  "custom_commands": [
+    {
+      "name": "打印GM调试日志",
+      "cmd": "logcat | grep GM_DISP_DBG"
+    },
+    {
+      "name": "关闭AVB",
+      "cmd": "avb init 0;avb set-devicestate 0;avb set-verity disable;save;reset"
+    },
+    {
+      "name": "调整休眠(24h)",
+      "cmd": "settings put system screen_off_timeout 86400000"
+    },
+    {
+      "name": "查看U盘挂载",
+      "cmd": "ls /mnt/media_rw/"
+    },
+    {
+      "name": "查看vendor目录",
+      "cmd": "ls /vendor/lib/ | grep xgimi"
+    }
+  ],
+  "dynamic_sections": [
+    {
+      "type": "dynamic_section",
+      "title": "SVM模型测试相关",
+      "commands": [
+        {
+          "name": "su",
+          "cmd": "su;remount"
+        },
+        {
+          "name": "查看原模型",
+          "cmd": "ls -lh /mnt/vendor/xgimiconfig/G0118/kstAdjust/"
+        },
+        {
+          "name": "删除符号链接",
+          "cmd": "rm /mnt/vendor/xgimiconfig/G0118/kstAdjust/norm_params.yaml；rm /mnt/vendor/xgimiconfig/G0118/kstAdjust/svm_model.xml"
+        },
+        {
+          "name": "拷贝新模型",
+          "cmd": "cp /mnt/media_rw/0182-0265/norm_params.yaml /mnt/vendor/xgimiconfig/G0118/kstAdjust/；cp /mnt/media_rw/0182-0265/svm_model.xml /mnt/vendor/xgimiconfig/G0118/kstAdjust/"
+        },
+        {
+          "name": "查看新模型",
+          "cmd": "ls -lh /mnt/vendor/xgimiconfig/G0118/kstAdjust/"
+        },
+        {
+          "name": "下点（需要修改坐标）",
+          "cmd": "gmpfUnit correctKeystone2"
+        },
+        {
+          "name": "logcat | grep svm",
+          "cmd": "logcat | grep svm"
+        }
+      ]
+    },
+    {
+      "type": "dynamic_section",
+      "title": "固件升级（AOSP)",
+      "commands": [
+        {
+          "name": "mboot更新指令（注意修改文件名）",
+          "cmd": "mtkupgrade usb XGIMI_GOATELEGANT_XR03D.bin"
+        }
+      ]
+    }
+  ]
+}

@@ -399,12 +399,13 @@ class SerialPage(QWidget):
         self._rx_buffer = bytearray()
         self._auto_scroll = True
         self._log_lines = []            # 纯文本日志缓存
-        self._custom_cmds = self._load_custom_cmds()
+        # 初始化数据加载相关属性
+        self._custom_cmds = list(_DEFAULT_CUSTOM_CMDS)  # 自定义快捷指令
+        self._saved_dynamic_sections = []  # 保存的动态板块数据
+        # 初始化时加载所有数据
+        self._load_all_data()
         # 主题状态
-        self._dark_mode = True
-        self._rx_color    = _DARK['rx']
-        self._tx_color    = _DARK['tx']
-        self._sys_color   = _DARK['sys']
+        self._dark_mode = True          # 新增：初始化主题状态，默认为深色模式
         self._sys_err_color = _DARK['sys_err']
         self._port_bar_labels = []   # 端口栏标签引用（主题更新用）
         # 命令历史与 Tab 补全
@@ -509,6 +510,7 @@ class SerialPage(QWidget):
         main_layout.addWidget(splitter, stretch=1)
 
         self._apply_theme()  # 所有控件创建完毕后初始化样式
+        self._load_saved_dynamic_sections()  # 加载保存的动态板块（在 UI 初始化完成后）
 
     def _build_port_bar(self) -> QWidget:
         bar = QFrame()
@@ -871,50 +873,14 @@ class SerialPage(QWidget):
         )
         if ok and new_name.strip():
             sec.update_title(new_name.strip())
-
-    def _on_add_section(self):
-        name, ok = QInputDialog.getText(
-            self, "新建板块",
-            "板块名称（可直接输入 Emoji，如 '🔑 Root操作'）："
-        )
-        if not ok or not name.strip():
-            return
-        sec = self._build_dynamic_section(name.strip())
-        self._quick_sections_list.append(sec)
-        self._sections_layout.addWidget(sec)
-        self._refresh_section_controls()
-        self._apply_theme()   # 应用当前主题样式到新板块
-
-    def _build_dynamic_section(self, title: str) -> '_CollapsibleSection':
-        """动态创建一个空白自定义指令板块"""
-        key = f"_dyn_{len(self._quick_sections_list)}"
-        sec = _CollapsibleSection(title)
-        layout = sec.body_layout
-
-        # 每个动态板块拥有独立的命令列表
-        sec._dyn_cmds: list = []
-        sec._dyn_btns_widget = QWidget()
-        sec._dyn_btns_layout = QVBoxLayout(sec._dyn_btns_widget)
-        sec._dyn_btns_layout.setContentsMargins(0, 0, 0, 0)
-        sec._dyn_btns_layout.setSpacing(4)
-        layout.addWidget(sec._dyn_btns_widget)
-
-        btn_add = QPushButton("＋ 添加指令")
-        btn_add.setStyleSheet(
-            "QPushButton{color:#4CAF50;background:#1C2128;border:1px solid #4CAF50;"
-            "border-radius:4px;padding:3px 8px;font-size:11px;}"
-            "QPushButton:hover{background:#1B3D2A;}"
-        )
-        btn_add.clicked.connect(lambda: self._on_add_dyn_cmd(sec))
-        layout.addWidget(btn_add)
-
-        return sec
+            self._save_all_data()  # 保存标题修改
 
     def _on_add_dyn_cmd(self, sec: '_CollapsibleSection'):
         dlg = CmdEditDialog(parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             name, cmd = dlg.get_values()
             sec._dyn_cmds.append({"name": name, "cmd": cmd})
+            self._save_all_data()  # 保存更改
             self._refresh_dyn_buttons(sec)
 
     def _refresh_dyn_buttons(self, sec: '_CollapsibleSection'):
@@ -924,47 +890,93 @@ class SerialPage(QWidget):
             if item.widget():
                 item.widget().setParent(None)
         _STYLE = (
-            f"QPushButton{{background:{t['btn_bg']};color:{t['btn_text']};"
+            f"QPushButton{{background:{t['btn_bg']};color:{t['btn_text']};"  
             f"border:1px solid {t['btn_bdr']};border-radius:5px;"
             f"padding:4px 8px;font-size:12px;text-align:left;}}"
             f"QPushButton:hover{{background:{t['btn_hover']};"
             f"border-color:{t['btn_hover_bdr']};color:{t['combo_text']};}}"
         )
+        
+        # 获取动态板块在列表中的索引，用于编辑命令时定位
+        sec_idx = None
+        for idx, s in enumerate(self._quick_sections_list):
+            if s is sec:
+                sec_idx = idx
+                break
+        
         for i, item in enumerate(sec._dyn_cmds):
             row = QHBoxLayout()
             row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(3)
+            
             btn = QPushButton(f"  {item['name']}")
             btn.setToolTip(f"<code>{item['cmd']}</code>")
             btn.setStyleSheet(_STYLE)
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             btn.clicked.connect(lambda checked, c=item['cmd']: self._send_command(c))
             row.addWidget(btn, stretch=1)
-            btn_del = QToolButton(); btn_del.setText("✕")
+            
+            btn_edit = QToolButton()
+            btn_edit.setText("✏")
+            btn_edit.setToolTip("编辑")
+            btn_edit.setStyleSheet(f"color:{t['grp_title']};background:transparent;border:none;font-size:12px;")
+            btn_edit.clicked.connect(lambda checked, s_idx=sec_idx, c_idx=i: self._on_edit_dyn_cmd(s_idx, c_idx))
+            row.addWidget(btn_edit)
+            
+            btn_del = QToolButton()
+            btn_del.setText("✕")
             btn_del.setStyleSheet("color:#E74C3C;background:transparent;border:none;")
-            btn_del.clicked.connect(lambda checked, idx=i, s=sec: (
-                s._dyn_cmds.pop(idx), self._refresh_dyn_buttons(s)
-            ))
+            # 使用列表推导式避免闭包陷阱
+            btn_del.clicked.connect((lambda s_idx, c_idx: lambda: (
+                self._quick_sections_list[s_idx]._dyn_cmds.pop(c_idx),
+                self._refresh_dyn_buttons(self._quick_sections_list[s_idx]),
+                self._save_all_data()
+            ))(sec_idx, i))
             row.addWidget(btn_del)
-            container = QWidget(); container.setLayout(row)
+            
+            container = QWidget()
+            container.setLayout(row)
             sec._dyn_btns_layout.addWidget(container)
+    
+    def _on_edit_dyn_cmd(self, sec_idx: int, cmd_idx: int):
+        """编辑动态板块中的命令"""
+        if not (0 <= sec_idx < len(self._quick_sections_list)):
+            return
+        sec = self._quick_sections_list[sec_idx]
+        if not (0 <= cmd_idx < len(sec._dyn_cmds)):
+            return
+        
+        item = sec._dyn_cmds[cmd_idx]
+        dlg = CmdEditDialog(name=item['name'], cmd=item['cmd'], parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            name, cmd = dlg.get_values()
+            sec._dyn_cmds[cmd_idx] = {"name": name, "cmd": cmd}
+            self._save_all_data()
+            self._refresh_dyn_buttons(sec)
 
     def _build_firmware_group(self) -> _CollapsibleSection:
-        """固件升级流程区"""
-        sec = _CollapsibleSection("📦 固件升级流程")
+        """固件升级准备区"""
+        sec = _CollapsibleSection("📦 固件升级准备")
         layout = sec.body_layout
 
-        # 说明（可编辑）
+        # 说明文字（可编辑）
         self._fw_hint_text = (
-            "升级前准备：将 libxgimi_MTK9660_GTV_4K.so 或 libxgimi_MTK9660_AOSP.so "
-            "放入 U 盘根目录并改名为 libxgimi.so（已内置于 assets/firmware/）。\n"
-            "U 盘插入投影仪，连接串口后依次点击以下按钮："
+            "💡 <b>固件升级流程说明</b><br>"
+            "1. 将 <code>libxgimi.so</code> 拷贝到 U 盘根目录<br>"
+            "2. U 盘插入投影仪，确认挂载路径<br>"
+            "3. 按顺序执行以下步骤（建议每步确认结果后再点下一步）<br>"
+            "4. 升级完成后记得备份原始 so 文件到安全位置"
         )
-        hint_row = QHBoxLayout()
         self._fw_hint_lbl = QLabel(self._fw_hint_text)
         self._fw_hint_lbl.setWordWrap(True)
         self._fw_hint_lbl.setStyleSheet("font-size:11px;color:#546E7A;")
-        hint_row.addWidget(self._fw_hint_lbl, stretch=1)
-        btn_edit_hint = QToolButton(); btn_edit_hint.setText("✏")
+        layout.addWidget(self._fw_hint_lbl)
+
+        # 编辑说明按钮
+        hint_row = QHBoxLayout()
+        hint_row.addStretch()
+        btn_edit_hint = QToolButton()
+        btn_edit_hint.setText("✏")
         btn_edit_hint.setToolTip("编辑说明文字")
         btn_edit_hint.setFixedWidth(22)
         btn_edit_hint.setStyleSheet(
@@ -1007,6 +1019,250 @@ class SerialPage(QWidget):
         self._fw_add_step_btn = btn_add_step
 
         return sec
+
+    def _build_angle_test_group(self) -> _CollapsibleSection:
+        """角度测试"""
+        sec = _CollapsibleSection("🔧 角度测试")
+        layout = sec.body_layout
+
+        # 说明文字
+        lbl = QLabel(
+            "💡 <b>角度测试说明</b><br>"
+            "1. 将投影仪放置在合适位置<br>"
+            "2. 按顺序执行以下步骤<br>"
+            "3. 每步完成后观察投影仪角度变化"
+        )
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet("font-size:11px;color:#546E7A;")
+        layout.addWidget(lbl)
+
+        # 测试按钮
+        btn = QPushButton("开始测试")
+        btn.setStyleSheet(
+            "QPushButton{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+            "stop:0 #2A303C,stop:1 #1E2433);color:#C9D1D9;border:1px solid #444;"
+            "border-radius:5px;padding:5px 8px;font-size:12px;}"
+            "QPushButton:hover{background:#2D3748;border-color:#58A6FF;color:#fff;}"
+            "QPushButton:pressed{background:#1E253A;padding-top:6px;}"
+        )
+        btn.clicked.connect(self._on_angle_test)
+        layout.addWidget(btn)
+
+        return sec
+
+    def _build_kst_angle_group(self) -> _CollapsibleSection:
+        """KST 角度校准"""
+        sec = _CollapsibleSection("🔧 KST 角度校准")
+        layout = sec.body_layout
+
+        # 说明文字
+        lbl = QLabel(
+            "💡 <b>KST 角度校准说明</b><br>"
+            "1. 将投影仪放置在合适位置<br>"
+            "2. 按顺序执行以下步骤<br>"
+            "3. 每步完成后观察投影仪角度变化"
+        )
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet("font-size:11px;color:#546E7A;")
+        layout.addWidget(lbl)
+
+        # 测试按钮
+        btn = QPushButton("开始校准")
+        btn.setStyleSheet(
+            "QPushButton{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+            "stop:0 #2A303C,stop:1 #1E2433);color:#C9D1D9;border:1px solid #444;"
+            "border-radius:5px;padding:5px 8px;font-size:12px;}"
+            "QPushButton:hover{background:#2D3748;border-color:#58A6FF;color:#fff;}"
+            "QPushButton:pressed{background:#1E253A;padding-top:6px;}"
+        )
+        btn.clicked.connect(self._on_kst_angle)
+        layout.addWidget(btn)
+
+        return sec
+
+    def _build_kst_coord_group(self) -> _CollapsibleSection:
+        """KST 坐标校准"""
+        sec = _CollapsibleSection("🔧 KST 坐标校准")
+        layout = sec.body_layout
+
+        # 说明文字
+        lbl = QLabel(
+            "💡 <b>KST 坐标校准说明</b><br>"
+            "1. 将投影仪放置在合适位置<br>"
+            "2. 按顺序执行以下步骤<br>"
+            "3. 每步完成后观察投影仪角度变化"
+        )
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet("font-size:11px;color:#546E7A;")
+        layout.addWidget(lbl)
+
+        # 测试按钮
+        btn = QPushButton("开始校准")
+        btn.setStyleSheet(
+            "QPushButton{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+            "stop:0 #2A303C,stop:1 #1E2433);color:#C9D1D9;border:1px solid #444;"
+            "border-radius:5px;padding:5px 8px;font-size:12px;}"
+            "QPushButton:hover{background:#2D3748;border-color:#58A6FF;color:#fff;}"
+            "QPushButton:pressed{background:#1E253A;padding-top:6px;}"
+        )
+        btn.clicked.connect(self._on_kst_coord)
+        layout.addWidget(btn)
+
+        return sec
+
+    def _build_sysutil_group(self) -> _CollapsibleSection:
+        """系统工具"""
+        sec = _CollapsibleSection("⚙️ 系统工具")
+        layout = sec.body_layout
+
+        # 说明文字
+        lbl = QLabel(
+            "💡 <b>系统工具说明</b><br>"
+            "1. 选择需要执行的命令<br>"
+            "2. 点击按钮执行"
+        )
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet("font-size:11px;color:#546E7A;")
+        layout.addWidget(lbl)
+
+        # 动态命令按钮
+        sec._dyn_btns_layout = QVBoxLayout()
+        sec._dyn_btns_layout.setContentsMargins(0, 0, 0, 0)
+        sec._dyn_btns_layout.setSpacing(3)
+        sec._dyn_cmds = [
+            {"name": "重启", "cmd": "reboot"},
+            {"name": "关机", "cmd": "poweroff"},
+            {"name": "进入 root shell", "cmd": "su"},
+            {"name": "查看日志", "cmd": "logcat"},
+            {"name": "查看分区", "cmd": "df -h"},
+            {"name": "查看内存", "cmd": "free -h"},
+            {"name": "查看进程", "cmd": "ps"},
+            {"name": "查看网络", "cmd": "ifconfig"},
+            {"name": "查看存储", "cmd": "ls /storage"},
+            {"name": "查看系统信息", "cmd": "cat /proc/cpuinfo"},
+        ]
+        self._refresh_dyn_buttons(sec)
+
+        # 添加命令按钮
+        btn_add = QPushButton("＋ 添加命令")
+        btn_add.setStyleSheet(
+            "QPushButton{color:#4CAF50;background:#1C2128;border:1px solid #4CAF50;"
+            "border-radius:4px;padding:3px 8px;font-size:11px;}"
+            "QPushButton:hover{background:#1B3D2A;}"
+        )
+        btn_add.clicked.connect(lambda checked, s=sec: self._on_add_dyn_cmd(s))
+        layout.addWidget(btn_add)
+
+        layout.addLayout(sec._dyn_btns_layout)
+
+        return sec
+
+    def _build_custom_group(self) -> _CollapsibleSection:
+        """自定义命令"""
+        sec = _CollapsibleSection("📝 自定义命令")
+        layout = sec.body_layout
+
+        # 说明文字
+        lbl = QLabel(
+            "💡 <b>自定义命令说明</b><br>"
+            "1. 选择需要执行的命令<br>"
+            "2. 点击按钮执行"
+        )
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet("font-size:11px;color:#546E7A;")
+        layout.addWidget(lbl)
+
+        # 动态命令按钮
+        sec._dyn_btns_layout = QVBoxLayout()
+        sec._dyn_btns_layout.setContentsMargins(0, 0, 0, 0)
+        sec._dyn_btns_layout.setSpacing(3)
+        sec._dyn_cmds = []
+
+        # 添加命令按钮
+        btn_add = QPushButton("＋ 添加命令")
+        btn_add.setStyleSheet(
+            "QPushButton{color:#4CAF50;background:#1C2128;border:1px solid #4CAF50;"
+            "border-radius:4px;padding:3px 8px;font-size:11px;}"
+            "QPushButton:hover{background:#1B3D2A;}"
+        )
+        btn_add.clicked.connect(lambda checked, s=sec: self._on_add_dyn_cmd(s))
+        layout.addWidget(btn_add)
+
+        layout.addLayout(sec._dyn_btns_layout)
+
+        return sec
+
+    def _on_add_section(self):
+        name, ok = QInputDialog.getText(
+            self, "新建板块",
+            "板块名称（可直接输入 Emoji，如 '🔑 Root操作'）："
+        )
+        if not ok or not name.strip():
+            return
+        sec = self._build_dynamic_section(name.strip())
+        self._quick_sections_list.append(sec)
+        self._sections_layout.addWidget(sec)
+        self._refresh_section_controls()
+        self._apply_theme()   # 应用当前主题样式到新板块
+        self._save_all_data()  # 保存更改
+
+    def _build_dynamic_section(self, name: str) -> _CollapsibleSection:
+        """动态板块"""
+        sec = _CollapsibleSection(name)
+        layout = sec.body_layout
+
+        # 说明文字（可编辑）
+        lbl = QLabel("```\n\n```")
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet("font-size:11px;color:#546E7A;")
+        layout.addWidget(lbl)
+
+        # 编辑说明按钮
+        hint_row = QHBoxLayout()
+        hint_row.addStretch()
+        btn_edit_hint = QToolButton()
+        btn_edit_hint.setText("✏")
+        btn_edit_hint.setToolTip("编辑说明文字")
+        btn_edit_hint.setFixedWidth(22)
+        btn_edit_hint.setStyleSheet(
+            "QToolButton{color:#8A98A5;background:transparent;border:none;font-size:11px;}"
+            "QToolButton:hover{color:#58A6FF;}"
+        )
+        # 获取当前动态板块的索引，传给编辑方法
+        btn_edit_hint.clicked.connect(lambda checked, s=sec: self._on_edit_dyn_hint(s))
+        hint_row.addWidget(btn_edit_hint)
+        layout.addLayout(hint_row)
+
+        # 动态命令按钮
+        sec._dyn_btns_layout = QVBoxLayout()
+        sec._dyn_btns_layout.setContentsMargins(0, 0, 0, 0)
+        sec._dyn_btns_layout.setSpacing(3)
+        sec._dyn_cmds = []
+
+        # 添加命令按钮
+        btn_add = QPushButton("＋ 添加命令")
+        btn_add.setStyleSheet(
+            "QPushButton{color:#4CAF50;background:#1C2128;border:1px solid #4CAF50;"
+            "border-radius:4px;padding:3px 8px;font-size:11px;}"
+            "QPushButton:hover{background:#1B3D2A;}"
+        )
+        btn_add.clicked.connect(lambda checked, s=sec: self._on_add_dyn_cmd(s))
+        layout.addWidget(btn_add)
+
+        layout.addLayout(sec._dyn_btns_layout)
+
+        return sec
+    
+    def _on_edit_dyn_hint(self, sec: '_CollapsibleSection'):
+        """编辑动态板块的说明文字"""
+        text, ok = QInputDialog.getMultiLineText(
+            self, "编辑说明",
+            "输入说明文本（支持Markdown）:",
+            "```\n\n```"
+        )
+        if ok:
+            # 这里可以保存说明文字到板块（需要添加属性）
+            pass
 
     def _build_fw_step_row(self, i: int) -> QWidget:
         """构建单条固件升级步骤行"""
@@ -2394,15 +2650,90 @@ class SerialPage(QWidget):
         if os.path.exists(_CUSTOM_CMDS_PATH):
             try:
                 with open(_CUSTOM_CMDS_PATH, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    # 加载自定义命令
+                    if isinstance(data, list) and len(data) > 0:
+                        if isinstance(data[0], dict) and 'name' in data[0] and 'cmd' in data[0]:
+                            return data
+                        # 如果是旧格式，兼容处理
+                        elif isinstance(data[0], list):
+                            # 旧格式：[[section_name, [commands]], ...]
+                            custom_commands = []
+                            dynamic_sections = []
+                            for item in data:
+                                if len(item) == 2:
+                                    section_name, commands = item[0], item[1]
+                                    if isinstance(commands, list):
+                                        # 存储动态板块信息
+                                        dynamic_sections.append({
+                                            "type": "dynamic_section",
+                                            "title": section_name,
+                                            "commands": commands
+                                        })
+                                    else:
+                                        # 单个命令
+                                        if isinstance(commands, dict) and 'name' in commands and 'cmd' in commands:
+                                            custom_commands.append(commands)
+                            # 保存动态板块信息到实例变量
+                            self._saved_dynamic_sections = dynamic_sections
+                            return custom_commands
             except Exception:
                 pass
         return list(_DEFAULT_CUSTOM_CMDS)
 
-    def _save_custom_cmds(self):
+    def _save_all_data(self):
+        """保存所有自定义数据，包括自定义命令和动态板块"""
         os.makedirs(os.path.dirname(_CUSTOM_CMDS_PATH), exist_ok=True)
+        # 收集所有动态板块的信息（包括空板块）
+        dynamic_sections = []
+        for sec in self._quick_sections_list:
+            if hasattr(sec, '_dyn_cmds'):  # 只要有 _dyn_cmds 属性就是动态板块
+                dynamic_sections.append({
+                    "type": "dynamic_section",
+                    "title": sec._title_lbl.text(),
+                    "commands": sec._dyn_cmds
+                })
+        
+        # 保存自定义命令和动态板块
+        save_data = {
+            "custom_commands": self._custom_cmds,
+            "dynamic_sections": dynamic_sections
+        }
         with open(_CUSTOM_CMDS_PATH, 'w', encoding='utf-8') as f:
-            json.dump(self._custom_cmds, f, ensure_ascii=False, indent=2)
+            json.dump(save_data, f, ensure_ascii=False, indent=2)
+
+    def _load_all_data(self):
+        """加载自定义命令和动态板块信息（仅加载数据，不构建UI）"""
+        self._saved_dynamic_sections = []  # 临时存储动态板块数据
+        
+        if os.path.exists(_CUSTOM_CMDS_PATH):
+            try:
+                with open(_CUSTOM_CMDS_PATH, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        # 新格式：包含自定义命令和动态板块
+                        self._custom_cmds = data.get("custom_commands", [])
+                        self._saved_dynamic_sections = data.get("dynamic_sections", [])
+                    elif isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
+                        # 旧格式：只有自定义命令
+                        self._custom_cmds = data
+                        self._saved_dynamic_sections = []
+            except Exception:
+                self._custom_cmds = list(_DEFAULT_CUSTOM_CMDS)
+                self._saved_dynamic_sections = []
+        else:
+            self._custom_cmds = list(_DEFAULT_CUSTOM_CMDS)
+            self._saved_dynamic_sections = []
+    
+    def _load_saved_dynamic_sections(self):
+        """加载保存的动态板块到 UI（在 _init_ui() 完成后调用）"""
+        for sec_data in self._saved_dynamic_sections:
+            if sec_data.get("type") == "dynamic_section":
+                sec = self._build_dynamic_section(sec_data.get("title", "未命名板块"))
+                sec._dyn_cmds = sec_data.get("commands", [])
+                self._quick_sections_list.append(sec)
+                self._sections_layout.addWidget(sec)
+                self._refresh_dyn_buttons(sec)
 
     def _refresh_custom_buttons(self):
         # 清空旧按钮
@@ -2460,7 +2791,7 @@ class SerialPage(QWidget):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             name, cmd = dlg.get_values()
             self._custom_cmds.append({"name": name, "cmd": cmd})
-            self._save_custom_cmds()
+            self._save_all_data()
             self._refresh_custom_buttons()
 
     def _on_edit_custom(self, idx: int):
@@ -2469,8 +2800,16 @@ class SerialPage(QWidget):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             name, cmd = dlg.get_values()
             self._custom_cmds[idx] = {"name": name, "cmd": cmd}
-            self._save_custom_cmds()
+            self._save_all_data()
             self._refresh_custom_buttons()
+
+    def _on_add_dyn_cmd(self, sec: '_CollapsibleSection'):
+        dlg = CmdEditDialog(parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            name, cmd = dlg.get_values()
+            sec._dyn_cmds.append({"name": name, "cmd": cmd})
+            self._save_all_data()  # 保存更改
+            self._refresh_dyn_buttons(sec)
 
     def _on_delete_custom(self, idx: int):
         name = self._custom_cmds[idx]['name']
@@ -2480,21 +2819,5 @@ class SerialPage(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             self._custom_cmds.pop(idx)
-            self._save_custom_cmds()
+            self._save_all_data()
             self._refresh_custom_buttons()
-
-    # ──────────────────────────────────────────────────────────────────────────
-    #  页面关闭时断开串口
-    # ──────────────────────────────────────────────────────────────────────────
-    def closeEvent(self, event):
-        self._disconnect()
-        super().closeEvent(event)
-
-    def hideEvent(self, event):
-        """切换到其他页面时停止但不断开"""
-        super().hideEvent(event)
-
-    def showEvent(self, event):
-        """切换回本页面时刷新串口列表"""
-        self._refresh_ports()
-        super().showEvent(event)

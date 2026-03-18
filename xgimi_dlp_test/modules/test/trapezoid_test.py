@@ -73,7 +73,7 @@ CORNER_MAP = {
 }
 
 
-def _check_keystone(mgr, write_points: list, txt_writer) -> bool:
+def _check_keystone(mgr, write_points: list, txt_writer) -> tuple:
     """
     单次梯形校正测试
 
@@ -83,7 +83,7 @@ def _check_keystone(mgr, write_points: list, txt_writer) -> bool:
         txt_writer: 已打开的TXT文件对象
 
     Returns:
-        bool: True=PASS, False=FAIL
+        tuple: (match_success: bool, error_code: int)
     """
     from dlpc_sdk.usb_connection import USBConnectionError
 
@@ -95,6 +95,7 @@ def _check_keystone(mgr, write_points: list, txt_writer) -> bool:
             write_points[3][0], write_points[3][1],
         )
 
+    result = None
     try:
         result = _do_write()
     except USBConnectionError:
@@ -107,7 +108,14 @@ def _check_keystone(mgr, write_points: list, txt_writer) -> bool:
         if not res['success']:
             raise USBConnectionError(f"重连失败: {res.get('message', '')}") from None
         # 重连成功后再次执行
-        result = _do_write()
+        try:
+            result = _do_write()
+        except Exception as e:
+            raise USBConnectionError(f"重连后再次执行失败: {str(e)}") from e
+
+    if result is None:
+        # 防御性编程：确保 result 有值
+        raise RuntimeError("_check_keystone 内部错误：result 未被设置")
 
     w_str = ','.join(map(str, result.get('write_coords', [])))
     r_str = ','.join(map(str, result.get('read_coords', [])))
@@ -118,7 +126,8 @@ def _check_keystone(mgr, write_points: list, txt_writer) -> bool:
     txt_writer.write('{}\t{}\t{}\t{}\n'.format(w_str, r_str, ok, ec))
     txt_writer.flush()
 
-    return ec == 1
+    return match, ec  # 返回 (match_success, error_code)
+
 
 
 def _run_file_mode(input_path: str, output_dir: str, params: dict,
