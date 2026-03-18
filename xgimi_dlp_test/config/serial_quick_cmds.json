@@ -1,24 +1,24 @@
 {
   "custom_commands": [
     {
-      "name": "打印GM调试日志",
-      "cmd": "logcat | grep GM_DISP_DBG"
-    },
-    {
-      "name": "关闭AVB",
-      "cmd": "avb init 0;avb set-devicestate 0;avb set-verity disable;save;reset"
-    },
-    {
       "name": "调整休眠(24h)",
       "cmd": "settings put system screen_off_timeout 86400000"
     },
     {
-      "name": "查看U盘挂载",
-      "cmd": "ls /mnt/media_rw/"
-    },
-    {
       "name": "查看vendor目录",
       "cmd": "ls /vendor/lib/ | grep xgimi"
+    },
+    {
+      "name": "打印tag版本",
+      "cmd": "getprop | grep apollo"
+    },
+    {
+      "name": "打印硬件版本",
+      "cmd": "getprop | grep model"
+    },
+    {
+      "name": "重启ADB",
+      "cmd": "adb kill-server;\nadb start-server"
     }
   ],
   "dynamic_sections": [
