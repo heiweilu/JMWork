@@ -34,6 +34,7 @@
 import os
 import re
 import json
+import time
 import datetime
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QPushButton, QLabel,
@@ -392,8 +393,10 @@ class _CollapsibleSection(QFrame):
 class SerialPage(QWidget):
     """串口交互界面"""
 
-    def __init__(self, parent=None):
+    def __init__(self, config_mgr=None, parent=None):
         super().__init__(parent)
+        self._config_mgr = config_mgr
+        self._serial_state = {}
         self._serial = None
         self._reader_thread = None
         self._rx_buffer = bytearray()
@@ -405,7 +408,7 @@ class SerialPage(QWidget):
         # 初始化时加载所有数据
         self._load_all_data()
         # 主题状态
-        self._dark_mode = True          # 新增：初始化主题状态，默认为深色模式
+        self._dark_mode = bool(self._serial_state.get('theme', {}).get('dark_mode', False))
         self._sys_err_color = _DARK['sys_err']
         self._port_bar_labels = []   # 端口栏标签引用（主题更新用）
         # 命令历史与 Tab 补全
@@ -456,9 +459,22 @@ class SerialPage(QWidget):
         self._quick_sections_list: list = []
         self._sections_layout     = None   # set in _build_quick_panel
         self._btn_add_section     = None   # "+ 新建板块" 按钮引用
+        self._built_in_sections = {}
         # ── 搜索状态
         self._search_visible = False
         self._search_last_pos = None  # QTextCursor position for incremental find
+        self._workflow_timer = QTimer(self)
+        self._workflow_timer.setInterval(180)
+        self._workflow_timer.timeout.connect(self._process_workflow_queue)
+        self._workflow_active = False
+        self._workflow_name = ''
+        self._workflow_queue = []
+        self._workflow_current = ''
+        self._workflow_last_rx_ts = 0.0
+        self._workflow_sent_ts = 0.0
+        self._workflow_cmd_started = False
+        self._workflow_idle_ms = 900
+        self._workflow_silent_ms = 1800
         self._init_ui()
         self._refresh_ports()
 
@@ -592,6 +608,11 @@ class SerialPage(QWidget):
         self.chk_highlight.setToolTip("根据关键字对接收内容高亮显示")
         self.chk_highlight.toggled.connect(lambda v: setattr(self, '_highlight_rx', v))
         layout.addWidget(self.chk_highlight)
+
+        self.chk_tab_passthrough = QCheckBox("Tab直发")
+        self.chk_tab_passthrough.setChecked(False)
+        self.chk_tab_passthrough.setToolTip("启用后，Tab 会直接发送到设备，不再触发本地补全")
+        layout.addWidget(self.chk_tab_passthrough)
 
         # 连接/断开
         self.btn_connect = QPushButton("  连接  ")
@@ -1881,6 +1902,9 @@ class SerialPage(QWidget):
         
         支持 \r\n / \n / \r 三种行尾，并定期刷出无换行的 shell 提示符。
         """
+        if self._workflow_active:
+            self._workflow_last_rx_ts = time.monotonic()
+            self._workflow_cmd_started = True
         self._rx_buffer.extend(data)
         self._process_rx_buffer()
 
@@ -2105,8 +2129,10 @@ class SerialPage(QWidget):
                         return True
 
                     if key == Qt.Key.Key_Tab:
-                        # Tab 补全：借用 input_line 的补全逻辑
-                        self._terminal_tab_complete()
+                        if self._is_tab_passthrough_enabled():
+                            self._send_tab_character()
+                        else:
+                            self._terminal_tab_complete()
                         return True
 
                     if key == Qt.Key.Key_Escape:
@@ -2185,7 +2211,10 @@ class SerialPage(QWidget):
                         return True
 
                 if key == Qt.Key.Key_Tab:
-                    self._on_tab_complete()
+                    if self._is_tab_passthrough_enabled():
+                        self._send_tab_character()
+                    else:
+                        self._on_tab_complete()
                     return True
                 elif key == Qt.Key.Key_Up:
                     self._history_prev()
@@ -2411,6 +2440,9 @@ class SerialPage(QWidget):
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode
         self._apply_theme()
+        if self._config_mgr:
+            self._config_mgr.set('serial.dark_mode', self._dark_mode)
+            self._config_mgr.save()
 
     def _apply_theme(self):
         t = _DARK if self._dark_mode else _LIGHT
@@ -2821,3 +2853,611 @@ class SerialPage(QWidget):
             self._custom_cmds.pop(idx)
             self._save_all_data()
             self._refresh_custom_buttons()
+
+    def _is_tab_passthrough_enabled(self) -> bool:
+        return hasattr(self, 'chk_tab_passthrough') and self.chk_tab_passthrough.isChecked()
+
+    def _send_tab_character(self):
+        if self._serial and self._serial.is_open:
+            try:
+                self._serial.write(b'\t')
+                self._append_terminal('  [Tab]', color=self._sys_color)
+                self._log_lines.append('[CTRL] Tab')
+            except Exception as e:
+                self._sys_msg(f'发送 Tab 失败: {e}', error=True)
+        else:
+            self._sys_msg('⚠ 串口未连接，无法发送 Tab', error=True)
+
+    def _queue_workflow(self, name: str, commands: list):
+        cmds = [str(cmd).strip() for cmd in commands if str(cmd).strip()]
+        if not cmds:
+            return
+        if not (self._serial and self._serial.is_open):
+            QMessageBox.warning(self, '提示', '请先连接串口，再执行组合流程')
+            return
+        self._workflow_name = name
+        self._workflow_queue = cmds
+        self._workflow_active = True
+        self._workflow_current = ''
+        self._workflow_last_rx_ts = 0.0
+        self._workflow_sent_ts = 0.0
+        self._workflow_cmd_started = False
+        self._workflow_timer.start()
+        self._sys_msg(f'开始执行组合流程: {name}')
+        self._send_next_workflow_command()
+
+    def _send_next_workflow_command(self):
+        if not self._workflow_queue:
+            self._workflow_timer.stop()
+            self._workflow_active = False
+            self._sys_msg(f'组合流程完成: {self._workflow_name}')
+            return
+        self._workflow_current = self._workflow_queue.pop(0)
+        self._workflow_sent_ts = time.monotonic()
+        self._workflow_last_rx_ts = 0.0
+        self._workflow_cmd_started = False
+        self._send_command(self._workflow_current)
+
+    def _process_workflow_queue(self):
+        if not self._workflow_active:
+            return
+        now = time.monotonic()
+        if self._workflow_cmd_started:
+            if self._workflow_last_rx_ts and (now - self._workflow_last_rx_ts) * 1000 >= self._workflow_idle_ms:
+                self._send_next_workflow_command()
+        elif (now - self._workflow_sent_ts) * 1000 >= self._workflow_silent_ms:
+            self._send_next_workflow_command()
+
+    def _build_quick_panel(self) -> QWidget:
+        panel = QWidget()
+        outer_layout = QVBoxLayout(panel)
+        outer_layout.setContentsMargins(4, 4, 4, 4)
+        outer_layout.setSpacing(6)
+
+        icon_lbl = QLabel(
+            '💡 板块标题可用 Emoji 图标，常用: '
+            '📦🔧🧪📝🔍⚙️✅🔑📡🚀💾🔄'
+        )
+        icon_lbl.setWordWrap(True)
+        self._icon_hint_lbl = icon_lbl
+        outer_layout.addWidget(icon_lbl)
+
+        sec_widget = QWidget()
+        self._sections_layout = QVBoxLayout(sec_widget)
+        self._sections_layout.setContentsMargins(0, 0, 0, 0)
+        self._sections_layout.setSpacing(10)
+        outer_layout.addWidget(sec_widget)
+
+        self._built_in_sections = {}
+        built_in_defs = [
+            ('firmware', self._build_firmware_group()),
+            ('angle_collect', self._build_angle_test_group()),
+            ('kst_angle', self._build_kst_angle_group()),
+            ('kst_coord', self._build_kst_coord_group()),
+            ('system_tools', self._build_sysutil_group()),
+            ('custom_commands', self._build_custom_group()),
+        ]
+        self._quick_sections_list = []
+        for persist_id, sec in built_in_defs:
+            sec._persist_id = persist_id
+            self._built_in_sections[persist_id] = sec
+            self._quick_sections_list.append(sec)
+            self._sections_layout.addWidget(sec)
+
+        self._refresh_section_controls()
+
+        btn_add = QPushButton('＋ 新建板块')
+        btn_add.setObjectName('btn_add_section')
+        btn_add.setStyleSheet(
+            'QPushButton{color:#58A6FF;background:#1A2233;'
+            'border:1px dashed #335577;border-radius:5px;padding:4px 8px;'
+            'font-size:12px;}'
+            'QPushButton:hover{background:#1E2D44;border-color:#58A6FF;}'
+        )
+        btn_add.clicked.connect(self._on_add_section)
+        self._btn_add_section = btn_add
+        outer_layout.addWidget(btn_add)
+
+        outer_layout.addStretch()
+        return panel
+
+    def _refresh_section_controls(self):
+        n = len(self._quick_sections_list)
+        for i, sec in enumerate(self._quick_sections_list):
+            delete_cb = None
+            if getattr(sec, '_persist_id', '').startswith('dyn:'):
+                delete_cb = (lambda checked=False, s=sec: self._delete_dynamic_section(s))
+            sec.set_controls(
+                up_cb=(lambda checked=False, s=sec: self._move_section(s, -1)) if i > 0 else None,
+                down_cb=(lambda checked=False, s=sec: self._move_section(s, +1)) if i < n - 1 else None,
+                delete_cb=delete_cb,
+                rename_cb=(lambda checked=False, s=sec: self._on_rename_section(s)),
+            )
+
+    def _move_section(self, sec: '_CollapsibleSection', direction: int):
+        idx = self._quick_sections_list.index(sec)
+        new_idx = idx + direction
+        if new_idx < 0 or new_idx >= len(self._quick_sections_list):
+            return
+        self._quick_sections_list.pop(idx)
+        self._quick_sections_list.insert(new_idx, sec)
+        self._sections_layout.removeWidget(sec)
+        self._sections_layout.insertWidget(new_idx, sec)
+        self._refresh_section_controls()
+        self._save_all_data()
+
+    def _delete_dynamic_section(self, sec: '_CollapsibleSection'):
+        reply = QMessageBox.question(
+            self,
+            '确认删除',
+            f'删除板块「{sec._title_lbl.text()}」？',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        if sec in self._quick_sections_list:
+            self._quick_sections_list.remove(sec)
+        self._sections_layout.removeWidget(sec)
+        sec.deleteLater()
+        self._refresh_section_controls()
+        self._save_all_data()
+
+    def _on_rename_section(self, sec: '_CollapsibleSection'):
+        new_name, ok = QInputDialog.getText(
+            self,
+            '重命名板块',
+            '输入新名称（可直接输入 Emoji 图标）:',
+            text=sec._title_lbl.text(),
+        )
+        if ok and new_name.strip():
+            sec.update_title(new_name.strip())
+            self._save_all_data()
+
+    def _build_firmware_group(self) -> _CollapsibleSection:
+        sec = _CollapsibleSection('📦 固件升级准备')
+        self._firmware_section = sec
+        layout = sec.body_layout
+
+        self._fw_hint_text = (
+            '💡 <b>固件升级流程说明</b><br>'
+            '1. 将 <code>libxgimi.so</code> 拷贝到 U 盘根目录<br>'
+            '2. U 盘插入投影仪，确认挂载路径<br>'
+            '3. 按顺序执行以下步骤（建议每步确认结果后再点下一步）<br>'
+            '4. 升级完成后记得备份原始 so 文件到安全位置'
+        )
+        self._fw_hint_lbl = QLabel(self._fw_hint_text)
+        self._fw_hint_lbl.setWordWrap(True)
+        self._fw_hint_lbl.setStyleSheet('font-size:11px;color:#546E7A;')
+        layout.addWidget(self._fw_hint_lbl)
+
+        hint_row = QHBoxLayout()
+        hint_row.addStretch()
+        btn_edit_hint = QToolButton()
+        btn_edit_hint.setText('✏')
+        btn_edit_hint.setToolTip('编辑说明文字')
+        btn_edit_hint.setFixedWidth(22)
+        btn_edit_hint.setStyleSheet(
+            'QToolButton{color:#8A98A5;background:transparent;border:none;font-size:11px;}'
+            'QToolButton:hover{color:#58A6FF;}'
+        )
+        btn_edit_hint.clicked.connect(self._on_edit_fw_hint)
+        hint_row.addWidget(btn_edit_hint)
+        layout.addLayout(hint_row)
+
+        fw_exists = os.path.exists(_FIRMWARE_PATH)
+        fw_color = '#4CAF50' if fw_exists else '#E74C3C'
+        fw_icon = '✅' if fw_exists else '❌'
+        fw_path_text = 'assets/firmware/libxgimi_MTK9660_GTV_4K.so' if fw_exists else '未找到，请手动放置'
+        fw_label = QLabel(
+            f"<span style='color:{fw_color};font-size:11px;'>"
+            f'{fw_icon} 内置 so 文件: {fw_path_text}</span>'
+        )
+        fw_label.setTextFormat(Qt.TextFormat.RichText)
+        layout.addWidget(fw_label)
+
+        self._fw_step_buttons = []
+        self._fw_sec_layout = layout
+        self._fw_step_rows = []
+
+        self._fw_steps_container = QWidget()
+        self._fw_steps_layout = QVBoxLayout(self._fw_steps_container)
+        self._fw_steps_layout.setContentsMargins(0, 0, 0, 0)
+        self._fw_steps_layout.setSpacing(4)
+        layout.addWidget(self._fw_steps_container)
+        self._rebuild_firmware_steps()
+
+        workflow_btn = QPushButton('▶ 执行整个流程')
+        workflow_btn.setObjectName('btn_primary')
+        workflow_btn.setToolTip('按步骤依次发送指令，并在串口输出稳定后自动进入下一步')
+        workflow_btn.clicked.connect(
+            lambda: self._queue_workflow('固件升级准备', [step[1] for step in self._upgrade_steps])
+        )
+        layout.addWidget(workflow_btn)
+
+        btn_add_step = QPushButton('＋ 添加步骤')
+        btn_add_step.setStyleSheet(
+            'QPushButton{color:#4CAF50;background:#1C2128;border:1px solid #4CAF50;'
+            'border-radius:4px;padding:3px 8px;font-size:11px;}'
+            'QPushButton:hover{background:#1B3D2A;}'
+        )
+        btn_add_step.clicked.connect(self._on_add_fw_step)
+        layout.addWidget(btn_add_step)
+        self._fw_add_step_btn = btn_add_step
+        return sec
+
+    def _rebuild_firmware_steps(self):
+        if not hasattr(self, '_fw_steps_layout'):
+            return
+        while self._fw_steps_layout.count():
+            item = self._fw_steps_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        self._fw_step_buttons = []
+        self._fw_step_rows = []
+        for i, _step in enumerate(self._upgrade_steps):
+            self._fw_steps_layout.addWidget(self._build_fw_step_row(i))
+
+    def _on_edit_fw_hint(self):
+        new_text, ok = QInputDialog.getMultiLineText(
+            self, '编辑固件升级说明', '说明文字:', self._fw_hint_text
+        )
+        if ok:
+            self._fw_hint_text = new_text
+            self._fw_hint_lbl.setText(new_text)
+            self._save_all_data()
+
+    def _on_edit_fw_step(self, idx: int):
+        step = self._upgrade_steps[idx]
+        dlg = CmdEditDialog(name=step[0], cmd=step[1], parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            name, cmd = dlg.get_values()
+            self._upgrade_steps[idx][0] = name
+            self._upgrade_steps[idx][1] = cmd
+            self._rebuild_firmware_steps()
+            self._save_all_data()
+
+    def _on_delete_fw_step(self, idx: int, container: QWidget = None):
+        step = self._upgrade_steps[idx]
+        reply = QMessageBox.question(
+            self,
+            '确认删除',
+            f'删除步骤「{step[0]}」？',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        self._upgrade_steps.pop(idx)
+        self._rebuild_firmware_steps()
+        self._save_all_data()
+
+    def _on_add_fw_step(self):
+        dlg = CmdEditDialog(parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            name, cmd = dlg.get_values()
+            self._upgrade_steps.append([name, cmd, ''])
+            self._rebuild_firmware_steps()
+            self._save_all_data()
+
+    def _build_dynamic_section(self, name: str, persist_id: str = '') -> _CollapsibleSection:
+        sec = _CollapsibleSection(name)
+        sec._persist_id = persist_id or f'dyn:{int(time.time() * 1000)}'
+        layout = sec.body_layout
+
+        sec._hint_text = ''
+        sec._hint_label = QLabel('')
+        sec._hint_label.setWordWrap(True)
+        sec._hint_label.setStyleSheet('font-size:11px;color:#546E7A;')
+        sec._hint_label.hide()
+        layout.addWidget(sec._hint_label)
+
+        hint_row = QHBoxLayout()
+        hint_row.addStretch()
+        btn_edit_hint = QToolButton()
+        btn_edit_hint.setText('✏')
+        btn_edit_hint.setToolTip('编辑说明文字')
+        btn_edit_hint.setFixedWidth(22)
+        btn_edit_hint.setStyleSheet(
+            'QToolButton{color:#8A98A5;background:transparent;border:none;font-size:11px;}'
+            'QToolButton:hover{color:#58A6FF;}'
+        )
+        btn_edit_hint.clicked.connect(lambda checked=False, s=sec: self._on_edit_dyn_hint(s))
+        hint_row.addWidget(btn_edit_hint)
+        layout.addLayout(hint_row)
+
+        sec._dyn_btns_layout = QVBoxLayout()
+        sec._dyn_btns_layout.setContentsMargins(0, 0, 0, 0)
+        sec._dyn_btns_layout.setSpacing(3)
+        sec._dyn_cmds = []
+
+        btn_add = QPushButton('＋ 添加命令')
+        btn_add.setStyleSheet(
+            'QPushButton{color:#4CAF50;background:#1C2128;border:1px solid #4CAF50;'
+            'border-radius:4px;padding:3px 8px;font-size:11px;}'
+            'QPushButton:hover{background:#1B3D2A;}'
+        )
+        btn_add.clicked.connect(lambda checked=False, s=sec: self._on_add_dyn_cmd(s))
+        layout.addWidget(btn_add)
+        layout.addLayout(sec._dyn_btns_layout)
+        return sec
+
+    def _build_sysutil_group(self) -> _CollapsibleSection:
+        sec = _CollapsibleSection('🔧 系统工具')
+        layout = sec.body_layout
+
+        lbl = QLabel(
+            '💡 <b>系统工具说明</b><br>'
+            '1. 常用系统命令统一放在这里<br>'
+            '2. 支持修改名称和指令内容，修改后会持久化'
+        )
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet('font-size:11px;color:#546E7A;')
+        layout.addWidget(lbl)
+
+        sec._dyn_btns_layout = QVBoxLayout()
+        sec._dyn_btns_layout.setContentsMargins(0, 0, 0, 0)
+        sec._dyn_btns_layout.setSpacing(3)
+        sec._dyn_cmds = [{'name': item[0], 'cmd': item[1]} for item in self._sysutil_tools]
+        layout.addLayout(sec._dyn_btns_layout)
+        self._refresh_dyn_buttons(sec)
+        return sec
+
+    def _on_add_section(self):
+        name, ok = QInputDialog.getText(
+            self,
+            '新建板块',
+            "板块名称（可直接输入 Emoji，如 '🔑 Root操作'）：",
+        )
+        if not ok or not name.strip():
+            return
+        sec = self._build_dynamic_section(name.strip(), persist_id=f'dyn:{int(time.time() * 1000)}')
+        self._quick_sections_list.append(sec)
+        self._sections_layout.addWidget(sec)
+        sec.apply_colors(
+            hdr_bg=(_DARK if self._dark_mode else _LIGHT)['grp_bg'],
+            hdr_bdr=(_DARK if self._dark_mode else _LIGHT)['grp_bdr'],
+            body_bg=(_DARK if self._dark_mode else _LIGHT)['grp_bg'],
+            body_bdr=(_DARK if self._dark_mode else _LIGHT)['grp_bdr'],
+            title_c=(_DARK if self._dark_mode else _LIGHT)['grp_title'],
+            sep_c=(_DARK if self._dark_mode else _LIGHT)['grp_bdr'],
+            arrow_c='#58A6FF' if self._dark_mode else '#0969DA',
+        )
+        self._refresh_section_controls()
+        self._save_all_data()
+
+    def _on_edit_dyn_hint(self, sec: '_CollapsibleSection'):
+        text, ok = QInputDialog.getMultiLineText(
+            self,
+            '编辑说明',
+            '输入说明文本:',
+            getattr(sec, '_hint_text', ''),
+        )
+        if ok:
+            sec._hint_text = text.strip()
+            sec._hint_label.setText(sec._hint_text)
+            sec._hint_label.setVisible(bool(sec._hint_text))
+            self._save_all_data()
+
+    def _on_edit_angle_desc(self):
+        new_text, ok = QInputDialog.getMultiLineText(
+            self, '编辑角度采集说明', '说明文字:', self._angle_desc_text
+        )
+        if ok:
+            self._angle_desc_text = new_text
+            self._angle_desc_lbl.setText(new_text)
+            self._save_all_data()
+
+    def _on_edit_scan_cmd(self):
+        new_tpl, ok = QInputDialog.getText(
+            self,
+            '编辑角度采集指令模板',
+            '模板（{resolution}/{yaw_min}/{yaw_max}/{pitch_min}/{pitch_max}/{step} 会被替换）：',
+            text=self._scan_cmd_template,
+        )
+        if ok and new_tpl.strip():
+            self._scan_cmd_template = new_tpl.strip()
+            self._btn_scan.setToolTip(
+                '<b>指令模板:</b><br><code>' + self._scan_cmd_template + '</code>'
+            )
+            self._save_all_data()
+
+    def _on_edit_copy_cmd(self):
+        new_cmd, ok = QInputDialog.getText(
+            self, '编辑 CSV 拷贝命令', '指令内容：', text=self._copy_csv_cmd
+        )
+        if ok and new_cmd.strip():
+            self._copy_csv_cmd = new_cmd.strip()
+            self._btn_copy.setToolTip(self._copy_csv_cmd)
+            self._save_all_data()
+
+    def _on_edit_sysutil(self, idx: int):
+        tool = self._sysutil_tools[idx]
+        dlg = CmdEditDialog(name=tool[0], cmd=tool[1], parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            name, cmd = dlg.get_values()
+            self._sysutil_tools[idx][0] = name
+            self._sysutil_tools[idx][1] = cmd
+            self._refresh_dyn_buttons(self._built_in_sections.get('system_tools'))
+            self._save_all_data()
+
+    def _collect_builtin_state(self) -> dict:
+        sysutil_section = self._built_in_sections.get('system_tools')
+        sysutil_cmds = []
+        if sysutil_section and hasattr(sysutil_section, '_dyn_cmds'):
+            sysutil_cmds = [
+                [item.get('name', ''), item.get('cmd', ''), '']
+                for item in sysutil_section._dyn_cmds
+            ]
+            self._sysutil_tools = [list(item) for item in sysutil_cmds]
+        return {
+            'firmware': {
+                'title': self._firmware_section._title_lbl.text(),
+                'hint': self._fw_hint_text,
+                'commands': self._upgrade_steps,
+            },
+            'angle_collect': {
+                'title': self._built_in_sections['angle_collect']._title_lbl.text(),
+                'hint': self._angle_desc_text,
+                'scan_cmd_template': self._scan_cmd_template,
+                'copy_csv_cmd': self._copy_csv_cmd,
+            },
+            'kst_angle': {
+                'title': self._built_in_sections['kst_angle']._title_lbl.text(),
+                'template': getattr(self, '_kst_angle_tpl', ''),
+            },
+            'kst_coord': {
+                'title': self._built_in_sections['kst_coord']._title_lbl.text(),
+                'template': getattr(self, '_kst_coord_tpl', ''),
+            },
+            'system_tools': {
+                'title': self._built_in_sections['system_tools']._title_lbl.text(),
+                'commands': sysutil_cmds or self._sysutil_tools,
+            },
+            'custom_commands': {
+                'title': self._built_in_sections['custom_commands']._title_lbl.text(),
+            },
+        }
+
+    def _save_all_data(self):
+        os.makedirs(os.path.dirname(_CUSTOM_CMDS_PATH), exist_ok=True)
+        dynamic_sections = []
+        for sec in self._quick_sections_list:
+            if getattr(sec, '_persist_id', '').startswith('dyn:'):
+                dynamic_sections.append({
+                    'id': sec._persist_id,
+                    'title': sec._title_lbl.text(),
+                    'hint': getattr(sec, '_hint_text', ''),
+                    'commands': list(getattr(sec, '_dyn_cmds', [])),
+                })
+        save_data = {
+            'version': 2,
+            'theme': {'dark_mode': self._dark_mode},
+            'custom_commands': self._custom_cmds,
+            'fixed_sections': self._collect_builtin_state(),
+            'dynamic_sections': dynamic_sections,
+            'section_order': [getattr(sec, '_persist_id', '') for sec in self._quick_sections_list],
+        }
+        with open(_CUSTOM_CMDS_PATH, 'w', encoding='utf-8') as f:
+            json.dump(save_data, f, ensure_ascii=False, indent=2)
+
+    def _load_all_data(self):
+        self._serial_state = {
+            'version': 2,
+            'theme': {'dark_mode': False},
+            'custom_commands': list(_DEFAULT_CUSTOM_CMDS),
+            'fixed_sections': {},
+            'dynamic_sections': [],
+            'section_order': [],
+        }
+        self._saved_dynamic_sections = []
+        self._custom_cmds = list(_DEFAULT_CUSTOM_CMDS)
+        if os.path.exists(_CUSTOM_CMDS_PATH):
+            try:
+                with open(_CUSTOM_CMDS_PATH, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    self._serial_state.update(data)
+                    self._custom_cmds = data.get('custom_commands', list(_DEFAULT_CUSTOM_CMDS))
+                    self._saved_dynamic_sections = data.get('dynamic_sections', [])
+                elif isinstance(data, list):
+                    self._custom_cmds = data
+                    self._serial_state['custom_commands'] = data
+            except Exception:
+                self._custom_cmds = list(_DEFAULT_CUSTOM_CMDS)
+        if self._config_mgr:
+            self._serial_state.setdefault('theme', {})
+            self._serial_state['theme'].setdefault(
+                'dark_mode',
+                bool(self._config_mgr.get('serial.dark_mode', False)),
+            )
+
+    def _apply_builtin_state(self, fixed_sections: dict):
+        firmware = fixed_sections.get('firmware', {})
+        if firmware:
+            self._firmware_section.update_title(firmware.get('title', self._firmware_section._title_lbl.text()))
+            self._fw_hint_text = firmware.get('hint', self._fw_hint_text)
+            self._fw_hint_lbl.setText(self._fw_hint_text)
+            commands = firmware.get('commands')
+            if isinstance(commands, list) and commands:
+                self._upgrade_steps = [list(item) for item in commands]
+                self._rebuild_firmware_steps()
+
+        angle_collect = fixed_sections.get('angle_collect', {})
+        if angle_collect:
+            self._built_in_sections['angle_collect'].update_title(
+                angle_collect.get('title', self._built_in_sections['angle_collect']._title_lbl.text())
+            )
+            self._angle_desc_text = angle_collect.get('hint', self._angle_desc_text)
+            self._angle_desc_lbl.setText(self._angle_desc_text)
+            self._scan_cmd_template = angle_collect.get('scan_cmd_template', self._scan_cmd_template)
+            self._copy_csv_cmd = angle_collect.get('copy_csv_cmd', self._copy_csv_cmd)
+            self._btn_scan.setToolTip(
+                '<b>执行角度坐标批量采集</b><br>'
+                f'指令模板: <code>{self._scan_cmd_template}</code><br>'
+                '占位符会自动替换为当前 UI 参数值'
+            )
+            self._btn_copy.setToolTip(self._copy_csv_cmd)
+
+        kst_angle = fixed_sections.get('kst_angle', {})
+        if kst_angle:
+            self._built_in_sections['kst_angle'].update_title(
+                kst_angle.get('title', self._built_in_sections['kst_angle']._title_lbl.text())
+            )
+            self._kst_angle_tpl = kst_angle.get('template', getattr(self, '_kst_angle_tpl', ''))
+
+        kst_coord = fixed_sections.get('kst_coord', {})
+        if kst_coord:
+            self._built_in_sections['kst_coord'].update_title(
+                kst_coord.get('title', self._built_in_sections['kst_coord']._title_lbl.text())
+            )
+            self._kst_coord_tpl = kst_coord.get('template', getattr(self, '_kst_coord_tpl', ''))
+
+        system_tools = fixed_sections.get('system_tools', {})
+        if system_tools:
+            self._built_in_sections['system_tools'].update_title(
+                system_tools.get('title', self._built_in_sections['system_tools']._title_lbl.text())
+            )
+            commands = system_tools.get('commands')
+            if isinstance(commands, list) and commands:
+                self._sysutil_tools = [list(item) for item in commands]
+                sec = self._built_in_sections['system_tools']
+                sec._dyn_cmds = [{'name': item[0], 'cmd': item[1]} for item in self._sysutil_tools]
+                self._refresh_dyn_buttons(sec)
+
+        custom_group = fixed_sections.get('custom_commands', {})
+        if custom_group:
+            self._built_in_sections['custom_commands'].update_title(
+                custom_group.get('title', self._built_in_sections['custom_commands']._title_lbl.text())
+            )
+
+    def _load_saved_dynamic_sections(self):
+        self._apply_builtin_state(self._serial_state.get('fixed_sections', {}))
+        for sec_data in self._saved_dynamic_sections:
+            sec = self._build_dynamic_section(
+                sec_data.get('title', '未命名板块'),
+                persist_id=sec_data.get('id', f'dyn:{int(time.time() * 1000)}'),
+            )
+            sec._hint_text = sec_data.get('hint', '')
+            sec._hint_label.setText(sec._hint_text)
+            sec._hint_label.setVisible(bool(sec._hint_text))
+            sec._dyn_cmds = sec_data.get('commands', [])
+            self._quick_sections_list.append(sec)
+            self._sections_layout.addWidget(sec)
+            self._refresh_dyn_buttons(sec)
+
+        order = self._serial_state.get('section_order', [])
+        if order:
+            order_map = {getattr(sec, '_persist_id', ''): sec for sec in self._quick_sections_list}
+            ordered = [order_map[item] for item in order if item in order_map]
+            for sec in self._quick_sections_list:
+                if sec not in ordered:
+                    ordered.append(sec)
+            self._quick_sections_list = ordered
+            for sec in ordered:
+                self._sections_layout.removeWidget(sec)
+            for sec in ordered:
+                self._sections_layout.addWidget(sec)
+                sec.show()
+
+        self._refresh_section_controls()
+        self._refresh_custom_buttons()

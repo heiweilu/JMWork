@@ -260,6 +260,34 @@ class AnalysisPage(QWidget):
         'assets', 'reference_images'
     )
 
+    def _get_current_module_id(self) -> str:
+        index = self.combo_type.currentIndex()
+        if 0 <= index < len(self._module_ids):
+            return self._module_ids[index]
+        return ''
+
+    def _get_manual_ref_images(self) -> dict:
+        if not self._config_mgr:
+            return {}
+        data = self._config_mgr.get('analysis.reference_images', {})
+        return data if isinstance(data, dict) else {}
+
+    def _get_manual_ref_path(self, module_id: str) -> str:
+        if not module_id:
+            return ''
+        return str(self._get_manual_ref_images().get(module_id, '') or '')
+
+    def _set_manual_ref_path(self, module_id: str, image_path: str):
+        if not self._config_mgr or not module_id:
+            return
+        images = dict(self._get_manual_ref_images())
+        if image_path:
+            images[module_id] = image_path
+        else:
+            images.pop(module_id, None)
+        self._config_mgr.set('analysis.reference_images', images)
+        self._config_mgr.save()
+
     def refresh_modules(self):
         """刷新模块列表（从 task_registry 获取）"""
         self.combo_type.clear()
@@ -376,6 +404,8 @@ class AnalysisPage(QWidget):
 
     def _update_reference_panel(self, info: dict):
         """根据模块信息更新参考结果面板"""
+        module_id = self._get_current_module_id()
+        manual_ref_path = self._get_manual_ref_path(module_id)
         ref_img = info.get('reference_image', '')
         ref_desc = info.get('reference_output_desc', '')
 
@@ -384,6 +414,27 @@ class AnalysisPage(QWidget):
         self.ref_image_label.hide()
         self.ref_text_label.clear()
         self.ref_text_label.hide()
+
+        if manual_ref_path and os.path.isfile(manual_ref_path):
+            pixmap = QPixmap(manual_ref_path)
+            if not pixmap.isNull():
+                pixmap = pixmap.scaled(
+                    900, 600,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                self.ref_image_label.setPixmap(pixmap)
+                self.ref_image_label.show()
+                self.ref_text_label.setText(f"手动导入参考图: {os.path.basename(manual_ref_path)}")
+                self.ref_text_label.setStyleSheet(
+                    "font-size: 11px; color: #888; padding: 4px 16px;"
+                )
+                self.ref_text_label.show()
+                self._btn_clear_ref.setVisible(True)
+                return
+            self._set_manual_ref_path(module_id, '')
+
+        self._btn_clear_ref.setVisible(False)
 
         if ref_img:
             img_path = os.path.join(self.ASSETS_DIR, ref_img)
@@ -724,6 +775,7 @@ class AnalysisPage(QWidget):
         self.ref_text_label.setStyleSheet("font-size:11px; color:#888; padding:4px 16px;")
         self.ref_text_label.show()
         self._btn_clear_ref.setVisible(True)
+        self._set_manual_ref_path(self._get_current_module_id(), path)
         # 切换到参考结果 Tab
         self.right_tabs.setCurrentIndex(0)
         if self._log_panel:
@@ -732,6 +784,7 @@ class AnalysisPage(QWidget):
     def _on_clear_ref_image(self):
         """清除手动导入的参考图，恢复当前模块的默认参考图。"""
         self._btn_clear_ref.setVisible(False)
+        self._set_manual_ref_path(self._get_current_module_id(), '')
         idx = self.combo_type.currentIndex()
         if 0 <= idx < len(self._module_ids):
             mdata = task_registry.get_module(self._module_ids[idx])

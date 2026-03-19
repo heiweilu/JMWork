@@ -233,7 +233,7 @@ class MainWindow(QMainWindow):
         self.page_stack.addWidget(self.history_page)
         self.docs_page = DocsPage()
         self.page_stack.addWidget(self.docs_page)
-        self.serial_page = SerialPage()
+        self.serial_page = SerialPage(config_mgr=self._config_mgr)
         self.page_stack.addWidget(self.serial_page)
         self.page_stack.addWidget(self.test_page)
 
