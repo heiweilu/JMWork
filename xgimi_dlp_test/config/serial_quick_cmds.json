@@ -1,4 +1,8 @@
 {
+  "version": 2,
+  "theme": {
+    "dark_mode": false
+  },
   "custom_commands": [
     {
       "name": "调整休眠(24h)",
@@ -19,12 +23,122 @@
     {
       "name": "重启ADB",
       "cmd": "adb kill-server;\nadb start-server"
+    },
+    {
+      "name": "查看是软梯or硬梯",
+      "cmd": "ogcat |grep -i \"act\";\ngmpfUnit info |grep -i \"act\""
     }
   ],
+  "fixed_sections": {
+    "firmware": {
+      "title": "📦 固件升级（GTV）",
+      "hint": "💡 <b>固件升级流程说明</b><br>1. 将 <code>libxgimi.so</code> 拷贝到 U 盘根目录<br>2. U 盘插入投影仪，确认挂载路径<br>3. 按顺序执行以下步骤（建议每步确认结果后再点下一步）<br>4. 升级完成后记得备份原始 so 文件到安全位置",
+      "commands": [
+        [
+          "① su",
+          "su",
+          "切换到超级用户（root）"
+        ],
+        [
+          "② remount",
+          "remount",
+          "重新挂载文件系统为可读写（允许修改 /vendor）"
+        ],
+        [
+          "③ 备份原始so",
+          "cp /vendor/lib/libxgimi.so /data/",
+          "将原始 libxgimi.so 备份到 /data/ 目录，防止升级失败无法恢复"
+        ],
+        [
+          "④ 升级新so",
+          "cp /mnt/media_rw/0182-0265/libxgimi.so /vendor/lib/",
+          "从 U 盘（UUID: 0182-0265）拷贝新的 libxgimi.so 到 /vendor/lib"
+        ],
+        [
+          "⑤ sync",
+          "sync",
+          "同步文件系统缓冲区，确保写入完成"
+        ],
+        [
+          "⑥ reboot",
+          "reboot",
+          "重启投影仪，新固件生效"
+        ]
+      ]
+    },
+    "angle_collect": {
+      "title": "🧪 角度采集测试",
+      "hint": "遍历 Yaw × Pitch 二维网格，调用 batchGetDisplayPointByAngle 将每个角度对应的四角坐标写入 CSV（位于设备 /data/vendor/）。\n完成后需将 CSV 文件拷贝回 U 盘取走分析。",
+      "scan_cmd_template": "gmpfUnit externDisplay kst_dev batchGetDisplayPointByAngle \"yaw;pitch;{resolution};{yaw_min};{yaw_max};{pitch_min};{pitch_max};{step};/data/vendor\"",
+      "copy_csv_cmd": "cp /data/vendor/ak_scan_*.csv /mnt/media_rw/0182-0265/"
+    },
+    "kst_angle": {
+      "title": "📐 set_kst_by_angle",
+      "template": "gmpfUnit externDisplay kst_dev set_kst_by_angle \"{yaw};{pitch};{resolution}\""
+    },
+    "kst_coord": {
+      "title": "📌 set_kst_by_coord",
+      "template": "gmpfUnit externDisplay kst_dev set_kst_by_coord \"{tl};{tr};{bl};{br}\""
+    },
+    "system_tools": {
+      "title": "🔧 系统工具",
+      "commands": [
+        [
+          "📜 监听 GM 调试日志",
+          "logcat | grep GM_DISP_DBG",
+          ""
+        ],
+        [
+          "🔒 关闭 AVB 验证",
+          "avb init 0;avb set-devicestate 0;avb set-verity disable;save;reset",
+          ""
+        ],
+        [
+          "⏱ 调整休眠时间(24h)",
+          "settings put system screen_off_timeout 86400000",
+          ""
+        ],
+        [
+          "📂 查看 U 盘挂载",
+          "ls /mnt/media_rw/",
+          ""
+        ],
+        [
+          "📁 查看 vendor lib",
+          "ls /vendor/lib/ | grep xgimi",
+          ""
+        ],
+        [
+          "🔍 查看设备信息",
+          "getprop ro.product.model && getprop ro.build.version.release",
+          ""
+        ]
+      ]
+    },
+    "custom_commands": {
+      "title": "📝 自定义快捷指令"
+    }
+  },
   "dynamic_sections": [
     {
-      "type": "dynamic_section",
+      "id": "dyn:1773910651945",
+      "title": "📦 固件升级（AOSP)",
+      "hint": "对于国内的机器，比如雅典娜三代：\n1. 下载固件改名存放到U盘；\n2. 运行第一个指令，等待升级完成；\n3. 升级完成后进入系统后，运行第二个指令；",
+      "commands": [
+        {
+          "name": "mboot更新指令（注意修改文件名）",
+          "cmd": "mtkupgrade usb XGIMI_HORSEPOPULAR_G0115.bin"
+        },
+        {
+          "name": "remount",
+          "cmd": "su; remount; chmod 777 -R /mnt/scratch/overlay; cd /;"
+        }
+      ]
+    },
+    {
+      "id": "dyn:1773910651940",
       "title": "SVM模型测试相关",
+      "hint": "",
       "commands": [
         {
           "name": "su",
@@ -55,20 +169,16 @@
           "cmd": "logcat | grep svm"
         }
       ]
-    },
-    {
-      "type": "dynamic_section",
-      "title": "固件升级（AOSP)",
-      "commands": [
-        {
-          "name": "mboot更新指令（注意修改文件名）",
-          "cmd": "mtkupgrade usb XGIMI_HORSEPOPULAR_G0115.bin"
-        },
-        {
-          "name": "remount",
-          "cmd": "su; remount; chmod 777 -R /mnt/scratch/overlay; cd /;"
-        }
-      ]
     }
+  ],
+  "section_order": [
+    "firmware",
+    "dyn:1773910651945",
+    "angle_collect",
+    "kst_angle",
+    "kst_coord",
+    "system_tools",
+    "custom_commands",
+    "dyn:1773910651940"
   ]
 }
