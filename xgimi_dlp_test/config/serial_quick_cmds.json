@@ -62,7 +62,11 @@
       "commands": [
         {
           "name": "mboot更新指令（注意修改文件名）",
-          "cmd": "mtkupgrade usb XGIMI_GOATELEGANT_XR03D.bin"
+          "cmd": "mtkupgrade usb XGIMI_HORSEPOPULAR_G0115.bin"
+        },
+        {
+          "name": "remount",
+          "cmd": "su; remount; chmod 777 -R /mnt/scratch/overlay; cd /;"
         }
       ]
     }

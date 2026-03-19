@@ -384,6 +384,28 @@ class TestPage(QWidget):
         self._update_run_state()
         self._log_msg(f"已导入梯形坐标文件: {file_path}", "INFO")
 
+    def set_input_file_for_angle_test(self, file_path: str):
+        """
+        从分析页接收角度测试文件并切换至角度测试(硬件)。
+
+        Args:
+            file_path: 角度测试 TXT/TSV 文件绝对路径
+        """
+        angle_idx = next(
+            (i for i, mid in enumerate(self._module_ids)
+             if 'angle_test' in mid), None)
+        if angle_idx is None:
+            self._log_msg("未找到角度测试模块", "WARNING")
+            return
+
+        if self._combo_type.currentIndex() != angle_idx:
+            self._combo_type.setCurrentIndex(angle_idx)
+
+        self._file_selector.set_path(file_path)
+        self._file_group.setVisible(True)
+        self._update_run_state()
+        self._log_msg(f"已导入角度测试文件: {file_path}", "INFO")
+
     def _on_type_changed(self, index):
         """切换测试类型"""
         if index < 0 or index >= len(self._module_ids):

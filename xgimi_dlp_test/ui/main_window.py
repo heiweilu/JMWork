@@ -241,6 +241,7 @@ class MainWindow(QMainWindow):
         self.preprocessing_page.import_to_test.connect(self._on_import_to_test)        # 分析页快捷跳转信号
         self.analysis_page.send_to_preprocessing.connect(self._on_send_to_preprocess_expand)
         self.analysis_page.send_to_svm.connect(self._on_send_to_svm)
+        self.analysis_page.send_to_angle_test.connect(self._on_send_to_angle_test)
         self.splitter.addWidget(self.page_stack_container)
         self.splitter.addWidget(self.log_panel_container)
         self.splitter.setHandleWidth(8)
@@ -389,6 +390,18 @@ class MainWindow(QMainWindow):
         self.nav_list.setCurrentRow(svm_idx)
         self.svm_page.set_input_file(file_path)
         self.log_panel.append_log(f"已导入到 SVM 模型训练: {file_path}", "INFO")
+
+    def _on_send_to_angle_test(self, file_path: str):
+        """分析页快捷跳转：发送到硬件测试→角度测试(硬件)"""
+        if not file_path or not os.path.isfile(file_path):
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "发送失败", f"找不到文件:\n{file_path}")
+            return
+        hw_nav_index = next(
+            (i for i, item in enumerate(NAV_ITEMS) if item['name'] == '硬件测试'), 7)
+        self.nav_list.setCurrentRow(hw_nav_index)
+        self.test_page.set_input_file_for_angle_test(file_path)
+        self.log_panel.append_log(f"已导入到角度测试(硬件): {file_path}", "INFO")
 
     def closeEvent(self, event):
         """关闭窗口确认"""

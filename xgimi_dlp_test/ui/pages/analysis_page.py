@@ -28,6 +28,7 @@ class AnalysisPage(QWidget):
     # 快捷跳转信号：深度敏感的应用内导航逻辑由 MainWindow 监听
     send_to_preprocessing = pyqtSignal(str)  # 发送到数据预处理页（角度扩圆坐标生成）
     send_to_svm = pyqtSignal(str)            # 发送到 SVM 训练页
+    send_to_angle_test = pyqtSignal(str)     # 发送到角度测试(硬件)
 
     def __init__(self, log_panel=None, config_mgr=None, category='analysis', parent=None):
         super().__init__(parent)
@@ -37,6 +38,7 @@ class AnalysisPage(QWidget):
         self._worker = None
         self._last_output_path = ''   # 记录最近一次成功输出路径
         self._last_data_path   = ''   # 结构化数据路径（TSV，供下游）
+        self._last_angle_test_path = ''
         self._init_ui()
 
     def _init_ui(self):
@@ -141,6 +143,13 @@ class AnalysisPage(QWidget):
         self._btn_send_to_svm.setVisible(False)
         self._btn_send_to_svm.clicked.connect(self._on_btn_send_to_svm)
         left_layout.addWidget(self._btn_send_to_svm)
+
+        self._btn_send_to_angle_test = QPushButton("→ 导入到角度测试(硬件)")
+        self._btn_send_to_angle_test.setObjectName("btn_success")
+        self._btn_send_to_angle_test.setToolTip("将输出的失败点测试文件直接发送到《角度测试(硬件)》页面")
+        self._btn_send_to_angle_test.setVisible(False)
+        self._btn_send_to_angle_test.clicked.connect(self._on_btn_send_to_angle_test)
+        left_layout.addWidget(self._btn_send_to_angle_test)
 
         # 进度条
         self.progress = ProgressWidget()
@@ -360,8 +369,10 @@ class AnalysisPage(QWidget):
         self.btn_open_output.setEnabled(False)
         self._last_output_path = ''
         self._last_data_path = ''
+        self._last_angle_test_path = ''
         self._btn_send_to_expand.setVisible(False)
         self._btn_send_to_svm.setVisible(False)
+        self._btn_send_to_angle_test.setVisible(False)
 
     def _update_reference_panel(self, info: dict):
         """根据模块信息更新参考结果面板"""
@@ -519,6 +530,7 @@ class AnalysisPage(QWidget):
             # 快捷跳转按钮（按当前模块名称显示）
             self._btn_send_to_expand.setVisible(False)
             self._btn_send_to_svm.setVisible(False)
+            self._btn_send_to_angle_test.setVisible(False)
             cur_idx = self.combo_type.currentIndex()
             cur_mid = self._module_ids[cur_idx] if 0 <= cur_idx < len(self._module_ids) else ""
             cur_name = ""
@@ -533,6 +545,9 @@ class AnalysisPage(QWidget):
                 self._btn_send_to_expand.setVisible(bool(self._last_data_path))
             elif "角度扩圆坐标生成" in cur_name:
                 self._btn_send_to_svm.setVisible(bool(output_path))
+            extra = result.get('extra', {}) or {}
+            self._last_angle_test_path = extra.get('angle_test_import_path', '')
+            self._btn_send_to_angle_test.setVisible(bool(self._last_angle_test_path))
 
             # 分析报告：若模块返回 report_text，显示在"分析报告"Tab
             report_text = result.get('report_text', '')
@@ -659,6 +674,14 @@ class AnalysisPage(QWidget):
         p = self._last_output_path
         if p and os.path.isfile(p):
             self.send_to_svm.emit(p)
+        else:
+            QMessageBox.warning(self, "发送失败", f"找不到输出文件:\n{p}")
+
+    def _on_btn_send_to_angle_test(self):
+        """→ 导入到角度测试(硬件)页面"""
+        p = self._last_angle_test_path
+        if p and os.path.isfile(p):
+            self.send_to_angle_test.emit(p)
         else:
             QMessageBox.warning(self, "发送失败", f"找不到输出文件:\n{p}")
 
