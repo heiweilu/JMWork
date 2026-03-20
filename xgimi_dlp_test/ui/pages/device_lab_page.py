@@ -1,16 +1,19 @@
 # -*- coding: utf-8 -*-
 """设备联调台页面。"""
 
+import ast
 import os
+import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
-from PyQt6.QtCore import QPoint, QTimer, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QImage, QPixmap
+from PyQt6.QtCore import QEvent, QPoint, QTimer, Qt, pyqtSignal
+from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDoubleSpinBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -27,6 +30,8 @@ from PyQt6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSlider,
+    QSpinBox,
     QSplitter,
     QTextEdit,
     QVBoxLayout,
@@ -34,6 +39,7 @@ from PyQt6.QtWidgets import (
 )
 
 from core.device_lab_store import DeviceLabStore
+from core.image_compare import compare_with_reference_set
 from workers.serial_worker import SerialReaderThread
 
 
@@ -100,6 +106,11 @@ QLabel#camera_preview {
     border: 1px solid rgba(148,163,184,0.18);
     border-radius: 14px;
 }
+QScrollArea#camera_preview_scroll {
+    background: #0f172a;
+    border: 1px solid rgba(148,163,184,0.18);
+    border-radius: 14px;
+}
 QPlainTextEdit#device_log {
     background: rgba(15,23,42,0.96);
     color: #dbeafe;
@@ -128,24 +139,57 @@ QPushButton#lab_secondary {
 
 
 class CommandItemDialog(QDialog):
-    def __init__(self, title: str, data: Optional[Dict[str, Any]] = None, parent=None):
+    def __init__(self, title: str, data: Optional[Dict[str, Any]] = None, allow_camera_actions: bool = False, parent=None):
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.resize(520, 360)
+        self.resize(560, 430)
 
         values = data or {}
+        self._allow_camera_actions = allow_camera_actions
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
         self.edit_name = QLineEdit(values.get("name", ""))
         self.edit_desc = QLineEdit(values.get("description", ""))
+        self.combo_action_type = QComboBox()
+        self.combo_action_type.addItem("串口指令集", "serial_bundle")
+        if allow_camera_actions:
+            self.combo_action_type.addItem("抓拍保存", "camera_snapshot")
+            self.combo_action_type.addItem("检查指定正常照片", "compare_reference")
         self.edit_commands = QTextEdit("\n".join(values.get("commands", [])))
         self.edit_commands.setPlaceholderText("每行一条串口指令")
+        self.spin_capture_count = QSpinBox()
+        self.spin_capture_count.setRange(1, 999)
+        self.spin_capture_count.setValue(int(values.get("capture_count", 1) or 1))
+        self.spin_capture_interval = QSpinBox()
+        self.spin_capture_interval.setRange(100, 600000)
+        self.spin_capture_interval.setSingleStep(100)
+        self.spin_capture_interval.setValue(int(values.get("capture_interval_ms", 1000) or 1000))
+        self.spin_capture_interval.setSuffix(" ms")
+        self.edit_reference_category = QLineEdit(values.get("reference_category", "default"))
+        self.edit_reference_category.setPlaceholderText("例如 default / boot / menu")
+        self.edit_roi_text = QLineEdit(values.get("roi_text", ""))
+        self.edit_roi_text.setPlaceholderText("例如 0.10,0.10,0.80,0.60，按 x,y,w,h 填 0-1")
+        self.lbl_action_hint = QLabel()
+        self.lbl_action_hint.setWordWrap(True)
+
+        current_action_type = values.get("action_type", "serial_bundle")
+        index = self.combo_action_type.findData(current_action_type)
+        self.combo_action_type.setCurrentIndex(index if index >= 0 else 0)
+        self.combo_action_type.currentIndexChanged.connect(self._sync_action_type)
 
         form.addRow("名称", self.edit_name)
         form.addRow("说明", self.edit_desc)
+        if allow_camera_actions:
+            form.addRow("动作类型", self.combo_action_type)
         form.addRow("指令", self.edit_commands)
+        form.addRow("抓拍张数", self.spin_capture_count)
+        form.addRow("抓拍间隔", self.spin_capture_interval)
+        form.addRow("参考分类", self.edit_reference_category)
+        form.addRow("ROI 区域", self.edit_roi_text)
         layout.addLayout(form)
+        layout.addWidget(self.lbl_action_hint)
+        self._sync_action_type()
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -158,17 +202,42 @@ class CommandItemDialog(QDialog):
         if not self.edit_name.text().strip():
             QMessageBox.warning(self, "提示", "名称不能为空")
             return
+        if self.combo_action_type.currentData() != "serial_bundle":
+            self.accept()
+            return
         commands = [line.strip() for line in self.edit_commands.toPlainText().splitlines() if line.strip()]
         if not commands:
             QMessageBox.warning(self, "提示", "至少保留一条指令")
             return
         self.accept()
 
+    def _sync_action_type(self):
+        use_commands = self.combo_action_type.currentData() == "serial_bundle"
+        use_capture_config = self.combo_action_type.currentData() in {"camera_snapshot", "compare_reference"}
+        use_compare_config = self.combo_action_type.currentData() == "compare_reference"
+        self.edit_commands.setVisible(use_commands)
+        self.spin_capture_count.setVisible(use_capture_config)
+        self.spin_capture_interval.setVisible(use_capture_config)
+        self.edit_reference_category.setVisible(use_compare_config)
+        self.edit_roi_text.setVisible(use_compare_config)
+        if self.combo_action_type.currentData() == "camera_snapshot":
+            self.lbl_action_hint.setText("抓拍保存会按张数和间隔连续留档，适合做批量过程记录。")
+        elif self.combo_action_type.currentData() == "compare_reference":
+            self.lbl_action_hint.setText("检查指定正常照片会先抓拍留档，再到所选参考分类里按 ROI 和阈值自动检图，并输出差异热图。")
+        else:
+            self.lbl_action_hint.setText("串口指令集会按每行一条顺序发送到设备。")
+
     def get_data(self) -> Dict[str, Any]:
+        action_type = self.combo_action_type.currentData()
         return {
             "name": self.edit_name.text().strip(),
             "description": self.edit_desc.text().strip(),
-            "commands": [line.strip() for line in self.edit_commands.toPlainText().splitlines() if line.strip()],
+            "commands": [line.strip() for line in self.edit_commands.toPlainText().splitlines() if line.strip()] if action_type == "serial_bundle" else [],
+            "action_type": action_type,
+            "capture_count": int(self.spin_capture_count.value()),
+            "capture_interval_ms": int(self.spin_capture_interval.value()),
+            "reference_category": self.edit_reference_category.text().strip() or "default",
+            "roi_text": self.edit_roi_text.text().strip(),
         }
 
 
@@ -176,20 +245,28 @@ class ScriptDialog(QDialog):
     def __init__(self, title: str, data: Optional[Dict[str, Any]] = None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.resize(620, 420)
+        self.resize(520, 220)
         values = data or {}
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
         self.edit_name = QLineEdit(values.get("name", ""))
         self.edit_desc = QLineEdit(values.get("description", ""))
-        self.edit_steps = QTextEdit("\n".join(values.get("steps", [])))
-        self.edit_steps.setPlaceholderText(
-            "支持写法:\nsetting:关闭位移AK\nshortcut:主页键\nwait:1.5\ninput keyevent 23"
-        )
+        self.spin_run_count = QSpinBox()
+        self.spin_run_count.setRange(1, 999)
+        self.spin_run_count.setValue(int(values.get("run_count", 1)))
+        self.spin_cycle_interval = QSpinBox()
+        self.spin_cycle_interval.setRange(0, 600000)
+        self.spin_cycle_interval.setSingleStep(100)
+        self.spin_cycle_interval.setValue(int(values.get("cycle_interval_ms", 0)))
+        self.spin_cycle_interval.setSuffix(" ms")
+        self.chk_stop_on_fail = QCheckBox("步骤失败时中止整个剧本")
+        self.chk_stop_on_fail.setChecked(bool(values.get("stop_on_fail", True)))
         form.addRow("剧本名", self.edit_name)
         form.addRow("说明", self.edit_desc)
-        form.addRow("步骤", self.edit_steps)
+        form.addRow("循环次数", self.spin_run_count)
+        form.addRow("轮次间隔", self.spin_cycle_interval)
+        form.addRow("失败策略", self.chk_stop_on_fail)
         layout.addLayout(form)
 
         buttons = QDialogButtonBox(
@@ -203,17 +280,250 @@ class ScriptDialog(QDialog):
         if not self.edit_name.text().strip():
             QMessageBox.warning(self, "提示", "剧本名不能为空")
             return
-        steps = [line.strip() for line in self.edit_steps.toPlainText().splitlines() if line.strip()]
-        if not steps:
-            QMessageBox.warning(self, "提示", "请至少写一条步骤")
-            return
         self.accept()
 
     def get_data(self) -> Dict[str, Any]:
         return {
             "name": self.edit_name.text().strip(),
             "description": self.edit_desc.text().strip(),
-            "steps": [line.strip() for line in self.edit_steps.toPlainText().splitlines() if line.strip()],
+            "run_count": int(self.spin_run_count.value()),
+            "cycle_interval_ms": int(self.spin_cycle_interval.value()),
+            "stop_on_fail": self.chk_stop_on_fail.isChecked(),
+        }
+
+
+class ScriptStepDialog(QDialog):
+    _TYPE_LABELS = {
+        "setting": "快捷配置",
+        "shortcut": "快捷指令",
+        "serial": "串口指令",
+        "wait": "等待",
+        "set_variable": "变量赋值",
+        "capture_snapshot": "抓拍保存",
+        "compare_reference": "检查参考图",
+    }
+
+    _TYPE_HELP = {
+        "setting": "按名称引用左侧“配置项2 快捷配置”，适合复用一组稳定配置。",
+        "shortcut": "按名称引用左侧“遥控快捷指令”，适合复用按键或相机动作。",
+        "serial": "直接写要发给设备的原始串口命令。",
+        "wait": "仅等待，不发串口；适合留给系统加载或界面切换。",
+        "set_variable": "给剧本变量赋值，后续指令和条件表达式都可以引用。",
+        "capture_snapshot": "保存当前相机画面到设备联调抓拍目录。",
+        "compare_reference": "把当前画面与指定参考分类对比；支持 ROI、变量回写和失败恢复。",
+    }
+
+    def __init__(self, quick_settings: List[Dict[str, Any]], shortcuts: List[Dict[str, Any]], data: Optional[Dict[str, Any]] = None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("编辑剧本步骤")
+        self.resize(620, 560)
+        values = data or {}
+
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+
+        self.combo_type = QComboBox()
+        for key, label in self._TYPE_LABELS.items():
+            self.combo_type.addItem(label, key)
+
+        self.combo_setting = QComboBox()
+        self.combo_setting.addItems([item.get("name", "") for item in quick_settings])
+
+        self.combo_shortcut = QComboBox()
+        self.combo_shortcut.addItems([item.get("name", "") for item in shortcuts])
+
+        self.edit_command = QLineEdit(values.get("command", ""))
+        self.edit_command.setPlaceholderText("例如 input keyevent 23")
+
+        self.edit_condition = QLineEdit(values.get("condition", ""))
+        self.edit_condition.setPlaceholderText("例如 boot_ok == True and retry_count < 2")
+
+        self.edit_variable_name = QLineEdit(values.get("variable_name", ""))
+        self.edit_variable_name.setPlaceholderText("例如 boot_ok")
+
+        self.edit_variable_value = QLineEdit(values.get("variable_value", ""))
+        self.edit_variable_value.setPlaceholderText("例如 true / 3 / ready / ${last_compare_score}")
+
+        self.spin_wait = QDoubleSpinBox()
+        self.spin_wait.setRange(0.0, 3600.0)
+        self.spin_wait.setDecimals(2)
+        self.spin_wait.setSingleStep(0.1)
+        self.spin_wait.setValue(float(values.get("seconds", 0.5) or 0.5))
+        self.spin_wait.setSuffix(" s")
+
+        self.chk_pause_on_fail = QCheckBox("不通过时暂停后续执行")
+        self.chk_pause_on_fail.setChecked(bool(values.get("pause_on_fail", True)))
+
+        self.spin_capture_count = QSpinBox()
+        self.spin_capture_count.setRange(1, 999)
+        self.spin_capture_count.setValue(int(values.get("capture_count", 1) or 1))
+
+        self.spin_capture_interval = QSpinBox()
+        self.spin_capture_interval.setRange(100, 600000)
+        self.spin_capture_interval.setSingleStep(100)
+        self.spin_capture_interval.setValue(int(values.get("capture_interval_ms", 1000) or 1000))
+        self.spin_capture_interval.setSuffix(" ms")
+
+        self.spin_retry_count = QSpinBox()
+        self.spin_retry_count.setRange(0, 20)
+        self.spin_retry_count.setValue(int(values.get("retry_count", 0) or 0))
+
+        self.spin_retry_interval = QSpinBox()
+        self.spin_retry_interval.setRange(100, 600000)
+        self.spin_retry_interval.setSingleStep(100)
+        self.spin_retry_interval.setValue(int(values.get("retry_interval_ms", 1000) or 1000))
+        self.spin_retry_interval.setSuffix(" ms")
+
+        self.edit_result_variable = QLineEdit(values.get("result_variable", ""))
+        self.edit_result_variable.setPlaceholderText("例如 boot_ok，检图结果会写入 true/false")
+
+        self.combo_recovery_shortcut = QComboBox()
+        self.combo_recovery_shortcut.addItem("（无）", "")
+        for item in shortcuts:
+            self.combo_recovery_shortcut.addItem(item.get("name", ""), item.get("name", ""))
+        recovery_index = self.combo_recovery_shortcut.findData(values.get("recovery_target", ""))
+        self.combo_recovery_shortcut.setCurrentIndex(recovery_index if recovery_index >= 0 else 0)
+
+        self.edit_reference_category = QLineEdit(values.get("reference_category", "default"))
+        self.edit_reference_category.setPlaceholderText("例如 default / boot / menu")
+
+        self.edit_roi_text = QLineEdit(values.get("roi_text", ""))
+        self.edit_roi_text.setPlaceholderText("例如 0.15,0.10,0.70,0.65，按 x,y,w,h 填 0-1")
+
+        self.spin_repeat = QSpinBox()
+        self.spin_repeat.setRange(1, 999)
+        self.spin_repeat.setValue(int(values.get("repeat", 1)))
+
+        self.spin_delay = QSpinBox()
+        self.spin_delay.setRange(0, 600000)
+        self.spin_delay.setSingleStep(50)
+        self.spin_delay.setValue(int(values.get("delay_ms", 250)))
+        self.spin_delay.setSuffix(" ms")
+
+        self.edit_note = QLineEdit(values.get("note", ""))
+        self.edit_note.setPlaceholderText("步骤备注，会显示在详情说明里")
+
+        self.lbl_help = QLabel()
+        self.lbl_help.setWordWrap(True)
+
+        form.addRow("步骤类型", self.combo_type)
+        form.addRow("执行条件", self.edit_condition)
+        form.addRow("快捷配置", self.combo_setting)
+        form.addRow("快捷指令", self.combo_shortcut)
+        form.addRow("串口指令", self.edit_command)
+        form.addRow("变量名", self.edit_variable_name)
+        form.addRow("变量值", self.edit_variable_value)
+        form.addRow("等待时长", self.spin_wait)
+        form.addRow("抓拍张数", self.spin_capture_count)
+        form.addRow("抓拍间隔", self.spin_capture_interval)
+        form.addRow("结果变量", self.edit_result_variable)
+        form.addRow("恢复动作", self.combo_recovery_shortcut)
+        form.addRow("参考分类", self.edit_reference_category)
+        form.addRow("ROI 区域", self.edit_roi_text)
+        form.addRow("失败重试", self.spin_retry_count)
+        form.addRow("重试间隔", self.spin_retry_interval)
+        form.addRow("失败策略", self.chk_pause_on_fail)
+        form.addRow("执行次数", self.spin_repeat)
+        form.addRow("每次后等待", self.spin_delay)
+        form.addRow("备注", self.edit_note)
+        layout.addLayout(form)
+        layout.addWidget(self.lbl_help)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self._on_accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+        current_type = values.get("type", "shortcut")
+        index = self.combo_type.findData(current_type)
+        self.combo_type.setCurrentIndex(index if index >= 0 else 0)
+        if values.get("target"):
+            setting_index = self.combo_setting.findText(values.get("target", ""))
+            if setting_index >= 0:
+                self.combo_setting.setCurrentIndex(setting_index)
+            shortcut_index = self.combo_shortcut.findText(values.get("target", ""))
+            if shortcut_index >= 0:
+                self.combo_shortcut.setCurrentIndex(shortcut_index)
+        self.combo_type.currentIndexChanged.connect(self._sync_type_widgets)
+        self._sync_type_widgets()
+
+    def _sync_type_widgets(self):
+        current_type = self.combo_type.currentData()
+        show_setting = current_type == "setting"
+        show_shortcut = current_type == "shortcut"
+        show_command = current_type == "serial"
+        show_wait = current_type == "wait"
+        show_variable = current_type == "set_variable"
+        show_capture = current_type == "capture_snapshot"
+        show_compare = current_type == "compare_reference"
+
+        self.combo_setting.setVisible(show_setting)
+        self.combo_shortcut.setVisible(show_shortcut)
+        self.edit_command.setVisible(show_command)
+        self.spin_wait.setVisible(show_wait)
+        self.edit_variable_name.setVisible(show_variable)
+        self.edit_variable_value.setVisible(show_variable)
+        self.spin_capture_count.setVisible(show_capture)
+        self.spin_capture_interval.setVisible(show_capture)
+        self.edit_result_variable.setVisible(show_compare)
+        self.combo_recovery_shortcut.setVisible(show_compare)
+        self.edit_reference_category.setVisible(show_compare)
+        self.edit_roi_text.setVisible(show_compare)
+        self.spin_retry_count.setVisible(show_compare)
+        self.spin_retry_interval.setVisible(show_compare)
+        self.chk_pause_on_fail.setVisible(show_compare)
+        self.lbl_help.setText(self._TYPE_HELP.get(current_type, ""))
+
+    def _on_accept(self):
+        current_type = self.combo_type.currentData()
+        if current_type == "serial" and not self.edit_command.text().strip():
+            QMessageBox.warning(self, "提示", "串口指令不能为空")
+            return
+        if current_type == "set_variable" and not self.edit_variable_name.text().strip():
+            QMessageBox.warning(self, "提示", "变量名不能为空")
+            return
+        self.accept()
+
+    def get_data(self) -> Dict[str, Any]:
+        current_type = self.combo_type.currentData()
+        target = ""
+        command = ""
+        seconds = 0.0
+        pause_on_fail = self.chk_pause_on_fail.isChecked()
+
+        if current_type == "setting":
+            target = self.combo_setting.currentText().strip()
+        elif current_type == "shortcut":
+            target = self.combo_shortcut.currentText().strip()
+        elif current_type == "serial":
+            command = self.edit_command.text().strip()
+        elif current_type == "wait":
+            seconds = float(self.spin_wait.value())
+
+        return {
+            "type": current_type,
+            "target": target,
+            "command": command,
+            "seconds": seconds,
+            "repeat": int(self.spin_repeat.value()),
+            "delay_ms": int(self.spin_delay.value()),
+            "note": self.edit_note.text().strip(),
+            "reference_image": "",
+            "threshold": 0.72,
+            "pause_on_fail": pause_on_fail,
+            "capture_count": int(self.spin_capture_count.value()),
+            "capture_interval_ms": int(self.spin_capture_interval.value()),
+            "retry_count": int(self.spin_retry_count.value()),
+            "retry_interval_ms": int(self.spin_retry_interval.value()),
+            "condition": self.edit_condition.text().strip(),
+            "variable_name": self.edit_variable_name.text().strip(),
+            "variable_value": self.edit_variable_value.text().strip(),
+            "result_variable": self.edit_result_variable.text().strip(),
+            "recovery_target": self.combo_recovery_shortcut.currentData() or "",
+            "reference_category": self.edit_reference_category.text().strip() or "default",
+            "roi_text": self.edit_roi_text.text().strip(),
         }
 
 
@@ -348,18 +658,41 @@ class DeviceLabPage(QWidget):
 
         self._serial = None
         self._reader_thread: Optional[SerialReaderThread] = None
-        self._command_queue: List[Tuple[Optional[str], float, str]] = []
+        self._command_queue: List[Dict[str, Any]] = []
         self._queue_timer = QTimer(self)
         self._queue_timer.setSingleShot(True)
         self._queue_timer.timeout.connect(self._process_next_queue_item)
 
         self._camera_capture = None
+        self._current_camera_frame = None
         self._camera_timer = QTimer(self)
         self._camera_timer.timeout.connect(self._update_camera_frame)
         self._camera_frame_counter = 0
         self._camera_fps_anchor = time.time()
+        self._snapshot_timer = QTimer(self)
+        self._snapshot_timer.timeout.connect(self._capture_next_snapshot)
+        self._snapshot_remaining = 0
+        self._snapshot_total = 0
+        self._snapshot_batch_dir = ""
+        self._snapshot_batch_token = ""
+        self._last_snapshot_path = ""
+        self._reference_capture_timer = QTimer(self)
+        self._reference_capture_timer.timeout.connect(self._attempt_auto_reference_capture)
+        self._reference_reject_count = 0
+        self._script_variables: Dict[str, Any] = {}
         self._selected_remote_id: Optional[str] = None
         self._remote_buttons: Dict[str, DraggableRemoteButton] = {}
+
+        self._cmd_history: List[str] = []
+        self._history_idx = -1
+        self._tab_candidates: List[str] = []
+        self._tab_idx = -1
+        self._pre_tab_text = ""
+        self._rx_path_cache: List[str] = []
+        self._serial_rx_buffer = bytearray()
+        self._serial_flush_timer = QTimer(self)
+        self._serial_flush_timer.setInterval(220)
+        self._serial_flush_timer.timeout.connect(self._flush_serial_rx_buffer)
 
         self.setObjectName("device_lab_root")
         self.setStyleSheet(_PAGE_QSS)
@@ -413,14 +746,19 @@ class DeviceLabPage(QWidget):
         left_scroll.setWidget(left_wrap)
         splitter.addWidget(left_scroll)
 
+        right_scroll = QScrollArea()
+        right_scroll.setWidgetResizable(True)
+        right_scroll.setFrameShape(QFrame.Shape.NoFrame)
         right_wrap = QWidget()
         right_layout = QVBoxLayout(right_wrap)
         right_layout.setContentsMargins(8, 0, 0, 0)
         right_layout.setSpacing(12)
         right_layout.addWidget(self._build_camera_card())
         right_layout.addWidget(self._build_remote_card())
-        right_layout.addWidget(self._build_log_card(), 1)
-        splitter.addWidget(right_wrap)
+        right_layout.addWidget(self._build_log_card())
+        right_layout.addStretch(1)
+        right_scroll.setWidget(right_wrap)
+        splitter.addWidget(right_scroll)
         splitter.setSizes([760, 540])
 
     def _build_serial_card(self) -> QGroupBox:
@@ -451,18 +789,31 @@ class DeviceLabPage(QWidget):
         row2 = QHBoxLayout()
         self.chk_newline = QCheckBox("发送后追加回车")
         self.chk_auto_su = QCheckBox("连接后自动发送 su")
+        self.chk_tab_passthrough = QCheckBox("Tab直发设备")
         row2.addWidget(self.chk_newline)
         row2.addWidget(self.chk_auto_su)
+        row2.addWidget(self.chk_tab_passthrough)
         row2.addStretch(1)
         layout.addLayout(row2)
 
         send_row = QHBoxLayout()
         self.edit_serial_cmd = QLineEdit()
         self.edit_serial_cmd.setPlaceholderText("输入串口指令，例如 input keyevent 23")
+        self.edit_serial_cmd.installEventFilter(self)
+        self.edit_serial_cmd.returnPressed.connect(self._on_send)
+        self.combo_newline = QComboBox()
+        self.combo_newline.addItems(["\\r\\n", "\\n", "\\r", "无"])
+        self.combo_newline.setFixedWidth(64)
+        self.combo_newline.setToolTip("发送时附加的换行符")
+        btn_send_tab = QPushButton("发送Tab")
+        btn_send_tab.setObjectName("lab_secondary")
+        btn_send_tab.clicked.connect(self._send_tab_character)
         btn_send = QPushButton("发送")
         btn_send.setObjectName("lab_primary")
-        btn_send.clicked.connect(self._send_manual_serial_command)
+        btn_send.clicked.connect(self._on_send)
         send_row.addWidget(self.edit_serial_cmd, 1)
+        send_row.addWidget(self.combo_newline)
+        send_row.addWidget(btn_send_tab)
         send_row.addWidget(btn_send)
         layout.addLayout(send_row)
 
@@ -470,7 +821,9 @@ class DeviceLabPage(QWidget):
         self.serial_terminal.setObjectName("device_log")
         self.serial_terminal.setReadOnly(True)
         self.serial_terminal.setMaximumBlockCount(800)
-        self.serial_terminal.setMinimumHeight(180)
+        self.serial_terminal.setMinimumHeight(240)
+        self.serial_terminal.installEventFilter(self)
+        self.serial_terminal.setPlaceholderText("串口输出会显示在这里。终端聚焦时可以直接输入，Enter 发送，Tab 按当前模式工作。")
         layout.addWidget(self.serial_terminal)
         return card
 
@@ -535,7 +888,7 @@ class DeviceLabPage(QWidget):
 
         project_row = QHBoxLayout()
         self.combo_project = QComboBox()
-        self.combo_project.currentIndexChanged.connect(self._refresh_scripts)
+        self.combo_project.currentIndexChanged.connect(self._on_project_selection_changed)
         btn_add_project = QPushButton("新增项目")
         btn_add_project.setObjectName("lab_secondary")
         btn_add_project.clicked.connect(self._add_project)
@@ -553,7 +906,7 @@ class DeviceLabPage(QWidget):
         layout.addLayout(project_row)
 
         self.list_scripts = QListWidget()
-        self.list_scripts.currentItemChanged.connect(self._sync_script_details)
+        self.list_scripts.currentItemChanged.connect(self._on_script_selection_changed)
         self.list_scripts.setMinimumHeight(140)
         layout.addWidget(self.list_scripts)
 
@@ -561,17 +914,25 @@ class DeviceLabPage(QWidget):
         self.lbl_script_desc.setWordWrap(True)
         layout.addWidget(self.lbl_script_desc)
 
-        self.edit_script_steps = QPlainTextEdit()
-        self.edit_script_steps.setPlaceholderText("步骤将在这里显示。")
-        self.edit_script_steps.setMinimumHeight(140)
-        layout.addWidget(self.edit_script_steps)
+        self.list_script_steps = QListWidget()
+        self.list_script_steps.currentItemChanged.connect(self._on_step_selection_changed)
+        self.list_script_steps.setMinimumHeight(180)
+        layout.addWidget(self.list_script_steps)
+
+        self.lbl_step_detail = QLabel("请选择步骤")
+        self.lbl_step_detail.setWordWrap(True)
+        layout.addWidget(self.lbl_step_detail)
 
         row = QHBoxLayout()
         for text, slot, primary in [
             ("新增剧本", self._add_script, False),
             ("编辑剧本", self._edit_script, False),
             ("删除剧本", self._delete_script, False),
-            ("保存步骤", self._save_script_steps, False),
+            ("新增步骤", self._add_script_step, False),
+            ("编辑步骤", self._edit_script_step, False),
+            ("删除步骤", self._delete_script_step, False),
+            ("上移", self._move_script_step_up, False),
+            ("下移", self._move_script_step_down, False),
             ("执行剧本", self._run_selected_script, True),
         ]:
             button = QPushButton(text)
@@ -609,14 +970,100 @@ class DeviceLabPage(QWidget):
         row.addWidget(btn_snapshot)
         layout.addLayout(row)
 
+        preview_tools = QHBoxLayout()
+        self.slider_preview_zoom = QSlider(Qt.Orientation.Horizontal)
+        self.slider_preview_zoom.setRange(50, 250)
+        self.slider_preview_zoom.setSingleStep(10)
+        self.slider_preview_zoom.setPageStep(25)
+        self.slider_preview_zoom.valueChanged.connect(self._on_preview_zoom_changed)
+        self.lbl_preview_zoom = QLabel("100%")
+        preview_tools.addWidget(QLabel("预览缩放"))
+        preview_tools.addWidget(self.slider_preview_zoom, 1)
+        preview_tools.addWidget(self.lbl_preview_zoom)
+        preview_tools.addStretch(1)
+        layout.addLayout(preview_tools)
+
+        adaptive_row = QHBoxLayout()
+        self.edit_reference_dir = QLineEdit()
+        self.edit_reference_dir.setPlaceholderText("参考图库目录")
+        self.edit_reference_dir.editingFinished.connect(self._persist_profile)
+        btn_pick_reference_dir = QPushButton("选择图库目录")
+        btn_pick_reference_dir.setObjectName("lab_secondary")
+        btn_pick_reference_dir.clicked.connect(self._browse_reference_dir)
+        self.spin_reference_pool_size = QSpinBox()
+        self.spin_reference_pool_size.setRange(1, 20)
+        self.spin_reference_pool_size.setValue(5)
+        self.spin_reference_pool_size.valueChanged.connect(lambda _v: self._persist_profile())
+        btn_compare_now = QPushButton("立即检图")
+        btn_compare_now.setObjectName("lab_primary")
+        btn_compare_now.clicked.connect(self._compare_current_frame_with_reference)
+        adaptive_row.addWidget(QLabel("图库目录"))
+        adaptive_row.addWidget(self.edit_reference_dir, 1)
+        adaptive_row.addWidget(btn_pick_reference_dir)
+        adaptive_row.addWidget(QLabel("图库上限"))
+        adaptive_row.addWidget(self.spin_reference_pool_size)
+        adaptive_row.addWidget(btn_compare_now)
+        layout.addLayout(adaptive_row)
+
+        compare_option_row = QHBoxLayout()
+        self.edit_reference_category = QLineEdit()
+        self.edit_reference_category.setPlaceholderText("参考分类，例如 default / boot / menu")
+        self.edit_reference_category.editingFinished.connect(self._persist_profile)
+        self.edit_compare_roi = QLineEdit()
+        self.edit_compare_roi.setPlaceholderText("ROI，例如 0.10,0.10,0.80,0.60")
+        self.edit_compare_roi.editingFinished.connect(self._persist_profile)
+        self.chk_save_diff_heatmap = QCheckBox("检图时生成差异热图")
+        self.chk_save_diff_heatmap.toggled.connect(lambda _checked: self._persist_profile())
+        compare_option_row.addWidget(QLabel("参考分类"))
+        compare_option_row.addWidget(self.edit_reference_category)
+        compare_option_row.addWidget(QLabel("ROI"))
+        compare_option_row.addWidget(self.edit_compare_roi, 1)
+        compare_option_row.addWidget(self.chk_save_diff_heatmap)
+        layout.addLayout(compare_option_row)
+
+        auto_ref_row = QHBoxLayout()
+        self.chk_auto_reference = QCheckBox("自动更新稳定参考图")
+        self.chk_auto_reference.toggled.connect(self._toggle_auto_reference_capture)
+        self.spin_auto_reference_interval = QSpinBox()
+        self.spin_auto_reference_interval.setRange(1000, 3600000)
+        self.spin_auto_reference_interval.setSingleStep(1000)
+        self.spin_auto_reference_interval.setValue(5000)
+        self.spin_auto_reference_interval.setSuffix(" ms")
+        self.spin_auto_reference_interval.valueChanged.connect(self._on_auto_reference_interval_changed)
+        self.spin_auto_reference_retry = QSpinBox()
+        self.spin_auto_reference_retry.setRange(1, 20)
+        self.spin_auto_reference_retry.setValue(3)
+        self.spin_auto_reference_retry.valueChanged.connect(lambda _v: self._persist_profile())
+        btn_add_reference_now = QPushButton("当前帧加入图库")
+        btn_add_reference_now.setObjectName("lab_secondary")
+        btn_add_reference_now.clicked.connect(self._append_current_frame_to_reference_pool)
+        auto_ref_row.addWidget(self.chk_auto_reference)
+        auto_ref_row.addWidget(QLabel("周期"))
+        auto_ref_row.addWidget(self.spin_auto_reference_interval)
+        auto_ref_row.addWidget(QLabel("最大重试"))
+        auto_ref_row.addWidget(self.spin_auto_reference_retry)
+        auto_ref_row.addWidget(btn_add_reference_now)
+        auto_ref_row.addStretch(1)
+        layout.addLayout(auto_ref_row)
+
+        self.lbl_reference_meta = QLabel("参考图库: 0 张")
+        self.lbl_reference_meta.setWordWrap(True)
+        layout.addWidget(self.lbl_reference_meta)
+
         self.lbl_camera_meta = QLabel("等待扫描 USB 相机")
         layout.addWidget(self.lbl_camera_meta)
 
         self.lbl_camera_preview = QLabel("暂无视频流")
         self.lbl_camera_preview.setObjectName("camera_preview")
-        self.lbl_camera_preview.setMinimumSize(360, 250)
+        self.lbl_camera_preview.setMinimumSize(520, 320)
         self.lbl_camera_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.lbl_camera_preview)
+        self.camera_preview_scroll = QScrollArea()
+        self.camera_preview_scroll.setObjectName("camera_preview_scroll")
+        self.camera_preview_scroll.setWidgetResizable(False)
+        self.camera_preview_scroll.setMinimumHeight(380)
+        self.camera_preview_scroll.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.camera_preview_scroll.setWidget(self.lbl_camera_preview)
+        layout.addWidget(self.camera_preview_scroll)
         return card
 
     def _build_remote_card(self) -> QGroupBox:
@@ -653,7 +1100,7 @@ class DeviceLabPage(QWidget):
 
         self.remote_canvas = QFrame()
         self.remote_canvas.setObjectName("remote_canvas")
-        self.remote_canvas.setFixedSize(300, 470)
+        self.remote_canvas.setFixedSize(320, 560)
         layout.addWidget(self.remote_canvas, 0, Qt.AlignmentFlag.AlignHCenter)
         return card
 
@@ -665,6 +1112,7 @@ class DeviceLabPage(QWidget):
         self.text_log.setObjectName("device_log")
         self.text_log.setReadOnly(True)
         self.text_log.setMaximumBlockCount(500)
+        self.text_log.setMinimumHeight(200)
         layout.addWidget(self.text_log)
         return card
 
@@ -673,13 +1121,25 @@ class DeviceLabPage(QWidget):
         self.combo_baud.setCurrentText(str(serial_data.get("baudrate", 115200)))
         self.chk_newline.setChecked(bool(serial_data.get("newline", True)))
         self.chk_auto_su.setChecked(bool(serial_data.get("auto_su", False)))
+        self.chk_tab_passthrough.setChecked(bool(serial_data.get("tab_passthrough", False)))
+        self.combo_newline.setCurrentText(serial_data.get("newline_mode", "\\r\\n"))
 
         camera_data = self._profile.get("camera", {})
         self.edit_scan_max.setText(str(camera_data.get("scan_max_index", 5)))
+        self.slider_preview_zoom.setValue(int(camera_data.get("preview_zoom_percent", 100)))
+        self.edit_reference_dir.setText(camera_data.get("reference_dir", "reports/device_lab_references"))
+        self.edit_reference_category.setText(camera_data.get("reference_category", "default"))
+        self.edit_compare_roi.setText(camera_data.get("compare_roi", ""))
+        self.chk_save_diff_heatmap.setChecked(bool(camera_data.get("save_diff_heatmap", True)))
+        self.spin_reference_pool_size.setValue(int(camera_data.get("reference_pool_size", 5)))
+        self.chk_auto_reference.setChecked(bool(camera_data.get("auto_reference_enabled", False)))
+        self.spin_auto_reference_interval.setValue(int(camera_data.get("auto_reference_interval_ms", 5000)))
+        self.spin_auto_reference_retry.setValue(int(camera_data.get("auto_reference_max_retry", 3)))
         self.chk_remote_edit_mode.setChecked(bool(self._profile.get("remote", {}).get("edit_mode", False)))
         self._refresh_command_lists()
         self._refresh_projects()
         self._render_remote_buttons()
+        self._refresh_reference_meta()
 
     def _refresh_command_lists(self):
         self._fill_command_list(self.list_quick_settings, self._profile.get("quick_settings", []))
@@ -706,8 +1166,16 @@ class DeviceLabPage(QWidget):
         if not data:
             label.setText("请选择一项")
             return
-        commands_text = " | ".join(data.get("commands", [])[:3])
-        label.setText(f"{data.get('description', '无说明')}\n指令: {commands_text}")
+        if data.get("action_type") == "camera_snapshot":
+            detail = f"相机动作: 抓拍保存 x{int(data.get('capture_count', 1) or 1)}，间隔 {int(data.get('capture_interval_ms', 1000) or 1000)} ms"
+        elif data.get("action_type") == "compare_reference":
+            category = data.get("reference_category", "default") or "default"
+            roi_text = data.get("roi_text", "").strip() or "全图"
+            detail = f"相机动作: 先抓拍留档，再按分类 {category} 自动检图，ROI={roi_text}"
+        else:
+            commands_text = " | ".join(data.get("commands", [])[:3]) or "无指令"
+            detail = f"指令: {commands_text}"
+        label.setText(f"{data.get('description', '无说明')}\n{detail}")
 
     def _get_list_source_for_widget(self, widget: QListWidget) -> List[Dict[str, Any]]:
         if widget is self.list_quick_settings:
@@ -715,12 +1183,16 @@ class DeviceLabPage(QWidget):
         return self._profile.get("shortcuts", [])
 
     def _refresh_projects(self):
+        ui_state = self._profile.get("ui_state", {})
+        current_project_id = ui_state.get("last_project_id") or self.combo_project.currentData()
         current_name = self.combo_project.currentText()
         self.combo_project.blockSignals(True)
         self.combo_project.clear()
         for project in self._profile.get("projects", []):
             self.combo_project.addItem(project["name"], project["id"])
-        index = self.combo_project.findText(current_name)
+        index = self.combo_project.findData(current_project_id)
+        if index < 0 and current_name:
+            index = self.combo_project.findText(current_name)
         self.combo_project.setCurrentIndex(index if index >= 0 else 0)
         self.combo_project.blockSignals(False)
         self._refresh_scripts()
@@ -728,28 +1200,153 @@ class DeviceLabPage(QWidget):
     def _refresh_scripts(self):
         self.list_scripts.clear()
         project = self._current_project()
+        ui_state = self._profile.setdefault("ui_state", {})
         if not project:
             self.lbl_script_desc.setText("请先创建项目")
-            self.edit_script_steps.clear()
+            self.list_script_steps.clear()
+            self.lbl_step_detail.setText("请选择步骤")
+            ui_state["last_project_id"] = ""
+            ui_state["last_script_id"] = ""
+            ui_state["last_step_id"] = ""
             return
+        ui_state["last_project_id"] = project.get("id", "")
+        target_script_id = ui_state.get("last_script_id")
         for script in project.get("scripts", []):
             item = QListWidgetItem(script["name"])
             item.setData(Qt.ItemDataRole.UserRole, script["id"])
             self.list_scripts.addItem(item)
         if self.list_scripts.count() > 0:
-            self.list_scripts.setCurrentRow(0)
+            target_row = 0
+            if target_script_id:
+                for row in range(self.list_scripts.count()):
+                    if self.list_scripts.item(row).data(Qt.ItemDataRole.UserRole) == target_script_id:
+                        target_row = row
+                        break
+            self.list_scripts.setCurrentRow(target_row)
         else:
             self.lbl_script_desc.setText("当前项目还没有联调剧本")
-            self.edit_script_steps.clear()
+            self.list_script_steps.clear()
+            self.lbl_step_detail.setText("请选择步骤")
+            ui_state["last_script_id"] = ""
+            ui_state["last_step_id"] = ""
 
     def _sync_script_details(self):
         script = self._current_script()
         if not script:
             self.lbl_script_desc.setText("请选择剧本")
-            self.edit_script_steps.clear()
+            self.list_script_steps.clear()
+            self.lbl_step_detail.setText("请选择步骤")
             return
-        self.lbl_script_desc.setText(script.get("description", "无说明"))
-        self.edit_script_steps.setPlainText("\n".join(script.get("steps", [])))
+        self.lbl_script_desc.setText(
+            f"{script.get('description', '无说明')}\n"
+            f"循环次数: {int(script.get('run_count', 1) or 1)} | "
+            f"轮次间隔: {int(script.get('cycle_interval_ms', 0) or 0)} ms | "
+            f"失败策略: {'失败即停' if script.get('stop_on_fail', True) else '失败继续'}"
+        )
+        self._refresh_script_steps()
+
+    def _refresh_script_steps(self):
+        self.list_script_steps.clear()
+        script = self._current_script()
+        ui_state = self._profile.setdefault("ui_state", {})
+        if not script:
+            self.lbl_step_detail.setText("请选择步骤")
+            ui_state["last_step_id"] = ""
+            return
+        target_step_id = ui_state.get("last_step_id")
+        for index, step in enumerate(script.get("steps", []), start=1):
+            item = QListWidgetItem(f"{index:02d}. {self._step_summary(step)}")
+            item.setData(Qt.ItemDataRole.UserRole, step.get("id"))
+            self.list_script_steps.addItem(item)
+        if self.list_script_steps.count() > 0:
+            target_row = 0
+            if target_step_id:
+                for row in range(self.list_script_steps.count()):
+                    if self.list_script_steps.item(row).data(Qt.ItemDataRole.UserRole) == target_step_id:
+                        target_row = row
+                        break
+            self.list_script_steps.setCurrentRow(target_row)
+        else:
+            self.lbl_step_detail.setText("当前剧本还没有步骤")
+            ui_state["last_step_id"] = ""
+
+    def _on_project_selection_changed(self):
+        project = self._current_project()
+        self._profile.setdefault("ui_state", {})["last_project_id"] = project.get("id", "") if project else ""
+        self._refresh_scripts()
+
+    def _on_script_selection_changed(self):
+        script = self._current_script()
+        self._profile.setdefault("ui_state", {})["last_script_id"] = script.get("id", "") if script else ""
+        self._sync_script_details()
+
+    def _on_step_selection_changed(self):
+        step = self._current_script_step()
+        self._profile.setdefault("ui_state", {})["last_step_id"] = step.get("id", "") if step else ""
+        self._sync_selected_step_detail()
+
+    def _sync_selected_step_detail(self):
+        step = self._current_script_step()
+        if not step:
+            self.lbl_step_detail.setText("请选择步骤")
+            return
+        self.lbl_step_detail.setText(self._step_detail_text(step))
+
+    def _current_script_step(self) -> Optional[Dict[str, Any]]:
+        current = self.list_script_steps.currentItem()
+        script = self._current_script()
+        if current is None or not script:
+            return None
+        return self._find_item_by_id(script.get("steps", []), current.data(Qt.ItemDataRole.UserRole))
+
+    def _step_summary(self, step: Dict[str, Any]) -> str:
+        step_type = step.get("type", "serial")
+        repeat = max(1, int(step.get("repeat", 1) or 1))
+        if step_type == "setting":
+            base = f"快捷配置 {step.get('target', '')}"
+        elif step_type == "shortcut":
+            base = f"快捷指令 {step.get('target', '')}"
+        elif step_type == "wait":
+            base = f"等待 {float(step.get('seconds', 0.0)):.2f}s"
+        elif step_type == "set_variable":
+            base = f"变量赋值 {step.get('variable_name', '')}={step.get('variable_value', '')}"
+        elif step_type == "capture_snapshot":
+            base = f"抓拍保存 {max(1, int(step.get('capture_count', 1) or 1))}张"
+        elif step_type == "compare_reference":
+            category = step.get("reference_category", "default") or "default"
+            base = f"检查参考图库[{category}]"
+        else:
+            base = step.get("command", "串口指令") or "串口指令"
+        if repeat > 1:
+            base += f" x{repeat}"
+        return base
+
+    def _step_detail_text(self, step: Dict[str, Any]) -> str:
+        lines = [f"类型: {self._step_summary(step)}"]
+        if step.get("condition"):
+            lines.append(f"执行条件: {step.get('condition')}")
+        lines.append(f"执行次数: {max(1, int(step.get('repeat', 1) or 1))}")
+        lines.append(f"每次后等待: {int(step.get('delay_ms', 250) or 0)} ms")
+        if step.get("type") == "set_variable":
+            lines.append(f"变量名: {step.get('variable_name', '')}")
+            lines.append(f"变量值: {step.get('variable_value', '')}")
+        if step.get("type") == "capture_snapshot":
+            lines.append(f"单次抓拍张数: {max(1, int(step.get('capture_count', 1) or 1))}")
+            lines.append(f"单次抓拍间隔: {int(step.get('capture_interval_ms', 1000) or 1000)} ms")
+        if step.get("type") == "compare_reference":
+            lines.append(f"参考图库: {self.edit_reference_dir.text().strip() or '未指定'}")
+            lines.append(f"参考分类: {step.get('reference_category', 'default') or 'default'}")
+            lines.append(f"ROI 区域: {step.get('roi_text', '').strip() or '全图'}")
+            if step.get("result_variable"):
+                lines.append(f"结果变量: {step.get('result_variable')}")
+            if step.get("recovery_target"):
+                lines.append(f"恢复动作: {step.get('recovery_target')}")
+            lines.append(f"失败重试: {int(step.get('retry_count', 0) or 0)} 次")
+            lines.append(f"重试间隔: {int(step.get('retry_interval_ms', 1000) or 1000)} ms")
+            lines.append("失败策略: 不通过暂停" if step.get("pause_on_fail", True) else "失败策略: 仅记录失败")
+        if step.get("note"):
+            lines.append(f"说明: {step.get('note')}")
+        return "\n".join(lines)
 
     def _refresh_serial_ports(self):
         ports: List[str] = []
@@ -790,22 +1387,27 @@ class DeviceLabPage(QWidget):
         self._profile["serial"]["baudrate"] = int(self.combo_baud.currentText())
         self._profile["serial"]["newline"] = self.chk_newline.isChecked()
         self._profile["serial"]["auto_su"] = self.chk_auto_su.isChecked()
+        self._profile["serial"]["tab_passthrough"] = self.chk_tab_passthrough.isChecked()
+        self._profile["serial"]["newline_mode"] = self.combo_newline.currentText()
         self._persist_profile()
 
         self.btn_serial_connect.setText("断开串口")
         self.lbl_serial_chip.setText(f"串口在线: {port}")
         self._log(f"串口已连接: {port} @ {self.combo_baud.currentText()}")
+        self._append_terminal(f"[SYS] 已连接 {port} @ {self.combo_baud.currentText()}")
         self._reader_thread = SerialReaderThread(self._serial)
         self._reader_thread.data_received.connect(self._on_serial_data_received)
         self._reader_thread.error_occurred.connect(self._on_serial_error)
         self._reader_thread.disconnected.connect(self._on_serial_disconnected)
         self._reader_thread.start()
+        self._serial_flush_timer.start()
         if self.chk_auto_su.isChecked():
-            self._queue_commands([( "su", 0.0, "连接自动初始化" )])
+            self._queue_commands([{"type": "serial", "command": "su", "delay_seconds": 0.0, "source": "连接自动初始化"}])
 
     def _disconnect_serial(self):
         self._queue_timer.stop()
         self._command_queue.clear()
+        self._serial_flush_timer.stop()
         if self._reader_thread:
             self._reader_thread.stop()
             self._reader_thread = None
@@ -817,14 +1419,15 @@ class DeviceLabPage(QWidget):
             self._serial = None
         self.btn_serial_connect.setText("连接串口")
         self.lbl_serial_chip.setText("串口未连接")
+        self._append_terminal("[SYS] 串口已断开")
         self._log("串口已断开")
 
     def _on_serial_data_received(self, data: bytes):
-        text = data.decode("utf-8", errors="ignore")
-        if text:
-            self.serial_terminal.appendPlainText(text.rstrip())
+        self._serial_rx_buffer.extend(data)
+        self._process_serial_rx_buffer()
 
     def _on_serial_error(self, message: str):
+        self._append_terminal(f"[ERR] {message}")
         self._log(f"串口读取异常: {message}", "ERROR")
 
     def _on_serial_disconnected(self):
@@ -832,6 +1435,7 @@ class DeviceLabPage(QWidget):
             return
         self.btn_serial_connect.setText("连接串口")
         self.lbl_serial_chip.setText("串口未连接")
+        self._append_terminal("[SYS] 连接已断开")
 
     def _send_manual_serial_command(self):
         command = self.edit_serial_cmd.text().strip()
@@ -840,21 +1444,263 @@ class DeviceLabPage(QWidget):
         self._send_serial_command(command, source="手工发送")
         self.edit_serial_cmd.clear()
 
+    def _on_send(self):
+        command = self.edit_serial_cmd.text()
+        self._send_serial_command(command, source="串口终端")
+        stripped = command.strip()
+        if stripped and (not self._cmd_history or self._cmd_history[-1] != stripped):
+            self._cmd_history.append(stripped)
+        self._history_idx = -1
+        self._tab_candidates = []
+        self._tab_idx = -1
+        self.edit_serial_cmd.clear()
+
     def _send_serial_command(self, command: str, source: str = "串口发送") -> bool:
         if not self._serial or not getattr(self._serial, "is_open", False):
             self._log("串口未连接，无法发送指令", "ERROR")
             return False
-        payload = command + ("\r\n" if self.chk_newline.isChecked() else "")
+        newline_map = {"\\r\\n": "\r\n", "\\n": "\n", "\\r": "\r", "无": ""}
+        newline = newline_map.get(self.combo_newline.currentText(), "\r\n")
+        if not self.chk_newline.isChecked():
+            newline = ""
+        payload = command + newline
         try:
             self._serial.write(payload.encode("utf-8", errors="ignore"))
-            self.serial_terminal.appendPlainText(f">>> {command}")
+            self._append_terminal(f">>> {command}" if command else ">>> [ENTER]")
             self._log(f"{source}: {command}")
             return True
         except Exception as exc:
             self._log(f"串口发送失败: {exc}", "ERROR")
             return False
 
-    def _queue_commands(self, steps: List[Tuple[Optional[str], float, str]]):
+    def _append_terminal(self, text: str):
+        self.serial_terminal.appendPlainText(text)
+        self.serial_terminal.verticalScrollBar().setValue(self.serial_terminal.verticalScrollBar().maximum())
+
+    def _process_serial_rx_buffer(self):
+        normalized = self._serial_rx_buffer.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        if b"\n" not in normalized:
+            return
+        parts = normalized.split(b"\n")
+        for part in parts[:-1]:
+            line = part.decode("utf-8", errors="replace")
+            if line:
+                self._append_terminal(line)
+                self._collect_rx_paths(line)
+        self._serial_rx_buffer = bytearray(parts[-1])
+
+    def _flush_serial_rx_buffer(self):
+        if not self._serial_rx_buffer:
+            return
+        line = self._serial_rx_buffer.decode("utf-8", errors="replace")
+        self._serial_rx_buffer.clear()
+        if line.strip():
+            self._append_terminal(line)
+            self._collect_rx_paths(line)
+
+    def _collect_rx_paths(self, text: str):
+        for path in re.findall(r"(?:/[A-Za-z0-9._-]+)+/?", text):
+            if path not in self._rx_path_cache:
+                self._rx_path_cache.insert(0, path)
+        self._rx_path_cache = self._rx_path_cache[:120]
+
+    def _history_prev(self):
+        if not self._cmd_history:
+            return
+        if self._history_idx == -1:
+            self._history_idx = len(self._cmd_history) - 1
+        elif self._history_idx > 0:
+            self._history_idx -= 1
+        self.edit_serial_cmd.setText(self._cmd_history[self._history_idx])
+        self.edit_serial_cmd.setCursorPosition(len(self.edit_serial_cmd.text()))
+
+    def _history_next(self):
+        if not self._cmd_history:
+            return
+        if self._history_idx == -1:
+            return
+        if self._history_idx < len(self._cmd_history) - 1:
+            self._history_idx += 1
+            self.edit_serial_cmd.setText(self._cmd_history[self._history_idx])
+        else:
+            self._history_idx = -1
+            self.edit_serial_cmd.clear()
+            return
+        self.edit_serial_cmd.setCursorPosition(len(self.edit_serial_cmd.text()))
+
+    def _is_tab_passthrough_enabled(self) -> bool:
+        return self.chk_tab_passthrough.isChecked()
+
+    def _send_tab_character(self):
+        if not self._serial or not getattr(self._serial, "is_open", False):
+            self._log("串口未连接，无法发送 Tab", "ERROR")
+            return
+        try:
+            self._serial.write(b"\t")
+            self._append_terminal(">>> [TAB]")
+            self._log("已发送 Tab 到设备")
+        except Exception as exc:
+            self._log(f"Tab 发送失败: {exc}", "ERROR")
+
+    def _on_tab_complete(self):
+        current = self.edit_serial_cmd.text()
+        if not self._tab_candidates:
+            self._pre_tab_text = current
+            parts = current.rsplit(" ", 1)
+            if len(parts) == 2:
+                base_text = parts[0] + " "
+                prefix_word = parts[1].lower()
+            else:
+                base_text = ""
+                prefix_word = current.lower()
+
+            seen = set()
+            candidates: List[str] = []
+
+            def _add(text: str, keep_base: bool):
+                full = (base_text + text) if keep_base else text
+                if full not in seen:
+                    seen.add(full)
+                    candidates.append(full)
+
+            if prefix_word.startswith("/"):
+                for path in self._rx_path_cache:
+                    if path.lower().startswith(prefix_word):
+                        _add(path, True)
+
+            for command in self._get_all_known_commands():
+                lowered = command.lower()
+                if not base_text and lowered.startswith(prefix_word):
+                    _add(command, False)
+                elif base_text:
+                    last = command.split(" ")[-1] if " " in command else command
+                    if last.lower().startswith(prefix_word):
+                        _add(last, True)
+                    if lowered.startswith(current.lower()):
+                        _add(command, False)
+
+            if not candidates:
+                return
+            self._tab_candidates = candidates
+            self._tab_idx = -1
+
+        self._tab_idx = (self._tab_idx + 1) % len(self._tab_candidates)
+        candidate = self._tab_candidates[self._tab_idx]
+        self.edit_serial_cmd.setText(candidate)
+        self.edit_serial_cmd.setCursorPosition(len(candidate))
+
+    def _get_all_known_commands(self) -> List[str]:
+        commands: List[str] = list(reversed(self._cmd_history))
+        for item in self._profile.get("quick_settings", []):
+            commands.extend(item.get("commands", []))
+        for item in self._profile.get("shortcuts", []):
+            commands.extend(item.get("commands", []))
+        for project in self._profile.get("projects", []):
+            for script in project.get("scripts", []):
+                for step in script.get("steps", []):
+                    if isinstance(step, dict):
+                        if step.get("type") == "serial" and step.get("command"):
+                            commands.append(step.get("command", ""))
+                        continue
+                    if isinstance(step, str) and not step.startswith(("setting:", "shortcut:", "wait:")):
+                        commands.append(step)
+        deduped: List[str] = []
+        seen = set()
+        for command in commands:
+            if command and command not in seen:
+                seen.add(command)
+                deduped.append(command)
+        return deduped
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.KeyPress:
+            key = event.key()
+            modifiers = event.modifiers()
+
+            if obj is self.edit_serial_cmd:
+                if key == Qt.Key.Key_Tab:
+                    if self._is_tab_passthrough_enabled():
+                        self._send_tab_character()
+                    else:
+                        self._on_tab_complete()
+                    return True
+                if key == Qt.Key.Key_Up:
+                    self._history_prev()
+                    return True
+                if key == Qt.Key.Key_Down:
+                    self._history_next()
+                    return True
+                if modifiers == Qt.KeyboardModifier.ControlModifier:
+                    control_map = {
+                        Qt.Key.Key_C: (b"\x03", "Ctrl+C"),
+                        Qt.Key.Key_D: (b"\x04", "Ctrl+D"),
+                        Qt.Key.Key_L: (b"\x0c", "Ctrl+L"),
+                        Qt.Key.Key_Z: (b"\x1a", "Ctrl+Z"),
+                    }
+                    if key in control_map and self._serial and getattr(self._serial, "is_open", False):
+                        raw, label = control_map[key]
+                        try:
+                            self._serial.write(raw)
+                            self._append_terminal(f">>> [{label}]")
+                            self._log(f"已发送 {label}")
+                        except Exception as exc:
+                            self._log(f"发送 {label} 失败: {exc}", "ERROR")
+                        return True
+                self._tab_candidates = []
+                self._tab_idx = -1
+
+            if obj is self.serial_terminal:
+                if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    self._on_send()
+                    return True
+                if key == Qt.Key.Key_Tab:
+                    if self._is_tab_passthrough_enabled():
+                        self._send_tab_character()
+                    else:
+                        self._on_tab_complete()
+                    self.edit_serial_cmd.setFocus()
+                    return True
+                if key == Qt.Key.Key_Up:
+                    self._history_prev()
+                    self.edit_serial_cmd.setFocus()
+                    return True
+                if key == Qt.Key.Key_Down:
+                    self._history_next()
+                    self.edit_serial_cmd.setFocus()
+                    return True
+                if key == Qt.Key.Key_Backspace:
+                    current = self.edit_serial_cmd.text()
+                    if current:
+                        self.edit_serial_cmd.setText(current[:-1])
+                        self.edit_serial_cmd.setFocus()
+                    return True
+                if modifiers == Qt.KeyboardModifier.ControlModifier:
+                    control_map = {
+                        Qt.Key.Key_C: (b"\x03", "Ctrl+C"),
+                        Qt.Key.Key_D: (b"\x04", "Ctrl+D"),
+                        Qt.Key.Key_L: (b"\x0c", "Ctrl+L"),
+                        Qt.Key.Key_Z: (b"\x1a", "Ctrl+Z"),
+                    }
+                    if key in control_map and self._serial and getattr(self._serial, "is_open", False):
+                        raw, label = control_map[key]
+                        try:
+                            self._serial.write(raw)
+                            self._append_terminal(f">>> [{label}]")
+                            self._log(f"已发送 {label}")
+                        except Exception as exc:
+                            self._log(f"发送 {label} 失败: {exc}", "ERROR")
+                        return True
+                char = event.text()
+                if char and char.isprintable() and modifiers in (
+                    Qt.KeyboardModifier.NoModifier,
+                    Qt.KeyboardModifier.ShiftModifier,
+                ):
+                    self.edit_serial_cmd.insert(char)
+                    self.edit_serial_cmd.setFocus()
+                    return True
+        return super().eventFilter(obj, event)
+
+    def _queue_commands(self, steps: List[Dict[str, Any]]):
         self._command_queue.extend(steps)
         if not self._queue_timer.isActive():
             self._process_next_queue_item()
@@ -863,10 +1709,181 @@ class DeviceLabPage(QWidget):
         if not self._command_queue:
             self._log("执行队列完成")
             return
-        command, delay_seconds, source = self._command_queue.pop(0)
-        if command:
-            self._send_serial_command(command, source=source)
+        action = self._command_queue.pop(0)
+        action_type = action.get("type", "serial")
+        delay_seconds = float(action.get("delay_seconds", 0.0) or 0.0)
+        source = self._interpolate_text(action.get("source", "设备联调"))
+        stop_on_fail = bool(action.get("stop_on_fail", True))
+        retry_count = int(action.get("retry_count", 0) or 0)
+        retry_interval_ms = int(action.get("retry_interval_ms", 1000) or 1000)
+
+        if not self._evaluate_condition(action.get("condition", "")):
+            self._log(f"条件不满足，跳过: {source}", "WARN")
+            self._queue_timer.start(max(0, int(delay_seconds * 1000)))
+            return
+
+        success = True
+        if action_type == "serial":
+            success = self._send_serial_command(self._interpolate_text(action.get("command", "")), source=source)
+        elif action_type == "wait":
+            self._log(f"等待 {delay_seconds:.2f}s: {source}")
+        elif action_type == "set_variable":
+            variable_name = action.get("variable_name", "").strip()
+            if variable_name:
+                variable_value = self._coerce_variable_value(action.get("variable_value", ""))
+                self._script_variables[variable_name] = variable_value
+                self._log(f"变量写入: {variable_name}={variable_value}")
+        elif action_type == "capture_snapshot":
+            success = bool(self._capture_snapshot_frame(file_prefix=action.get("file_prefix", "snapshot")))
+        elif action_type == "compare_reference":
+            success = self._compare_against_reference(
+                pause_on_fail=bool(action.get("pause_on_fail", True)),
+                source=source,
+                save_snapshot=bool(action.get("save_snapshot", True)),
+                category=action.get("reference_category", "default"),
+                roi_text=action.get("roi_text", ""),
+                result_variable=action.get("result_variable", ""),
+            )
+
+        if not success and retry_count > 0:
+            action["retry_count"] = retry_count - 1
+            self._command_queue.insert(0, action)
+            self._log(f"执行失败，准备重试: {source}，剩余 {retry_count} 次", "WARN")
+            self._queue_timer.start(max(0, retry_interval_ms))
+            return
+
+        if not success and action.get("recovery_target"):
+            recovery_item = self._find_item_by_name(self._profile.get("shortcuts", []), action.get("recovery_target", ""))
+            recovery_actions = self._build_actions_from_shortcut(recovery_item, f"恢复动作 {action.get('recovery_target', '')}", stop_on_fail=False)
+            if recovery_actions:
+                self._command_queue = recovery_actions + self._command_queue
+                self._log(f"已插入失败恢复动作: {action.get('recovery_target', '')}", "WARN")
+
+        if not success and stop_on_fail:
+            self._queue_timer.stop()
+            self._command_queue.clear()
+            self._log(f"执行队列已中止: {source}", "ERROR")
+            return
+        if not success:
+            self._log(f"执行失败但按配置继续: {source}", "WARN")
+
         self._queue_timer.start(max(0, int(delay_seconds * 1000)))
+
+    def _build_actions_from_shortcut(self, item: Optional[Dict[str, Any]], source_prefix: str, stop_on_fail: bool = True) -> List[Dict[str, Any]]:
+        if not item:
+            return []
+        action_type = item.get("action_type", "serial_bundle")
+        if action_type == "camera_snapshot":
+            capture_count = max(1, int(item.get("capture_count", 1) or 1))
+            capture_interval = max(100, int(item.get("capture_interval_ms", 1000) or 1000)) / 1000.0
+            actions: List[Dict[str, Any]] = []
+            for index in range(capture_count):
+                actions.append({
+                    "type": "capture_snapshot",
+                    "delay_seconds": capture_interval if index < capture_count - 1 else 0.25,
+                    "source": f"{source_prefix} {item['name']}",
+                    "stop_on_fail": stop_on_fail,
+                    "file_prefix": "shortcut_snapshot",
+                })
+            return actions
+        if action_type == "compare_reference":
+            return [{
+                "type": "compare_reference",
+                "pause_on_fail": True,
+                "delay_seconds": 0.25,
+                "source": f"{source_prefix} {item['name']}",
+                "stop_on_fail": stop_on_fail,
+                "save_snapshot": True,
+                "reference_category": item.get("reference_category", "default"),
+                "roi_text": item.get("roi_text", ""),
+            }]
+        return [
+            {"type": "serial", "command": command, "delay_seconds": 0.25, "source": f"{source_prefix} {item['name']}", "stop_on_fail": stop_on_fail}
+            for command in item.get("commands", []) if command
+        ]
+
+    def _build_actions_from_step(self, step: Dict[str, Any], stop_on_fail: bool = True) -> List[Dict[str, Any]]:
+        step_type = step.get("type", "serial")
+        repeat = max(1, int(step.get("repeat", 1) or 1))
+        delay_seconds = max(0.0, int(step.get("delay_ms", 250) or 0) / 1000.0)
+        source = step.get("note") or self._step_summary(step)
+        actions: List[Dict[str, Any]] = []
+
+        for _ in range(repeat):
+            if step_type == "setting":
+                item = self._find_item_by_name(self._profile.get("quick_settings", []), step.get("target", ""))
+                if item:
+                    for command in item.get("commands", []):
+                        actions.append({"type": "serial", "command": command, "delay_seconds": delay_seconds, "source": source, "stop_on_fail": stop_on_fail, "condition": step.get("condition", "")})
+            elif step_type == "shortcut":
+                item = self._find_item_by_name(self._profile.get("shortcuts", []), step.get("target", ""))
+                shortcut_actions = self._build_actions_from_shortcut(item, "剧本步骤", stop_on_fail=stop_on_fail)
+                for shortcut_action in shortcut_actions:
+                    shortcut_action["delay_seconds"] = delay_seconds
+                    shortcut_action["condition"] = step.get("condition", "")
+                actions.extend(shortcut_actions)
+            elif step_type == "wait":
+                actions.append({"type": "wait", "delay_seconds": float(step.get("seconds", 0.0) or 0.0), "source": source, "stop_on_fail": stop_on_fail, "condition": step.get("condition", "")})
+            elif step_type == "set_variable":
+                actions.append({
+                    "type": "set_variable",
+                    "delay_seconds": delay_seconds,
+                    "source": source,
+                    "stop_on_fail": False,
+                    "condition": step.get("condition", ""),
+                    "variable_name": step.get("variable_name", ""),
+                    "variable_value": step.get("variable_value", ""),
+                })
+            elif step_type == "capture_snapshot":
+                capture_count = max(1, int(step.get("capture_count", 1) or 1))
+                capture_interval = max(100, int(step.get("capture_interval_ms", 1000) or 1000)) / 1000.0
+                for index in range(capture_count):
+                    actions.append({
+                        "type": "capture_snapshot",
+                        "delay_seconds": capture_interval if index < capture_count - 1 else delay_seconds,
+                        "source": source,
+                        "stop_on_fail": stop_on_fail,
+                        "file_prefix": "script_snapshot",
+                        "condition": step.get("condition", ""),
+                    })
+            elif step_type == "compare_reference":
+                actions.append({
+                    "type": "compare_reference",
+                    "pause_on_fail": bool(step.get("pause_on_fail", True)),
+                    "delay_seconds": delay_seconds,
+                    "source": source,
+                    "stop_on_fail": stop_on_fail,
+                    "save_snapshot": True,
+                    "retry_count": int(step.get("retry_count", 0) or 0),
+                    "retry_interval_ms": int(step.get("retry_interval_ms", 1000) or 1000),
+                    "condition": step.get("condition", ""),
+                    "reference_category": step.get("reference_category", "default"),
+                    "roi_text": step.get("roi_text", ""),
+                    "result_variable": step.get("result_variable", ""),
+                    "recovery_target": step.get("recovery_target", ""),
+                })
+            else:
+                command = step.get("command", "").strip()
+                if command:
+                    actions.append({"type": "serial", "command": command, "delay_seconds": delay_seconds, "source": source, "stop_on_fail": stop_on_fail, "condition": step.get("condition", "")})
+        return actions
+
+    def _build_actions_from_script(self, script: Dict[str, Any]) -> List[Dict[str, Any]]:
+        actions: List[Dict[str, Any]] = []
+        run_count = max(1, int(script.get("run_count", 1) or 1))
+        cycle_interval = max(0, int(script.get("cycle_interval_ms", 0) or 0))
+        stop_on_fail = bool(script.get("stop_on_fail", True))
+        for run_index in range(run_count):
+            for step in script.get("steps", []):
+                actions.extend(self._build_actions_from_step(step, stop_on_fail=stop_on_fail))
+            if cycle_interval > 0 and run_index < run_count - 1:
+                actions.append({
+                    "type": "wait",
+                    "delay_seconds": cycle_interval / 1000.0,
+                    "source": f"剧本轮次间隔 {cycle_interval} ms",
+                    "stop_on_fail": stop_on_fail,
+                })
+        return actions
 
     def _scan_cameras(self):
         max_index_text = self.edit_scan_max.text().strip() or "5"
@@ -925,13 +1942,20 @@ class DeviceLabPage(QWidget):
         self.lbl_camera_chip.setText(f"相机在线: {self.combo_camera.currentText()}")
         self._camera_frame_counter = 0
         self._camera_fps_anchor = time.time()
+        self._current_camera_frame = None
+        if self.chk_auto_reference.isChecked():
+            self._reference_capture_timer.start(self.spin_auto_reference_interval.value())
         self._log(f"相机预览已连接: {self.combo_camera.currentText()}")
 
     def _stop_camera_preview(self):
         self._camera_timer.stop()
+        self._snapshot_timer.stop()
+        self._reference_capture_timer.stop()
+        self._snapshot_remaining = 0
         if self._camera_capture is not None:
             self._camera_capture.release()
             self._camera_capture = None
+        self._current_camera_frame = None
         self.btn_camera_toggle.setText("连接预览")
         self.lbl_camera_chip.setText("相机未连接")
         self.lbl_camera_preview.setText("暂无视频流")
@@ -945,36 +1969,388 @@ class DeviceLabPage(QWidget):
         if not ret or frame is None:
             self.lbl_camera_meta.setText("视频流读取失败")
             return
+        self._current_camera_frame = frame.copy()
         self._camera_frame_counter += 1
         now = time.time()
         elapsed = max(now - self._camera_fps_anchor, 0.001)
         fps = self._camera_frame_counter / elapsed
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        image = QImage(rgb.data, rgb.shape[1], rgb.shape[0], rgb.strides[0], QImage.Format.Format_RGB888)
-        pixmap = QPixmap.fromImage(image).scaled(
-            self.lbl_camera_preview.size(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        self.lbl_camera_preview.setPixmap(pixmap)
+        self._render_camera_frame(frame)
         self.lbl_camera_meta.setText(f"分辨率 {frame.shape[1]}x{frame.shape[0]} | 预览 FPS {fps:.1f}")
 
     def _save_camera_snapshot(self):
-        if self._camera_capture is None:
+        saved_path = self._capture_snapshot_frame()
+        if saved_path:
+            QMessageBox.information(self, "抓拍成功", saved_path)
+
+    def _browse_reference_dir(self):
+        dir_path = QFileDialog.getExistingDirectory(self, "选择参考图库目录", self.edit_reference_dir.text().strip() or "")
+        if not dir_path:
+            return
+        self.edit_reference_dir.setText(dir_path)
+        self._persist_profile()
+        self._refresh_reference_meta()
+
+    def _compare_current_frame_with_reference(self):
+        self._compare_against_reference(source="手动检图")
+
+    def _reference_dir_path(self, category: Optional[str] = None) -> str:
+        project_root = self._config_mgr.get_project_root() if self._config_mgr else os.getcwd()
+        base_dir = self._store.resolve_path(self.edit_reference_dir.text().strip() or "reports/device_lab_references", project_root)
+        normalized_category = self._normalized_category(category or self.edit_reference_category.text().strip() or "default")
+        return os.path.join(base_dir, normalized_category)
+
+    def _normalized_category(self, category: str) -> str:
+        sanitized = re.sub(r"[^0-9A-Za-z_\-]+", "_", (category or "default").strip())
+        return sanitized or "default"
+
+    def _parse_roi_text(self, roi_text: str) -> Optional[Tuple[float, float, float, float]]:
+        text = (roi_text or "").strip()
+        if not text:
+            return None
+        parts = [part.strip() for part in text.split(",")]
+        if len(parts) != 4:
+            return None
+        try:
+            values = [float(part) for part in parts]
+        except ValueError:
+            return None
+        if all(0.0 <= value <= 100.0 for value in values) and any(value > 1.0 for value in values):
+            values = [value / 100.0 for value in values]
+        x, y, w, h = values
+        if w <= 0.0 or h <= 0.0:
+            return None
+        if x < 0.0 or y < 0.0 or x + w > 1.0 or y + h > 1.0:
+            return None
+        return x, y, w, h
+
+    def _interpolate_text(self, text: str) -> str:
+        if not text:
+            return ""
+        return re.sub(
+            r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}",
+            lambda match: str(self._script_variables.get(match.group(1), "")),
+            text,
+        )
+
+    def _coerce_variable_value(self, raw_value: str) -> Any:
+        value_text = self._interpolate_text(raw_value).strip()
+        lowered = value_text.lower()
+        if lowered in {"true", "false"}:
+            return lowered == "true"
+        try:
+            if "." in value_text:
+                return float(value_text)
+            return int(value_text)
+        except ValueError:
+            return value_text
+
+    def _evaluate_condition(self, expression: str) -> bool:
+        expr = (expression or "").strip()
+        if not expr:
+            return True
+
+        def _eval(node: ast.AST) -> Any:
+            if isinstance(node, ast.Expression):
+                return _eval(node.body)
+            if isinstance(node, ast.Constant):
+                return node.value
+            if isinstance(node, ast.Name):
+                return self._script_variables.get(node.id, False)
+            if isinstance(node, ast.BoolOp):
+                values = [_eval(value) for value in node.values]
+                if isinstance(node.op, ast.And):
+                    return all(values)
+                if isinstance(node.op, ast.Or):
+                    return any(values)
+            if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+                return not bool(_eval(node.operand))
+            if isinstance(node, ast.Compare):
+                left = _eval(node.left)
+                for op, comparator in zip(node.ops, node.comparators):
+                    right = _eval(comparator)
+                    if isinstance(op, ast.Eq):
+                        ok = left == right
+                    elif isinstance(op, ast.NotEq):
+                        ok = left != right
+                    elif isinstance(op, ast.Gt):
+                        ok = left > right
+                    elif isinstance(op, ast.GtE):
+                        ok = left >= right
+                    elif isinstance(op, ast.Lt):
+                        ok = left < right
+                    elif isinstance(op, ast.LtE):
+                        ok = left <= right
+                    else:
+                        raise ValueError("不支持的条件操作")
+                    if not ok:
+                        return False
+                    left = right
+                return True
+            if isinstance(node, ast.BinOp):
+                left = _eval(node.left)
+                right = _eval(node.right)
+                if isinstance(node.op, ast.Add):
+                    return left + right
+                if isinstance(node.op, ast.Sub):
+                    return left - right
+                if isinstance(node.op, ast.Mult):
+                    return left * right
+                if isinstance(node.op, ast.Div):
+                    return left / right
+            raise ValueError("条件表达式不支持该语法")
+
+        try:
+            parsed = ast.parse(expr, mode="eval")
+            return bool(_eval(parsed))
+        except Exception as exc:
+            self._log(f"条件表达式解析失败: {expr} ({exc})", "WARN")
+            return False
+
+    def _load_reference_pool(self, category: Optional[str] = None) -> List[str]:
+        reference_dir = self._reference_dir_path(category)
+        if not os.path.isdir(reference_dir):
+            return []
+        image_names = [
+            name for name in os.listdir(reference_dir)
+            if os.path.isfile(os.path.join(reference_dir, name)) and name.lower().endswith((".png", ".jpg", ".jpeg", ".bmp"))
+        ]
+        image_names.sort(key=lambda name: os.path.getmtime(os.path.join(reference_dir, name)), reverse=True)
+        limit = max(1, int(self.spin_reference_pool_size.value()))
+        return [os.path.join(reference_dir, name) for name in image_names[:limit]]
+
+    def _refresh_reference_meta(self):
+        pool_paths = self._load_reference_pool()
+        self.lbl_reference_meta.setText(
+            f"参考图库[{self._normalized_category(self.edit_reference_category.text() or 'default')}]: {len(pool_paths)} 张 | "
+            f"ROI: {self.edit_compare_roi.text().strip() or '全图'} | 最新参考: {os.path.basename(pool_paths[0]) if pool_paths else '未设置'}"
+        )
+
+    def _append_current_frame_to_reference_pool(self, quiet: bool = False, category: Optional[str] = None) -> bool:
+        if self._current_camera_frame is None:
+            if not quiet:
+                QMessageBox.warning(self, "提示", "请先连接相机预览")
+            return False
+        reference_dir = self._reference_dir_path(category)
+        os.makedirs(reference_dir, exist_ok=True)
+        file_path = self._capture_snapshot_frame(file_prefix="reference_pool")
+        if not file_path:
+            return False
+        pool_target = os.path.join(reference_dir, os.path.basename(file_path))
+        if os.path.normcase(file_path) != os.path.normcase(pool_target):
+            try:
+                os.replace(file_path, pool_target)
+            except OSError:
+                pool_target = file_path
+        self._persist_profile()
+        self._refresh_reference_meta()
+        self._log(f"参考图库新增: {pool_target}")
+        return True
+
+    def _toggle_auto_reference_capture(self, checked: bool):
+        self._profile.setdefault("camera", {})["auto_reference_enabled"] = checked
+        self._persist_profile()
+        if checked and self._camera_capture is not None:
+            self._reference_capture_timer.start(self.spin_auto_reference_interval.value())
+            self._reference_reject_count = 0
+        else:
+            self._reference_capture_timer.stop()
+
+    def _on_auto_reference_interval_changed(self, value: int):
+        self._persist_profile()
+        if self._reference_capture_timer.isActive():
+            self._reference_capture_timer.start(value)
+
+    def _attempt_auto_reference_capture(self):
+        if self._current_camera_frame is None:
+            return
+        accepted = self._try_capture_stable_reference()
+        if accepted:
+            self._reference_reject_count = 0
+            return
+        self._reference_reject_count += 1
+        self._log(f"自动稳定参考图被舍弃，第 {self._reference_reject_count} 次", "WARN")
+        if self._reference_reject_count >= int(self.spin_auto_reference_retry.value()):
+            self._reference_reject_count = 0
+
+    def _try_capture_stable_reference(self) -> bool:
+        pool_paths = self._load_reference_pool()
+        if not pool_paths:
+            return self._append_current_frame_to_reference_pool(quiet=True)
+        reference_images = []
+        for path in pool_paths:
+            image = cv2.imread(path)
+            if image is not None:
+                reference_images.append(image)
+        if not reference_images:
+            return self._append_current_frame_to_reference_pool(quiet=True)
+        result = compare_with_reference_set(
+            reference_images,
+            self._current_camera_frame,
+            float(self._profile.get("camera", {}).get("reference_accept_threshold", 0.82)),
+            roi=self._parse_roi_text(self.edit_compare_roi.text().strip()),
+        )
+        if result.get("passed", False):
+            return self._append_current_frame_to_reference_pool(quiet=True)
+        return False
+
+    def _capture_snapshot_frame(self, batch_index: Optional[int] = None, batch_total: Optional[int] = None, file_prefix: str = "snapshot") -> Optional[str]:
+        if self._camera_capture is None and self._current_camera_frame is None:
             QMessageBox.warning(self, "提示", "请先连接相机预览")
-            return
-        ret, frame = self._camera_capture.read()
-        if not ret or frame is None:
+            return None
+        frame = self._current_camera_frame.copy() if self._current_camera_frame is not None else None
+        if frame is None and self._camera_capture is not None:
+            ret, latest = self._camera_capture.read()
+            if ret and latest is not None:
+                frame = latest
+        if frame is None:
             QMessageBox.warning(self, "提示", "当前帧获取失败")
-            return
+            return None
         project_root = self._config_mgr.get_project_root() if self._config_mgr else os.getcwd()
         rel_dir = self._profile.get("camera", {}).get("snapshot_dir", "reports/device_lab_snapshots")
         snapshot_dir = self._store.resolve_path(rel_dir, project_root)
         os.makedirs(snapshot_dir, exist_ok=True)
-        file_path = os.path.join(snapshot_dir, f"snapshot_{time.strftime('%Y%m%d_%H%M%S')}.png")
+        if batch_index is not None and batch_total is not None:
+            file_path = os.path.join(
+                snapshot_dir,
+                f"{file_prefix}_{self._snapshot_batch_token}_{batch_index:03d}-of-{batch_total:03d}.png",
+            )
+        else:
+            file_path = os.path.join(snapshot_dir, f"{file_prefix}_{time.strftime('%Y%m%d_%H%M%S')}.png")
         cv2.imwrite(file_path, frame)
+        self._last_snapshot_path = file_path
         self._log(f"相机抓拍已保存: {file_path}")
-        QMessageBox.information(self, "抓拍成功", file_path)
+        return file_path
+
+    def _compare_against_reference(
+        self,
+        pause_on_fail: bool = True,
+        source: str = "图片检查",
+        save_snapshot: bool = True,
+        category: Optional[str] = None,
+        roi_text: str = "",
+        result_variable: str = "",
+    ) -> bool:
+        if self._current_camera_frame is None:
+            self._log("当前没有可用于检图的相机画面", "ERROR")
+            return False
+
+        compare_category = self._normalized_category(category or self.edit_reference_category.text().strip() or "default")
+        compare_roi_text = (roi_text or self.edit_compare_roi.text().strip()).strip()
+        compare_roi = self._parse_roi_text(compare_roi_text)
+
+        if save_snapshot:
+            self._capture_snapshot_frame(file_prefix="compare_snapshot")
+
+        reference_images = []
+        reference_paths = self._load_reference_pool(compare_category)
+
+        if not reference_paths:
+            self._log(f"参考图库[{compare_category}]为空，无法执行检图", "ERROR")
+            return False
+
+        for path in reference_paths:
+            image = cv2.imread(path)
+            if image is not None:
+                reference_images.append(image)
+
+        if not reference_images:
+            self._log("参考图库读取失败，无法执行检图", "ERROR")
+            return False
+
+        compare_result = compare_with_reference_set(
+            reference_images,
+            self._current_camera_frame,
+            float(self._profile.get("camera", {}).get("compare_threshold", 0.72)),
+            roi=compare_roi,
+        )
+        metrics = compare_result.get("metrics", {})
+        self._script_variables["last_compare_passed"] = bool(compare_result.get("passed", False))
+        self._script_variables["last_compare_score"] = float(compare_result.get("final_score", 0.0))
+        self._script_variables["last_compare_threshold"] = float(compare_result.get("threshold_used", 0.0))
+        self._script_variables["last_compare_category"] = compare_category
+        if result_variable:
+            self._script_variables[result_variable] = bool(compare_result.get("passed", False))
+
+        heatmap_path = ""
+        heatmap = compare_result.get("heatmap")
+        if getattr(heatmap, "shape", None) is not None and self.chk_save_diff_heatmap.isChecked():
+            project_root = self._config_mgr.get_project_root() if self._config_mgr else os.getcwd()
+            rel_dir = self._profile.get("camera", {}).get("snapshot_dir", "reports/device_lab_snapshots")
+            snapshot_dir = self._store.resolve_path(rel_dir, project_root)
+            os.makedirs(snapshot_dir, exist_ok=True)
+            heatmap_path = os.path.join(snapshot_dir, f"compare_heatmap_{time.strftime('%Y%m%d_%H%M%S')}.png")
+            cv2.imwrite(heatmap_path, heatmap)
+
+        self._log(
+            f"{source}: category={compare_category}, roi={compare_roi_text or 'full'}, refs={compare_result.get('reference_count', len(reference_images))}, best={compare_result.get('matched_index', -1)}, "
+            f"score={compare_result['final_score']:.4f}, threshold={compare_result['threshold_used']:.4f}, "
+            f"corr={metrics.get('correlation', 0):.4f}, hist={metrics.get('histogram', 0):.4f}, "
+            f"edge={metrics.get('edge', 0):.4f}, orb={metrics.get('orb', 0):.4f}, grid={metrics.get('grid', 0):.4f}, roi={metrics.get('roi', 'na')}"
+        )
+        if heatmap_path:
+            self._log(f"差异热图已保存: {heatmap_path}")
+        if compare_result["passed"]:
+            return True
+
+        self._log(f"{source} 未通过，已判定为异常画面", "ERROR")
+        if pause_on_fail:
+            QMessageBox.warning(
+                self,
+                "图片检查失败",
+                f"{source} 未通过\nscore={compare_result['final_score']:.4f}\nthreshold={compare_result['threshold_used']:.4f}",
+            )
+        return False
+
+    def _start_batch_snapshot(self):
+        if self._camera_capture is None and self._current_camera_frame is None:
+            QMessageBox.warning(self, "提示", "请先连接相机预览")
+            return
+        camera_cfg = self._profile.setdefault("camera", {})
+        self._snapshot_total = max(1, int(camera_cfg.get("capture_count", 1) or 1))
+        self._snapshot_remaining = self._snapshot_total
+        self._snapshot_batch_token = time.strftime("%Y%m%d_%H%M%S")
+        self._log(
+            f"开始自动抓拍，共 {self._snapshot_total} 张，间隔 {int(camera_cfg.get('capture_interval_ms', 1000) or 1000)} ms"
+        )
+        self._capture_next_snapshot()
+
+    def _capture_next_snapshot(self):
+        if self._snapshot_remaining <= 0:
+            self._snapshot_timer.stop()
+            self._snapshot_batch_token = ""
+            self._log("自动抓拍完成")
+            return
+        current_index = self._snapshot_total - self._snapshot_remaining + 1
+        self._capture_snapshot_frame(batch_index=current_index, batch_total=self._snapshot_total)
+        self._snapshot_remaining -= 1
+        if self._snapshot_remaining > 0:
+            self._snapshot_timer.start(int(self._profile.get("camera", {}).get("capture_interval_ms", 1000) or 1000))
+        else:
+            self._snapshot_timer.stop()
+            self._snapshot_batch_token = ""
+            self._log("自动抓拍完成")
+
+    def _on_preview_zoom_changed(self, value: int):
+        self.lbl_preview_zoom.setText(f"{value}%")
+        self._profile.setdefault("camera", {})["preview_zoom_percent"] = value
+        self._persist_profile()
+        if self._current_camera_frame is not None:
+            self._render_camera_frame(self._current_camera_frame)
+
+    def _render_camera_frame(self, frame):
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        image = QImage(rgb.data, rgb.shape[1], rgb.shape[0], rgb.strides[0], QImage.Format.Format_RGB888)
+        zoom_ratio = max(0.5, self.slider_preview_zoom.value() / 100.0)
+        target_width = max(160, int(frame.shape[1] * zoom_ratio))
+        target_height = max(120, int(frame.shape[0] * zoom_ratio))
+        pixmap = QPixmap.fromImage(image).scaled(
+            target_width,
+            target_height,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        self.lbl_camera_preview.setPixmap(pixmap)
+        self.lbl_camera_preview.resize(pixmap.size())
 
     def _open_camera(self, index: int):
         logger = getattr(cv2, "utils", None)
@@ -1020,6 +2396,8 @@ class DeviceLabPage(QWidget):
             if checked else
             "默认点击按键会直接发送，勾选布局编辑模式后可拖动和选择。"
         )
+        if self._selected_remote_id:
+            self._select_remote_button(self._selected_remote_id)
 
     def _on_remote_button_activated(self, button_id: str):
         button = self._find_item_by_id(self._profile.get("remote", {}).get("buttons", []), button_id)
@@ -1031,14 +2409,14 @@ class DeviceLabPage(QWidget):
             return
         self._queue_commands(steps)
 
-    def _resolve_button_steps(self, button: Dict[str, Any]) -> List[Tuple[Optional[str], float, str]]:
+    def _resolve_button_steps(self, button: Dict[str, Any]) -> List[Dict[str, Any]]:
         if button.get("binding_type") == "shortcut":
             shortcut = self._find_item_by_name(self._profile.get("shortcuts", []), button.get("binding_value", ""))
             if not shortcut:
                 return []
-            return [(command, 0.25, f"遥控快捷 {button['name']}") for command in shortcut.get("commands", [])]
+            return self._build_actions_from_shortcut(shortcut, f"遥控快捷 {button['name']}")
         command = button.get("binding_value", "").strip()
-        return [(command, 0.25, f"遥控按键 {button['name']}")] if command else []
+        return [{"type": "serial", "command": command, "delay_seconds": 0.25, "source": f"遥控按键 {button['name']}"}] if command else []
 
     def _on_remote_button_moved(self, button_id: str, x: int, y: int):
         button = self._find_item_by_id(self._profile.get("remote", {}).get("buttons", []), button_id)
@@ -1063,7 +2441,7 @@ class DeviceLabPage(QWidget):
         data.update({
             "id": self._store.make_id("remote"),
             "x": 110,
-            "y": 420,
+            "y": 438,
             "w": 76,
             "h": 34,
         })
@@ -1121,15 +2499,21 @@ class DeviceLabPage(QWidget):
         name, ok = QInputDialog.getText(self, "新增项目", "项目名")
         if not ok or not name.strip():
             return
-        self._profile.setdefault("projects", []).append({
+        project = {
             "id": self._store.make_id("project"),
             "name": name.strip(),
             "description": "",
             "scripts": [],
-        })
+        }
+        self._profile.setdefault("projects", []).append(project)
+        self._profile.setdefault("ui_state", {})["last_project_id"] = project["id"]
+        self._profile["ui_state"]["last_script_id"] = ""
+        self._profile["ui_state"]["last_step_id"] = ""
         self._persist_profile()
         self._refresh_projects()
-        self.combo_project.setCurrentText(name.strip())
+        index = self.combo_project.findData(project["id"])
+        if index >= 0:
+            self.combo_project.setCurrentIndex(index)
 
     def _rename_project(self):
         project = self._current_project()
@@ -1165,9 +2549,14 @@ class DeviceLabPage(QWidget):
             return
         data = dialog.get_data()
         data["id"] = self._store.make_id("script")
+        data["steps"] = []
         project.setdefault("scripts", []).append(data)
+        self._profile.setdefault("ui_state", {})["last_project_id"] = project.get("id", "")
+        self._profile["ui_state"]["last_script_id"] = data["id"]
+        self._profile["ui_state"]["last_step_id"] = ""
         self._persist_profile()
         self._refresh_scripts()
+        self._select_script(data["id"])
 
     def _edit_script(self):
         script = self._current_script()
@@ -1176,9 +2565,16 @@ class DeviceLabPage(QWidget):
         dialog = ScriptDialog("编辑联调剧本", script, self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        script.update(dialog.get_data())
+        updated = dialog.get_data()
+        script["name"] = updated["name"]
+        script["description"] = updated["description"]
+        script["run_count"] = updated["run_count"]
+        script["cycle_interval_ms"] = updated["cycle_interval_ms"]
+        script["stop_on_fail"] = updated["stop_on_fail"]
+        self._profile.setdefault("ui_state", {})["last_script_id"] = script.get("id", "")
         self._persist_profile()
         self._refresh_scripts()
+        self._select_script(script.get("id"))
 
     def _delete_script(self):
         project = self._current_project()
@@ -1189,56 +2585,118 @@ class DeviceLabPage(QWidget):
         if reply != QMessageBox.StandardButton.Yes:
             return
         scripts = project.get("scripts", [])
+        removed_script_id = script.get("id", "")
         scripts[:] = [item for item in scripts if item["id"] != script["id"]]
+        ui_state = self._profile.setdefault("ui_state", {})
+        if ui_state.get("last_script_id") == removed_script_id:
+            ui_state["last_script_id"] = scripts[0].get("id", "") if scripts else ""
+            ui_state["last_step_id"] = ""
         self._persist_profile()
         self._refresh_scripts()
 
-    def _save_script_steps(self):
+    def _add_script_step(self):
         script = self._current_script()
         if not script:
             return
-        script["steps"] = [line.strip() for line in self.edit_script_steps.toPlainText().splitlines() if line.strip()]
+        dialog = ScriptStepDialog(
+            self._profile.get("quick_settings", []),
+            self._profile.get("shortcuts", []),
+            parent=self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        step = dialog.get_data()
+        step["id"] = self._store.make_id("step")
+        script.setdefault("steps", []).append(step)
+        self._profile.setdefault("ui_state", {})["last_step_id"] = step["id"]
         self._persist_profile()
-        self._log(f"剧本已保存: {script['name']}")
+        self._refresh_script_steps()
+        self._select_script_step(step["id"])
+
+    def _edit_script_step(self):
+        script = self._current_script()
+        step = self._current_script_step()
+        if not script or not step:
+            return
+        dialog = ScriptStepDialog(
+            self._profile.get("quick_settings", []),
+            self._profile.get("shortcuts", []),
+            step,
+            self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        step.update(dialog.get_data())
+        self._profile.setdefault("ui_state", {})["last_step_id"] = step.get("id", "")
+        self._persist_profile()
+        self._refresh_script_steps()
+        self._select_script_step(step.get("id"))
+
+    def _delete_script_step(self):
+        script = self._current_script()
+        step = self._current_script_step()
+        if not script or not step:
+            return
+        removed_step_id = step.get("id")
+        script["steps"] = [item for item in script.get("steps", []) if item.get("id") != removed_step_id]
+        ui_state = self._profile.setdefault("ui_state", {})
+        if ui_state.get("last_step_id") == removed_step_id:
+            ui_state["last_step_id"] = script["steps"][0].get("id", "") if script.get("steps") else ""
+        self._persist_profile()
+        self._refresh_script_steps()
+
+    def _select_script(self, script_id: Optional[str]):
+        if not script_id:
+            return
+        for row in range(self.list_scripts.count()):
+            item = self.list_scripts.item(row)
+            if item.data(Qt.ItemDataRole.UserRole) == script_id:
+                self.list_scripts.setCurrentRow(row)
+                break
+
+    def _move_script_step_up(self):
+        self._move_script_step(-1)
+
+    def _move_script_step_down(self):
+        self._move_script_step(1)
+
+    def _move_script_step(self, offset: int):
+        script = self._current_script()
+        step = self._current_script_step()
+        if not script or not step:
+            return
+        steps = script.get("steps", [])
+        current_index = next((idx for idx, item in enumerate(steps) if item.get("id") == step.get("id")), -1)
+        if current_index < 0:
+            return
+        new_index = current_index + offset
+        if new_index < 0 or new_index >= len(steps):
+            return
+        steps[current_index], steps[new_index] = steps[new_index], steps[current_index]
+        self._persist_profile()
+        self._refresh_script_steps()
+        self._select_script_step(step.get("id"))
+
+    def _select_script_step(self, step_id: Optional[str]):
+        if not step_id:
+            return
+        for row in range(self.list_script_steps.count()):
+            item = self.list_script_steps.item(row)
+            if item.data(Qt.ItemDataRole.UserRole) == step_id:
+                self.list_script_steps.setCurrentRow(row)
+                break
 
     def _run_selected_script(self):
         script = self._current_script()
         if not script:
             return
-        steps = self._parse_script_steps(script.get("steps", []))
-        if not steps:
+        self._script_variables = {}
+        actions = self._build_actions_from_script(script)
+        if not actions:
             QMessageBox.warning(self, "提示", "当前剧本没有可执行步骤")
             return
         self._log(f"开始执行联调剧本: {script['name']}")
-        self._queue_commands(steps)
-
-    def _parse_script_steps(self, raw_steps: List[str]) -> List[Tuple[Optional[str], float, str]]:
-        steps: List[Tuple[Optional[str], float, str]] = []
-        for line in raw_steps:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if line.startswith("wait:"):
-                try:
-                    seconds = float(line.split(":", 1)[1].strip())
-                except ValueError:
-                    seconds = 0.5
-                steps.append((None, seconds, f"等待 {seconds:.1f}s"))
-                continue
-            if line.startswith("setting:"):
-                name = line.split(":", 1)[1].strip()
-                item = self._find_item_by_name(self._profile.get("quick_settings", []), name)
-                if item:
-                    steps.extend((command, 0.25, f"快捷配置 {name}") for command in item.get("commands", []))
-                continue
-            if line.startswith("shortcut:"):
-                name = line.split(":", 1)[1].strip()
-                item = self._find_item_by_name(self._profile.get("shortcuts", []), name)
-                if item:
-                    steps.extend((command, 0.25, f"快捷指令 {name}") for command in item.get("commands", []))
-                continue
-            steps.append((line, 0.25, "联调剧本"))
-        return steps
+        self._queue_commands(actions)
 
     def _add_quick_setting(self):
         self._edit_or_add_command_item("quick_settings", None, "新增快捷配置")
@@ -1255,7 +2713,10 @@ class DeviceLabPage(QWidget):
         item = self._current_command_item(self.list_quick_settings, "quick_settings")
         if not item:
             return
-        self._queue_commands([(command, 0.25, f"快捷配置 {item['name']}") for command in item.get("commands", [])])
+        self._queue_commands([
+            {"type": "serial", "command": command, "delay_seconds": 0.25, "source": f"快捷配置 {item['name']}"}
+            for command in item.get("commands", []) if command
+        ])
 
     def _add_shortcut(self):
         self._edit_or_add_command_item("shortcuts", None, "新增快捷指令")
@@ -1272,10 +2733,10 @@ class DeviceLabPage(QWidget):
         item = self._current_command_item(self.list_shortcuts, "shortcuts")
         if not item:
             return
-        self._queue_commands([(command, 0.25, f"快捷指令 {item['name']}") for command in item.get("commands", [])])
+        self._queue_commands(self._build_actions_from_shortcut(item, "快捷指令"))
 
     def _edit_or_add_command_item(self, section: str, item: Optional[Dict[str, Any]], title: str):
-        dialog = CommandItemDialog(title, item, self)
+        dialog = CommandItemDialog(title, item, allow_camera_actions=(section == "shortcuts"), parent=self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         data = dialog.get_data()
@@ -1320,6 +2781,25 @@ class DeviceLabPage(QWidget):
         return None
 
     def _persist_profile(self):
+        self._profile.setdefault("serial", {})["tab_passthrough"] = self.chk_tab_passthrough.isChecked()
+        self._profile["serial"]["newline_mode"] = self.combo_newline.currentText()
+        self._profile["serial"]["newline"] = self.chk_newline.isChecked()
+        self._profile.setdefault("camera", {})["preview_zoom_percent"] = self.slider_preview_zoom.value()
+        self._profile["camera"]["reference_dir"] = self.edit_reference_dir.text().strip()
+        self._profile["camera"]["reference_category"] = self.edit_reference_category.text().strip() or "default"
+        self._profile["camera"]["compare_roi"] = self.edit_compare_roi.text().strip()
+        self._profile["camera"]["save_diff_heatmap"] = self.chk_save_diff_heatmap.isChecked()
+        self._profile["camera"]["reference_pool_size"] = self.spin_reference_pool_size.value()
+        self._profile["camera"]["auto_reference_enabled"] = self.chk_auto_reference.isChecked()
+        self._profile["camera"]["auto_reference_interval_ms"] = self.spin_auto_reference_interval.value()
+        self._profile["camera"]["auto_reference_max_retry"] = self.spin_auto_reference_retry.value()
+        ui_state = self._profile.setdefault("ui_state", {})
+        project = self._current_project()
+        script = self._current_script()
+        step = self._current_script_step()
+        ui_state["last_project_id"] = project.get("id", "") if project else ""
+        ui_state["last_script_id"] = script.get("id", "") if script else ""
+        ui_state["last_step_id"] = step.get("id", "") if step else ""
         self._store.set_all(self._profile)
         self._store.save()
 
@@ -1335,5 +2815,7 @@ class DeviceLabPage(QWidget):
             self._log_panel.append_log(message, panel_level)
 
     def cleanup(self):
+        self._persist_profile()
+        self._reference_capture_timer.stop()
         self._stop_camera_preview()
         self._disconnect_serial()

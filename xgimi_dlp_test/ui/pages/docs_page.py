@@ -13,6 +13,8 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QColor
 
+from core.script_api_doc_loader import load_script_api_reference
+
 
 # ──────────────────────────────────────────────
 #  文档内容定义（标题 → HTML 正文）
@@ -543,6 +545,148 @@ class _ErrorCodeWidget(QWidget):
         self._populate_table(filtered)
 
 
+class _ScriptApiWidget(QWidget):
+    """TI Script API 文档浏览器。"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._all_items = []
+        self._visible_items = []
+        self._meta = {}
+        self._init_ui()
+        self._load_items()
+
+    def _init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        title = QLabel("TI Script API")
+        title.setFont(QFont("Microsoft YaHei", 12, QFont.Weight.Bold))
+        title.setStyleSheet("color:#1565C0;")
+        layout.addWidget(title)
+
+        self._meta_lbl = QLabel("正在加载函数列表...")
+        self._meta_lbl.setStyleSheet("color:#546E7A; font-size:12px;")
+        self._meta_lbl.setWordWrap(True)
+        layout.addWidget(self._meta_lbl)
+
+        search_row = QHBoxLayout()
+        search_row.setSpacing(8)
+
+        self._search_edit = QLineEdit()
+        self._search_edit.setPlaceholderText("搜索 function 名称、命令号或关键字，例如 Keystone / E6 / Execute")
+        self._search_edit.textChanged.connect(self._on_search)
+        self._search_edit.setStyleSheet(
+            "QLineEdit {padding:8px 10px; border:1px solid #CFD8DC; border-radius:6px;}"
+        )
+        search_row.addWidget(self._search_edit, 1)
+
+        self._count_lbl = QLabel("0 个函数")
+        self._count_lbl.setStyleSheet("color:#607D8B; font-size:12px;")
+        search_row.addWidget(self._count_lbl)
+        layout.addLayout(search_row)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        left = QWidget()
+        left_layout = QVBoxLayout(left)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(6)
+
+        self._func_list = QListWidget()
+        self._func_list.setMinimumWidth(320)
+        self._func_list.setStyleSheet("""
+            QListWidget {
+                border: 1px solid #E0E0E0;
+                border-radius: 8px;
+                background: #FAFCFE;
+                font-size: 12px;
+            }
+            QListWidget::item {
+                padding: 8px 10px;
+                border-bottom: 1px solid #ECEFF1;
+            }
+            QListWidget::item:selected {
+                background: #E3F2FD;
+                color: #0D47A1;
+                font-weight: bold;
+            }
+            QListWidget::item:hover:!selected {
+                background: #F1F8FF;
+            }
+        """)
+        self._func_list.currentRowChanged.connect(self._on_current_changed)
+        left_layout.addWidget(self._func_list)
+
+        self._detail_browser = QTextBrowser()
+        self._detail_browser.setOpenExternalLinks(True)
+        self._detail_browser.setStyleSheet("""
+            QTextBrowser {
+                border: 1px solid #E0E0E0;
+                border-radius: 8px;
+                background: #FFFFFF;
+                padding: 14px 18px;
+            }
+        """)
+
+        splitter.addWidget(left)
+        splitter.addWidget(self._detail_browser)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([360, 900])
+        layout.addWidget(splitter, 1)
+
+    def _load_items(self):
+        self._all_items, self._meta = load_script_api_reference()
+        self._visible_items = list(self._all_items)
+
+        source_path = self._meta.get("path", "")
+        source_label = self._meta.get("source_label", "未知来源")
+        count = self._meta.get("count", 0)
+        msg = f"当前来源：{source_label}，共 {count} 个 Read/Write API。"
+        if source_path:
+            msg += f"<br>路径：{source_path}"
+        self._meta_lbl.setText(msg)
+        self._refresh_list()
+
+    def _refresh_list(self):
+        self._func_list.blockSignals(True)
+        self._func_list.clear()
+        for item in self._visible_items:
+            title = f"{item.opcode}  {item.name}".strip() if item.opcode else item.name
+            list_item = QListWidgetItem(title)
+            list_item.setToolTip(item.summary or item.signature)
+            self._func_list.addItem(list_item)
+        self._func_list.blockSignals(False)
+
+        self._count_lbl.setText(f"{len(self._visible_items)} 个函数")
+        if self._visible_items:
+            self._func_list.setCurrentRow(0)
+        else:
+            self._detail_browser.setHtml(_wrap_html(
+                "<h2>未找到匹配函数</h2><p>请尝试不同关键字，例如 <code>Keystone</code>、<code>Orientation</code>、<code>E1</code>。</p>"
+            ))
+
+    def _on_search(self, text: str):
+        keyword = text.strip().lower()
+        if not keyword:
+            self._visible_items = list(self._all_items)
+        else:
+            self._visible_items = [
+                item for item in self._all_items
+                if keyword in item.search_text
+            ]
+        self._refresh_list()
+
+    def _on_current_changed(self, row: int):
+        if row < 0 or row >= len(self._visible_items):
+            return
+        item = self._visible_items[row]
+        self._detail_browser.setHtml(_wrap_html(item.detail_html))
+        self._detail_browser.verticalScrollBar().setValue(0)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 
 class DocsPage(QWidget):
@@ -602,9 +746,11 @@ class DocsPage(QWidget):
         """)
         for doc in DOCS:
             self.toc_list.addItem(QListWidgetItem(doc["title"]))
-        # 错误码参考（特殊入口，不在 DOCS 列表中）
+        self.toc_list.addItem(QListWidgetItem("🧭 TI Script API"))
+        self._script_api_nav_idx = len(DOCS)
+
         self.toc_list.addItem(QListWidgetItem("🔢 错误码参考"))
-        self._errorcode_nav_idx = len(DOCS)   # 最后一项的索引
+        self._errorcode_nav_idx = len(DOCS) + 1
 
         self.toc_list.currentRowChanged.connect(self._on_toc_changed)
         left_layout.addWidget(self.toc_list)
@@ -625,8 +771,11 @@ class DocsPage(QWidget):
         """)
         self._right_stack.addWidget(self.browser)          # index 0
 
+        self._api_widget = _ScriptApiWidget()
+        self._right_stack.addWidget(self._api_widget)      # index 1
+
         self._ec_widget = _ErrorCodeWidget()
-        self._right_stack.addWidget(self._ec_widget)       # index 1
+        self._right_stack.addWidget(self._ec_widget)       # index 2
 
         splitter.addWidget(left)
         splitter.addWidget(self._right_stack)
@@ -640,9 +789,11 @@ class DocsPage(QWidget):
         self.toc_list.setCurrentRow(0)
 
     def _on_toc_changed(self, index: int):
-        if index == self._errorcode_nav_idx:
-            # 切换到错误码参考页面
+        if index == self._script_api_nav_idx:
             self._right_stack.setCurrentIndex(1)
+        elif index == self._errorcode_nav_idx:
+            # 切换到错误码参考页面
+            self._right_stack.setCurrentIndex(2)
         elif 0 <= index < len(DOCS):
             self._right_stack.setCurrentIndex(0)
             self.browser.setHtml(_wrap_html(DOCS[index]["content"]))
@@ -668,5 +819,9 @@ def _wrap_html(body: str) -> str:
         ol,ul{{ padding-left: 20px; }}
         li   {{ margin-bottom: 4px; }}
         p    {{ margin: 8px 0; }}
+        .api-badge {{ display: inline-block; margin-right: 8px; margin-bottom: 6px;
+                      padding: 4px 8px; border-radius: 999px;
+                      background: #E3F2FD; color: #0D47A1; font-size: 12px; }}
+        .api-signature {{ background: #ECEFF1; color: #37474F; }}
     </style></head><body>{body}</body></html>
     """
