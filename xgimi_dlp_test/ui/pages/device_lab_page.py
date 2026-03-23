@@ -33,6 +33,7 @@ from PyQt6.QtWidgets import (
     QSlider,
     QSpinBox,
     QSplitter,
+    QTabWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -236,6 +237,107 @@ def _cv_image_to_pixmap(image, max_width: int = 680, max_height: int = 320) -> Q
     )
 
 
+def _set_form_row_visible(form: QFormLayout, field, visible: bool):
+    label = form.labelForField(field)
+    if label is not None:
+        label.setVisible(visible)
+    field.setVisible(visible)
+
+
+def _green_preset_values(preset_key: str) -> Dict[str, Any]:
+    presets = {
+        "rookie": {
+            "green_ratio_threshold": 0.22,
+            "green_area_threshold": 0.10,
+            "green_margin": 18,
+            "green_saturation_threshold": 35,
+            "green_value_threshold": 30,
+            "green_check_frames": 2,
+            "green_check_interval_ms": 200,
+        },
+        "balanced": {
+            "green_ratio_threshold": 0.30,
+            "green_area_threshold": 0.18,
+            "green_margin": 25,
+            "green_saturation_threshold": 45,
+            "green_value_threshold": 40,
+            "green_check_frames": 3,
+            "green_check_interval_ms": 250,
+        },
+        "strict": {
+            "green_ratio_threshold": 0.40,
+            "green_area_threshold": 0.28,
+            "green_margin": 40,
+            "green_saturation_threshold": 75,
+            "green_value_threshold": 65,
+            "green_check_frames": 3,
+            "green_check_interval_ms": 300,
+        },
+    }
+    return dict(presets.get(preset_key, presets["balanced"]))
+
+
+def _build_green_analysis_text(detection: Optional[Dict[str, Any]], check_frames: int) -> str:
+    if not detection:
+        return (
+            "调参顺序建议:\n"
+            "1. 先缩 ROI，只框住投影画面本体，不要把黑边和外壳也算进去。\n"
+            "2. 先用‘新手宽松’，确认能命中明显绿屏后，再逐步提高阈值。\n"
+            "3. 预览页只分析当前单帧；连续命中帧数只在剧本运行时生效。"
+        )
+
+    ratio = float(detection.get("green_ratio", 0.0))
+    area = float(detection.get("largest_component_ratio", 0.0))
+    excess = float(detection.get("mean_green_excess", 0.0))
+    thresholds = detection.get("thresholds", {})
+    ratio_threshold = float(thresholds.get("green_ratio", 0.0))
+    area_threshold = float(thresholds.get("area_ratio", 0.0))
+    margin_threshold = int(thresholds.get("green_margin", 0))
+    saturation_threshold = int(thresholds.get("saturation_threshold", 0))
+    value_threshold = int(thresholds.get("value_threshold", 0))
+
+    lines = []
+    if detection.get("detected", False):
+        lines.append("当前单帧判定: 已命中绿屏。")
+    else:
+        lines.append("当前单帧判定: 未命中绿屏。")
+
+    lines.append(
+        f"核心指标: 绿像素占比 {ratio:.4f} / 阈值 {ratio_threshold:.4f}，最大连通域 {area:.4f} / 阈值 {area_threshold:.4f}。"
+    )
+
+    failed_reasons = []
+    if ratio < ratio_threshold:
+        failed_reasons.append("绿像素占比还没过线，说明绿色覆盖面积不够大，或 ROI 把太多非绿色区域也算进来了。")
+    if area < area_threshold:
+        failed_reasons.append("最大连通域还没过线，说明绿色区域被黑边、文字、高亮或反光切碎了。")
+    if excess < max(0.08, margin_threshold / 255.0 * 0.7):
+        failed_reasons.append("绿色领先度偏低，绿色虽然多，但和红蓝通道拉不开差距。")
+
+    if failed_reasons:
+        lines.append("未命中原因:")
+        for item in failed_reasons:
+            lines.append(f"- {item}")
+
+    suggestions = []
+    if ratio < ratio_threshold:
+        suggestions.append("先把 ROI 缩到屏幕主体，再把‘绿像素占比阈值’往下调到接近当前值上方一点。")
+    if area < area_threshold:
+        suggestions.append("把‘最大连通域阈值’调低一些；你图里这种大面积绿色但未命中，通常就是这个阈值偏高。")
+    if excess < max(0.08, margin_threshold / 255.0 * 0.7):
+        suggestions.append("把‘绿色通道领先值’先降到 15-25，再观察遮罩是否更完整。")
+    if saturation_threshold >= 70 or value_threshold >= 60:
+        suggestions.append("如果画面发灰或偏暗，可把‘饱和度下限/亮度下限’适当下调，先保证能抓到绿区。")
+    if not suggestions and detection.get("detected", False):
+        suggestions.append("当前参数已经能命中；下一步可只略微提高阈值，避免正常彩色画面误判。")
+
+    lines.append("调参建议:")
+    for item in suggestions[:3]:
+        lines.append(f"- {item}")
+    lines.append(f"剧本运行时还会叠加‘连续命中帧数={int(check_frames)}’判断；预览只看单帧。")
+    return "\n".join(lines)
+
+
 def _compose_source_and_overlay(source_image, overlay_image):
     if source_image is None:
         return overlay_image
@@ -268,14 +370,27 @@ class CommandItemDialog(QDialog):
     def __init__(self, title: str, data: Optional[Dict[str, Any]] = None, allow_camera_actions: bool = False, parent=None):
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.resize(900, 760)
+        self.resize(1240, 860)
 
         values = data or {}
         self._allow_camera_actions = allow_camera_actions
         self._green_preview_image = None
         self._green_preview_path = values.get("green_preview_image", "")
         layout = QVBoxLayout(self)
+        body_splitter = QSplitter(Qt.Orientation.Horizontal)
+        layout.addWidget(body_splitter, 1)
+
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        left_wrap = QWidget()
+        left_layout = QVBoxLayout(left_wrap)
+        left_layout.setContentsMargins(0, 0, 12, 0)
+        left_layout.setSpacing(10)
         form = QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setSpacing(8)
+        self._form = form
 
         self.edit_name = QLineEdit(values.get("name", ""))
         self.edit_desc = QLineEdit(values.get("description", ""))
@@ -287,7 +402,10 @@ class CommandItemDialog(QDialog):
             self.combo_action_type.addItem("检查指定正常照片", "compare_reference")
             self.combo_action_type.addItem("绿屏检测", "green_screen_detect")
         self.edit_commands = QTextEdit("\n".join(values.get("commands", [])))
-        self.edit_commands.setPlaceholderText("每行一条串口指令")
+        self.edit_commands.setPlaceholderText("每行一条串口指令；长命令仍然只算一条，可直接横向查看，不需要手工拆成多行")
+        self.edit_commands.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        self.edit_commands.setMinimumHeight(140)
+        self.edit_commands.setStyleSheet("font-family:'Cascadia Code','Consolas';")
         self.spin_capture_count = QSpinBox()
         self.spin_capture_count.setRange(1, 999)
         self.spin_capture_count.setValue(int(values.get("capture_count", 1) or 1))
@@ -338,16 +456,30 @@ class CommandItemDialog(QDialog):
         self.lbl_action_hint.setWordWrap(True)
         self.lbl_green_help = QLabel(_green_help_text())
         self.lbl_green_help.setWordWrap(True)
+        self.lbl_green_help.setStyleSheet("background:#f8fafc; border:1px solid rgba(148,163,184,0.25); border-radius:10px; padding:10px;")
         preview_row = QHBoxLayout()
         self.btn_pick_green_preview = QPushButton("导入参考图")
         self.btn_pick_green_preview.clicked.connect(self._pick_green_preview_image)
+        self.btn_green_preset_rookie = QPushButton("新手宽松")
+        self.btn_green_preset_rookie.clicked.connect(lambda: self._apply_green_preset("rookie"))
+        self.btn_green_preset_balanced = QPushButton("默认推荐")
+        self.btn_green_preset_balanced.clicked.connect(lambda: self._apply_green_preset("balanced"))
+        self.btn_green_preset_strict = QPushButton("严格复检")
+        self.btn_green_preset_strict.clicked.connect(lambda: self._apply_green_preset("strict"))
         self.lbl_green_preview_info = QLabel("未导入参考图时，显示 ROI 和阈值示意图。")
         self.lbl_green_preview_info.setWordWrap(True)
         preview_row.addWidget(self.btn_pick_green_preview)
+        preview_row.addWidget(self.btn_green_preset_rookie)
+        preview_row.addWidget(self.btn_green_preset_balanced)
+        preview_row.addWidget(self.btn_green_preset_strict)
         preview_row.addWidget(self.lbl_green_preview_info, 1)
         self.lbl_green_preview = QLabel()
         self.lbl_green_preview.setMinimumHeight(380)
         self.lbl_green_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_green_preview.setStyleSheet("background:#ffffff; border:1px solid rgba(148,163,184,0.25); border-radius:12px; padding:8px;")
+        self.lbl_green_analysis = QLabel(_build_green_analysis_text(None, int(self.spin_green_check_frames.value())))
+        self.lbl_green_analysis.setWordWrap(True)
+        self.lbl_green_analysis.setStyleSheet("background:#fff8ee; border:1px solid rgba(245,158,11,0.22); border-radius:10px; padding:10px;")
 
         current_action_type = values.get("action_type", "serial_bundle")
         index = self.combo_action_type.findData(current_action_type)
@@ -373,11 +505,22 @@ class CommandItemDialog(QDialog):
         form.addRow("亮度下限", self.spin_green_value_threshold)
         form.addRow("连续命中帧数", self.spin_green_check_frames)
         form.addRow("取样间隔", self.spin_green_check_interval)
-        layout.addLayout(form)
-        layout.addWidget(self.lbl_action_hint)
-        layout.addWidget(self.lbl_green_help)
-        layout.addLayout(preview_row)
-        layout.addWidget(self.lbl_green_preview)
+        left_layout.addLayout(form)
+        left_layout.addWidget(self.lbl_action_hint)
+        left_layout.addStretch(1)
+        left_scroll.setWidget(left_wrap)
+        body_splitter.addWidget(left_scroll)
+
+        right_wrap = QWidget()
+        right_layout = QVBoxLayout(right_wrap)
+        right_layout.setContentsMargins(12, 0, 0, 0)
+        right_layout.setSpacing(10)
+        right_layout.addWidget(self.lbl_green_help)
+        right_layout.addLayout(preview_row)
+        right_layout.addWidget(self.lbl_green_analysis)
+        right_layout.addWidget(self.lbl_green_preview, 1)
+        body_splitter.addWidget(right_wrap)
+        body_splitter.setSizes([460, 760])
         self._sync_action_type()
 
         self.edit_roi_text.textChanged.connect(self._refresh_green_preview)
@@ -416,24 +559,28 @@ class CommandItemDialog(QDialog):
         use_append_reference = self.combo_action_type.currentData() == "append_reference"
         use_compare_config = self.combo_action_type.currentData() == "compare_reference"
         use_green_config = self.combo_action_type.currentData() == "green_screen_detect"
-        self.edit_commands.setVisible(use_commands)
-        self.spin_capture_count.setVisible(use_capture_config)
-        self.spin_capture_interval.setVisible(use_capture_config)
-        self.edit_reference_category.setVisible(use_compare_config or use_append_reference)
-        self.edit_reference_dir.setVisible(use_compare_config or use_append_reference)
-        self.spin_reference_pool_size.setVisible(use_compare_config or use_append_reference)
-        self.edit_roi_text.setVisible(use_compare_config or use_green_config)
-        self.chk_save_diff_heatmap.setVisible(use_compare_config or use_green_config)
-        self.spin_green_ratio_threshold.setVisible(use_green_config)
-        self.spin_green_area_threshold.setVisible(use_green_config)
-        self.spin_green_margin.setVisible(use_green_config)
-        self.spin_green_saturation_threshold.setVisible(use_green_config)
-        self.spin_green_value_threshold.setVisible(use_green_config)
-        self.spin_green_check_frames.setVisible(use_green_config)
-        self.spin_green_check_interval.setVisible(use_green_config)
+        _set_form_row_visible(self._form, self.edit_commands, use_commands)
+        _set_form_row_visible(self._form, self.spin_capture_count, use_capture_config)
+        _set_form_row_visible(self._form, self.spin_capture_interval, use_capture_config)
+        _set_form_row_visible(self._form, self.edit_reference_category, use_compare_config or use_append_reference)
+        _set_form_row_visible(self._form, self.edit_reference_dir, use_compare_config or use_append_reference)
+        _set_form_row_visible(self._form, self.spin_reference_pool_size, use_compare_config or use_append_reference)
+        _set_form_row_visible(self._form, self.edit_roi_text, use_compare_config or use_green_config)
+        _set_form_row_visible(self._form, self.chk_save_diff_heatmap, use_compare_config or use_green_config)
+        _set_form_row_visible(self._form, self.spin_green_ratio_threshold, use_green_config)
+        _set_form_row_visible(self._form, self.spin_green_area_threshold, use_green_config)
+        _set_form_row_visible(self._form, self.spin_green_margin, use_green_config)
+        _set_form_row_visible(self._form, self.spin_green_saturation_threshold, use_green_config)
+        _set_form_row_visible(self._form, self.spin_green_value_threshold, use_green_config)
+        _set_form_row_visible(self._form, self.spin_green_check_frames, use_green_config)
+        _set_form_row_visible(self._form, self.spin_green_check_interval, use_green_config)
         self.lbl_green_help.setVisible(use_green_config)
         self.btn_pick_green_preview.setVisible(use_green_config)
+        self.btn_green_preset_rookie.setVisible(use_green_config)
+        self.btn_green_preset_balanced.setVisible(use_green_config)
+        self.btn_green_preset_strict.setVisible(use_green_config)
         self.lbl_green_preview_info.setVisible(use_green_config)
+        self.lbl_green_analysis.setVisible(use_green_config)
         self.lbl_green_preview.setVisible(use_green_config)
         if self.combo_action_type.currentData() == "camera_snapshot":
             self.lbl_action_hint.setText("抓拍保存会按张数和间隔连续留档，适合做批量过程记录。")
@@ -445,6 +592,17 @@ class CommandItemDialog(QDialog):
             self.lbl_action_hint.setText("绿屏检测会在 ROI 内连续取样，按绿像素占比和最大连通域判断是否出现大面积绿屏；命中后会按失败处理。")
         else:
             self.lbl_action_hint.setText("串口指令集会按每行一条顺序发送到设备。")
+        self._refresh_green_preview()
+
+    def _apply_green_preset(self, preset_key: str):
+        values = _green_preset_values(preset_key)
+        self.spin_green_ratio_threshold.setValue(float(values["green_ratio_threshold"]))
+        self.spin_green_area_threshold.setValue(float(values["green_area_threshold"]))
+        self.spin_green_margin.setValue(int(values["green_margin"]))
+        self.spin_green_saturation_threshold.setValue(int(values["green_saturation_threshold"]))
+        self.spin_green_value_threshold.setValue(int(values["green_value_threshold"]))
+        self.spin_green_check_frames.setValue(int(values["green_check_frames"]))
+        self.spin_green_check_interval.setValue(int(values["green_check_interval_ms"]))
         self._refresh_green_preview()
 
     def _refresh_green_preview(self):
@@ -464,6 +622,7 @@ class CommandItemDialog(QDialog):
                 f"参考图: {os.path.basename(self._green_preview_path)} | 绿像素占比={float(detection.get('green_ratio', 0.0)):.4f} | "
                 f"最大连通域={float(detection.get('largest_component_ratio', 0.0)):.4f} | 判定={'命中绿屏' if detection.get('detected', False) else '未命中'}"
             )
+            self.lbl_green_analysis.setText(_build_green_analysis_text(detection, int(self.spin_green_check_frames.value())))
             return
         self.lbl_green_preview.setPixmap(
             _build_green_preview_pixmap(
@@ -477,6 +636,7 @@ class CommandItemDialog(QDialog):
             )
         )
         self.lbl_green_preview_info.setText("未导入参考图时，显示 ROI 和阈值示意图。")
+        self.lbl_green_analysis.setText(_build_green_analysis_text(None, int(self.spin_green_check_frames.value())))
 
     def _load_green_preview_image(self, file_path: str):
         image = cv2.imread(file_path)
@@ -600,13 +760,26 @@ class ScriptStepDialog(QDialog):
     def __init__(self, quick_settings: List[Dict[str, Any]], shortcuts: List[Dict[str, Any]], data: Optional[Dict[str, Any]] = None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("编辑剧本步骤")
-        self.resize(920, 820)
+        self.resize(1280, 900)
         values = data or {}
         self._green_preview_image = None
         self._green_preview_path = values.get("green_preview_image", "")
 
         layout = QVBoxLayout(self)
+        body_splitter = QSplitter(Qt.Orientation.Horizontal)
+        layout.addWidget(body_splitter, 1)
+
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        left_wrap = QWidget()
+        left_layout = QVBoxLayout(left_wrap)
+        left_layout.setContentsMargins(0, 0, 12, 0)
+        left_layout.setSpacing(10)
         form = QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setSpacing(8)
+        self._form = form
 
         self.combo_type = QComboBox()
         for key, label in self._TYPE_LABELS.items():
@@ -737,16 +910,30 @@ class ScriptStepDialog(QDialog):
         self.lbl_help.setWordWrap(True)
         self.lbl_green_help = QLabel(_green_help_text())
         self.lbl_green_help.setWordWrap(True)
+        self.lbl_green_help.setStyleSheet("background:#f8fafc; border:1px solid rgba(148,163,184,0.25); border-radius:10px; padding:10px;")
         preview_row = QHBoxLayout()
         self.btn_pick_green_preview = QPushButton("导入参考图")
         self.btn_pick_green_preview.clicked.connect(self._pick_green_preview_image)
+        self.btn_green_preset_rookie = QPushButton("新手宽松")
+        self.btn_green_preset_rookie.clicked.connect(lambda: self._apply_green_preset("rookie"))
+        self.btn_green_preset_balanced = QPushButton("默认推荐")
+        self.btn_green_preset_balanced.clicked.connect(lambda: self._apply_green_preset("balanced"))
+        self.btn_green_preset_strict = QPushButton("严格复检")
+        self.btn_green_preset_strict.clicked.connect(lambda: self._apply_green_preset("strict"))
         self.lbl_green_preview_info = QLabel("未导入参考图时，显示 ROI 和阈值示意图。")
         self.lbl_green_preview_info.setWordWrap(True)
         preview_row.addWidget(self.btn_pick_green_preview)
+        preview_row.addWidget(self.btn_green_preset_rookie)
+        preview_row.addWidget(self.btn_green_preset_balanced)
+        preview_row.addWidget(self.btn_green_preset_strict)
         preview_row.addWidget(self.lbl_green_preview_info, 1)
         self.lbl_green_preview = QLabel()
         self.lbl_green_preview.setMinimumHeight(380)
         self.lbl_green_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_green_preview.setStyleSheet("background:#ffffff; border:1px solid rgba(148,163,184,0.25); border-radius:12px; padding:8px;")
+        self.lbl_green_analysis = QLabel(_build_green_analysis_text(None, int(self.spin_green_check_frames.value())))
+        self.lbl_green_analysis.setWordWrap(True)
+        self.lbl_green_analysis.setStyleSheet("background:#fff8ee; border:1px solid rgba(245,158,11,0.22); border-radius:10px; padding:10px;")
 
         form.addRow("步骤类型", self.combo_type)
         form.addRow("执行条件", self.edit_condition)
@@ -778,11 +965,22 @@ class ScriptStepDialog(QDialog):
         form.addRow("执行次数", self.spin_repeat)
         form.addRow("每次后等待", self.spin_delay)
         form.addRow("备注", self.edit_note)
-        layout.addLayout(form)
-        layout.addWidget(self.lbl_help)
-        layout.addLayout(preview_row)
-        layout.addWidget(self.lbl_green_help)
-        layout.addWidget(self.lbl_green_preview)
+        left_layout.addLayout(form)
+        left_layout.addWidget(self.lbl_help)
+        left_layout.addStretch(1)
+        left_scroll.setWidget(left_wrap)
+        body_splitter.addWidget(left_scroll)
+
+        right_wrap = QWidget()
+        right_layout = QVBoxLayout(right_wrap)
+        right_layout.setContentsMargins(12, 0, 0, 0)
+        right_layout.setSpacing(10)
+        right_layout.addWidget(self.lbl_green_help)
+        right_layout.addLayout(preview_row)
+        right_layout.addWidget(self.lbl_green_analysis)
+        right_layout.addWidget(self.lbl_green_preview, 1)
+        body_splitter.addWidget(right_wrap)
+        body_splitter.setSizes([520, 760])
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -826,40 +1024,55 @@ class ScriptStepDialog(QDialog):
         show_green = current_type == "green_screen_detect"
         show_detect_result = show_compare or show_green
 
-        self.combo_setting.setVisible(show_setting)
-        self.combo_shortcut.setVisible(show_shortcut)
-        self.edit_command.setVisible(show_command)
-        self.spin_wait.setVisible(show_wait)
-        self.edit_variable_name.setVisible(show_variable)
-        self.edit_variable_value.setVisible(show_variable)
-        self.spin_capture_count.setVisible(show_capture)
-        self.spin_capture_interval.setVisible(show_capture)
-        self.edit_result_variable.setVisible(show_detect_result)
-        self.combo_recovery_shortcut.setVisible(show_detect_result)
-        self.edit_reference_category.setVisible(show_compare or show_append_reference)
-        self.edit_reference_dir.setVisible(show_compare or show_append_reference)
-        self.spin_reference_pool_size.setVisible(show_compare or show_append_reference)
-        self.edit_roi_text.setVisible(show_compare or show_green)
-        self.chk_save_diff_heatmap.setVisible(show_detect_result)
-        self.spin_green_ratio_threshold.setVisible(show_green)
-        self.spin_green_area_threshold.setVisible(show_green)
-        self.spin_green_margin.setVisible(show_green)
-        self.spin_green_saturation_threshold.setVisible(show_green)
-        self.spin_green_value_threshold.setVisible(show_green)
-        self.spin_green_check_frames.setVisible(show_green)
-        self.spin_green_check_interval.setVisible(show_green)
+        _set_form_row_visible(self._form, self.combo_setting, show_setting)
+        _set_form_row_visible(self._form, self.combo_shortcut, show_shortcut)
+        _set_form_row_visible(self._form, self.edit_command, show_command)
+        _set_form_row_visible(self._form, self.spin_wait, show_wait)
+        _set_form_row_visible(self._form, self.edit_variable_name, show_variable)
+        _set_form_row_visible(self._form, self.edit_variable_value, show_variable)
+        _set_form_row_visible(self._form, self.spin_capture_count, show_capture)
+        _set_form_row_visible(self._form, self.spin_capture_interval, show_capture)
+        _set_form_row_visible(self._form, self.edit_result_variable, show_detect_result)
+        _set_form_row_visible(self._form, self.combo_recovery_shortcut, show_detect_result)
+        _set_form_row_visible(self._form, self.edit_reference_category, show_compare or show_append_reference)
+        _set_form_row_visible(self._form, self.edit_reference_dir, show_compare or show_append_reference)
+        _set_form_row_visible(self._form, self.spin_reference_pool_size, show_compare or show_append_reference)
+        _set_form_row_visible(self._form, self.edit_roi_text, show_compare or show_green)
+        _set_form_row_visible(self._form, self.chk_save_diff_heatmap, show_detect_result)
+        _set_form_row_visible(self._form, self.spin_green_ratio_threshold, show_green)
+        _set_form_row_visible(self._form, self.spin_green_area_threshold, show_green)
+        _set_form_row_visible(self._form, self.spin_green_margin, show_green)
+        _set_form_row_visible(self._form, self.spin_green_saturation_threshold, show_green)
+        _set_form_row_visible(self._form, self.spin_green_value_threshold, show_green)
+        _set_form_row_visible(self._form, self.spin_green_check_frames, show_green)
+        _set_form_row_visible(self._form, self.spin_green_check_interval, show_green)
         self.btn_pick_green_preview.setVisible(show_green)
+        self.btn_green_preset_rookie.setVisible(show_green)
+        self.btn_green_preset_balanced.setVisible(show_green)
+        self.btn_green_preset_strict.setVisible(show_green)
         self.lbl_green_preview_info.setVisible(show_green)
         self.lbl_green_help.setVisible(show_green)
+        self.lbl_green_analysis.setVisible(show_green)
         self.lbl_green_preview.setVisible(show_green)
-        self.spin_retry_count.setVisible(show_detect_result)
-        self.spin_retry_interval.setVisible(show_detect_result)
-        self.chk_pause_on_fail.setVisible(show_detect_result)
+        _set_form_row_visible(self._form, self.spin_retry_count, show_detect_result)
+        _set_form_row_visible(self._form, self.spin_retry_interval, show_detect_result)
+        _set_form_row_visible(self._form, self.chk_pause_on_fail, show_detect_result)
         if show_green:
             self.edit_result_variable.setPlaceholderText("例如 screen_ok；未检出绿屏会写入 true")
         elif show_compare:
             self.edit_result_variable.setPlaceholderText("例如 boot_ok，检图结果会写入 true/false")
         self.lbl_help.setText(self._TYPE_HELP.get(current_type, ""))
+        self._refresh_green_preview()
+
+    def _apply_green_preset(self, preset_key: str):
+        values = _green_preset_values(preset_key)
+        self.spin_green_ratio_threshold.setValue(float(values["green_ratio_threshold"]))
+        self.spin_green_area_threshold.setValue(float(values["green_area_threshold"]))
+        self.spin_green_margin.setValue(int(values["green_margin"]))
+        self.spin_green_saturation_threshold.setValue(int(values["green_saturation_threshold"]))
+        self.spin_green_value_threshold.setValue(int(values["green_value_threshold"]))
+        self.spin_green_check_frames.setValue(int(values["green_check_frames"]))
+        self.spin_green_check_interval.setValue(int(values["green_check_interval_ms"]))
         self._refresh_green_preview()
 
     def _refresh_green_preview(self):
@@ -879,6 +1092,7 @@ class ScriptStepDialog(QDialog):
                 f"参考图: {os.path.basename(self._green_preview_path)} | 绿像素占比={float(detection.get('green_ratio', 0.0)):.4f} | "
                 f"最大连通域={float(detection.get('largest_component_ratio', 0.0)):.4f} | 判定={'命中绿屏' if detection.get('detected', False) else '未命中'}"
             )
+            self.lbl_green_analysis.setText(_build_green_analysis_text(detection, int(self.spin_green_check_frames.value())))
             return
         self.lbl_green_preview.setPixmap(
             _build_green_preview_pixmap(
@@ -892,6 +1106,7 @@ class ScriptStepDialog(QDialog):
             )
         )
         self.lbl_green_preview_info.setText("未导入参考图时，显示 ROI 和阈值示意图。")
+        self.lbl_green_analysis.setText(_build_green_analysis_text(None, int(self.spin_green_check_frames.value())))
 
     def _load_green_preview_image(self, file_path: str):
         image = cv2.imread(file_path)
@@ -1158,6 +1373,7 @@ class DeviceLabPage(QWidget):
         self._load_profile_to_ui()
         self._refresh_serial_ports()
         self._refresh_queue_controls()
+        self._refresh_workspace_overview()
 
     def _init_ui(self):
         root_layout = QVBoxLayout(self)
@@ -1185,39 +1401,79 @@ class DeviceLabPage(QWidget):
         hero_layout.addWidget(self.lbl_camera_chip)
         root_layout.addWidget(hero)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setChildrenCollapsible(False)
-        root_layout.addWidget(splitter, 1)
+        overview = QFrame()
+        overview_layout = QHBoxLayout(overview)
+        overview_layout.setContentsMargins(0, 0, 0, 0)
+        overview_layout.setSpacing(10)
+        self.lbl_overview_scope = QLabel("项目/剧本: 未选择")
+        self.lbl_overview_scope.setObjectName("status_chip")
+        self.lbl_overview_run = QLabel("运行: 空闲")
+        self.lbl_overview_run.setObjectName("status_chip")
+        self.lbl_overview_output = QLabel("输出: 待执行")
+        self.lbl_overview_output.setObjectName("status_chip")
+        overview_layout.addWidget(self.lbl_overview_scope)
+        overview_layout.addWidget(self.lbl_overview_run)
+        overview_layout.addWidget(self.lbl_overview_output, 1)
+        root_layout.addWidget(overview)
 
-        left_scroll = QScrollArea()
-        left_scroll.setWidgetResizable(True)
-        left_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        left_wrap = QWidget()
-        left_layout = QVBoxLayout(left_wrap)
-        left_layout.setContentsMargins(0, 0, 8, 0)
-        left_layout.setSpacing(12)
+        quick_bar = QFrame()
+        quick_bar_layout = QHBoxLayout(quick_bar)
+        quick_bar_layout.setContentsMargins(0, 0, 0, 0)
+        quick_bar_layout.setSpacing(8)
+        btn_show_control = QPushButton("进入设备控制")
+        btn_show_control.setObjectName("lab_secondary")
+        btn_show_vision = QPushButton("进入图像观察")
+        btn_show_vision.setObjectName("lab_secondary")
+        btn_run_script = QPushButton("执行当前剧本")
+        btn_run_script.setObjectName("lab_primary")
+        btn_open_output = QPushButton("打开输出目录")
+        btn_open_output.setObjectName("lab_secondary")
+        quick_bar_layout.addWidget(btn_show_control)
+        quick_bar_layout.addWidget(btn_show_vision)
+        quick_bar_layout.addWidget(btn_run_script)
+        quick_bar_layout.addWidget(btn_open_output)
+        quick_bar_layout.addStretch(1)
+        root_layout.addWidget(quick_bar)
 
-        left_layout.addWidget(self._build_serial_card())
-        left_layout.addWidget(self._build_quick_tabs_card())
-        left_layout.addWidget(self._build_script_card())
-        left_layout.addStretch(1)
-        left_scroll.setWidget(left_wrap)
-        splitter.addWidget(left_scroll)
+        workspace_tabs = QTabWidget()
+        workspace_tabs.setDocumentMode(True)
+        self.workspace_tabs = workspace_tabs
+        root_layout.addWidget(workspace_tabs, 1)
 
-        right_scroll = QScrollArea()
-        right_scroll.setWidgetResizable(True)
-        right_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        right_wrap = QWidget()
-        right_layout = QVBoxLayout(right_wrap)
-        right_layout.setContentsMargins(8, 0, 0, 0)
-        right_layout.setSpacing(12)
-        right_layout.addWidget(self._build_camera_card())
-        right_layout.addWidget(self._build_remote_card())
-        right_layout.addWidget(self._build_log_card())
-        right_layout.addStretch(1)
-        right_scroll.setWidget(right_wrap)
-        splitter.addWidget(right_scroll)
-        splitter.setSizes([700, 620])
+        control_page = QWidget()
+        control_layout = QVBoxLayout(control_page)
+        control_layout.setContentsMargins(0, 0, 0, 0)
+        control_layout.setSpacing(12)
+        control_hint = QLabel("设备控制工作区：集中处理串口连接、快捷配置和联调剧本，适合按步骤推进联调。")
+        control_hint.setWordWrap(True)
+        control_layout.addWidget(control_hint)
+        control_tabs = QTabWidget()
+        control_tabs.setDocumentMode(True)
+        control_tabs.addTab(self._build_serial_card(), "串口工作台")
+        control_tabs.addTab(self._build_quick_tabs_card(), "快捷配置")
+        control_tabs.addTab(self._build_script_card(), "联调剧本")
+        control_layout.addWidget(control_tabs, 1)
+        workspace_tabs.addTab(control_page, "设备控制")
+
+        vision_page = QWidget()
+        vision_layout = QVBoxLayout(vision_page)
+        vision_layout.setContentsMargins(0, 0, 0, 0)
+        vision_layout.setSpacing(12)
+        vision_hint = QLabel("图像观察工作区：集中处理相机预览、遥控模拟和运行日志，适合看现场画面与执行反馈。")
+        vision_hint.setWordWrap(True)
+        vision_layout.addWidget(vision_hint)
+        vision_tabs = QTabWidget()
+        vision_tabs.setDocumentMode(True)
+        vision_tabs.addTab(self._build_camera_card(), "USB 相机")
+        vision_tabs.addTab(self._build_remote_card(), "遥控器")
+        vision_tabs.addTab(self._build_log_card(), "运行日志")
+        vision_layout.addWidget(vision_tabs, 1)
+        workspace_tabs.addTab(vision_page, "图像观察")
+
+        btn_show_control.clicked.connect(lambda: self.workspace_tabs.setCurrentIndex(0))
+        btn_show_vision.clicked.connect(lambda: self.workspace_tabs.setCurrentIndex(1))
+        btn_run_script.clicked.connect(self._run_selected_script)
+        btn_open_output.clicked.connect(self._open_run_output_dir)
 
     def _build_serial_card(self) -> QGroupBox:
         card = QGroupBox("串口工作台")
@@ -1365,61 +1621,93 @@ class DeviceLabPage(QWidget):
 
         self.list_scripts = QListWidget()
         self.list_scripts.currentItemChanged.connect(self._on_script_selection_changed)
-        self.list_scripts.setMinimumHeight(140)
+        self.list_scripts.setMinimumHeight(180)
         layout.addWidget(self.list_scripts)
 
         self.lbl_script_desc = QLabel("请选择剧本")
         self.lbl_script_desc.setWordWrap(True)
-        layout.addWidget(self.lbl_script_desc)
+        script_desc_scroll = QScrollArea()
+        script_desc_scroll.setWidgetResizable(True)
+        script_desc_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        script_desc_scroll.setMinimumHeight(96)
+        script_desc_scroll.setWidget(self.lbl_script_desc)
+        layout.addWidget(script_desc_scroll)
 
         self.list_script_steps = QListWidget()
         self.list_script_steps.currentItemChanged.connect(self._on_step_selection_changed)
-        self.list_script_steps.setMinimumHeight(180)
+        self.list_script_steps.setMinimumHeight(260)
         layout.addWidget(self.list_script_steps)
 
         self.lbl_step_detail = QLabel("请选择步骤")
         self.lbl_step_detail.setWordWrap(True)
-        layout.addWidget(self.lbl_step_detail)
+        step_detail_scroll = QScrollArea()
+        step_detail_scroll.setWidgetResizable(True)
+        step_detail_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        step_detail_scroll.setMinimumHeight(190)
+        step_detail_scroll.setWidget(self.lbl_step_detail)
+        layout.addWidget(step_detail_scroll)
 
         self.lbl_run_output = QLabel("输出目录: 待执行")
         self.lbl_run_output.setWordWrap(True)
-        layout.addWidget(self.lbl_run_output)
+        run_output_scroll = QScrollArea()
+        run_output_scroll.setWidgetResizable(True)
+        run_output_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        run_output_scroll.setMinimumHeight(72)
+        run_output_scroll.setWidget(self.lbl_run_output)
+        layout.addWidget(run_output_scroll)
 
         self.lbl_run_stats = QLabel("运行状态: 空闲")
         self.lbl_run_stats.setWordWrap(True)
-        layout.addWidget(self.lbl_run_stats)
+        run_stats_scroll = QScrollArea()
+        run_stats_scroll.setWidgetResizable(True)
+        run_stats_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        run_stats_scroll.setMinimumHeight(96)
+        run_stats_scroll.setWidget(self.lbl_run_stats)
+        layout.addWidget(run_stats_scroll)
 
-        row = QHBoxLayout()
-        for text, slot, primary in [
+        row_top = QHBoxLayout()
+        row_bottom = QHBoxLayout()
+        top_actions = [
             ("新增剧本", self._add_script, False),
             ("编辑剧本", self._edit_script, False),
             ("删除剧本", self._delete_script, False),
             ("新增步骤", self._add_script_step, False),
             ("编辑步骤", self._edit_script_step, False),
             ("删除步骤", self._delete_script_step, False),
+        ]
+        bottom_actions = [
             ("上移", self._move_script_step_up, False),
             ("下移", self._move_script_step_down, False),
             ("执行剧本", self._run_selected_script, True),
-        ]:
+        ]
+        for text, slot, primary in top_actions:
             button = QPushButton(text)
             button.setObjectName("lab_primary" if primary else "lab_secondary")
             button.clicked.connect(slot)
-            row.addWidget(button)
+            row_top.addWidget(button)
+        row_top.addStretch(1)
+        for text, slot, primary in bottom_actions:
+            button = QPushButton(text)
+            button.setObjectName("lab_primary" if primary else "lab_secondary")
+            button.clicked.connect(slot)
+            row_bottom.addWidget(button)
         self.btn_script_pause = QPushButton("暂停执行")
         self.btn_script_pause.setObjectName("lab_secondary")
         self.btn_script_pause.setEnabled(False)
         self.btn_script_pause.clicked.connect(self._toggle_script_pause)
-        row.addWidget(self.btn_script_pause)
+        row_bottom.addWidget(self.btn_script_pause)
         self.btn_open_output_dir = QPushButton("打开输出目录")
         self.btn_open_output_dir.setObjectName("lab_secondary")
         self.btn_open_output_dir.clicked.connect(self._open_run_output_dir)
-        row.addWidget(self.btn_open_output_dir)
+        row_bottom.addWidget(self.btn_open_output_dir)
         self.btn_script_stop = QPushButton("停止执行")
         self.btn_script_stop.setObjectName("lab_secondary")
         self.btn_script_stop.setEnabled(False)
         self.btn_script_stop.clicked.connect(self._stop_script_run)
-        row.addWidget(self.btn_script_stop)
-        layout.addLayout(row)
+        row_bottom.addWidget(self.btn_script_stop)
+        row_bottom.addStretch(1)
+        layout.addLayout(row_top)
+        layout.addLayout(row_bottom)
         return card
 
     def _build_camera_card(self) -> QGroupBox:
@@ -1552,8 +1840,16 @@ class DeviceLabPage(QWidget):
 
         self.remote_canvas = QFrame()
         self.remote_canvas.setObjectName("remote_canvas")
-        self.remote_canvas.setFixedSize(320, 560)
-        layout.addWidget(self.remote_canvas, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.remote_canvas.setMinimumSize(400, 920)
+        self.remote_canvas.resize(400, 920)
+        remote_scroll = QScrollArea()
+        remote_scroll.setWidgetResizable(False)
+        remote_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        remote_scroll.setMinimumHeight(760)
+        remote_scroll.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        remote_scroll.setWidget(self.remote_canvas)
+        self.remote_canvas_scroll = remote_scroll
+        layout.addWidget(remote_scroll)
         return card
 
     def _build_log_card(self) -> QGroupBox:
@@ -1592,6 +1888,7 @@ class DeviceLabPage(QWidget):
         self._refresh_projects()
         self._render_remote_buttons()
         self._refresh_reference_meta()
+        self._refresh_workspace_overview()
 
     def _refresh_command_lists(self):
         self._fill_command_list(self.list_quick_settings, self._profile.get("quick_settings", []))
@@ -1736,11 +2033,13 @@ class DeviceLabPage(QWidget):
         project = self._current_project()
         self._profile.setdefault("ui_state", {})["last_project_id"] = project.get("id", "") if project else ""
         self._refresh_scripts()
+        self._refresh_workspace_overview()
 
     def _on_script_selection_changed(self):
         script = self._current_script()
         self._profile.setdefault("ui_state", {})["last_script_id"] = script.get("id", "") if script else ""
         self._sync_script_details()
+        self._refresh_workspace_overview()
 
     def _on_step_selection_changed(self):
         step = self._current_script_step()
@@ -3177,6 +3476,7 @@ class DeviceLabPage(QWidget):
         self._update_run_stats(force_status="空闲")
         if self._camera_capture is None:
             self.lbl_camera_chip.setText('相机未连接')
+        self._refresh_workspace_overview()
 
     def _toggle_script_pause(self):
         has_running_queue = self._queue_busy or self._queue_timer.isActive() or bool(self._command_queue)
@@ -3229,6 +3529,7 @@ class DeviceLabPage(QWidget):
     def _update_run_stats(self, force_status: str = ""):
         if not self._run_metrics:
             self.lbl_run_stats.setText('运行状态: 空闲')
+            self._refresh_workspace_overview()
             return
         start_time = float(self._run_metrics.get('start_time', time.time()))
         elapsed_seconds = max(0, int(time.time() - start_time))
@@ -3238,6 +3539,20 @@ class DeviceLabPage(QWidget):
             f"总轮次: {self._run_metrics.get('run_count', 1)} | 已保存图片: {self._run_metrics.get('saved_images', 0)} | "
             f"报错次数: {self._run_metrics.get('error_count', 0)} | 剩余动作: {len(self._command_queue)}"
         )
+        self._refresh_workspace_overview()
+
+    def _refresh_workspace_overview(self):
+        if not hasattr(self, 'lbl_overview_scope'):
+            return
+        project = self._current_project()
+        script = self._current_script()
+        project_name = project.get('name', '未选择项目') if project else '未选择项目'
+        script_name = script.get('name', '未选择剧本') if script else '未选择剧本'
+        self.lbl_overview_scope.setText(f"项目/剧本: {project_name} / {script_name}")
+        run_text = self.lbl_run_stats.text().replace('运行状态: ', '') if hasattr(self, 'lbl_run_stats') else '空闲'
+        self.lbl_overview_run.setText(f"运行: {run_text}")
+        output_text = self.lbl_run_output.text().replace('输出目录: ', '') if hasattr(self, 'lbl_run_output') else '待执行'
+        self.lbl_overview_output.setText(f"输出: {output_text}")
 
     def _open_camera(self, index: int):
         logger = getattr(cv2, "utils", None)
@@ -3265,15 +3580,25 @@ class DeviceLabPage(QWidget):
             button.deleteLater()
         self._remote_buttons.clear()
         self._selected_remote_id = None
+        max_right = 400
+        max_bottom = 920
         for data in self._profile.get("remote", {}).get("buttons", []):
             button = DraggableRemoteButton(data["id"], self.chk_remote_edit_mode.isChecked, self.remote_canvas)
             button.setText(data["name"])
-            button.setGeometry(data.get("x", 80), data.get("y", 80), data.get("w", 76), data.get("h", 34))
+            x = data.get("x", 80)
+            y = data.get("y", 80)
+            width = data.get("w", 76)
+            height = data.get("h", 34)
+            button.setGeometry(x, y, width, height)
             button.activated.connect(self._on_remote_button_activated)
             button.moved.connect(self._on_remote_button_moved)
             button.selected.connect(self._select_remote_button)
             button.show()
             self._remote_buttons[data["id"]] = button
+            max_right = max(max_right, x + width + 24)
+            max_bottom = max(max_bottom, y + height + 24)
+        self.remote_canvas.resize(max_right, max_bottom)
+        self.remote_canvas.setMinimumSize(max_right, max_bottom)
 
     def _toggle_remote_edit_mode(self, checked: bool):
         self._profile.setdefault("remote", {})["edit_mode"] = checked

@@ -41,7 +41,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QTextEdit, QLineEdit, QGroupBox, QScrollArea, QFileDialog,
     QMessageBox, QDialog, QFormLayout, QDialogButtonBox, QSizePolicy,
     QCheckBox, QSpinBox, QDoubleSpinBox, QFrame, QTabWidget, QToolButton,
-    QInputDialog
+    QInputDialog, QListWidget, QListWidgetItem
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QColor, QTextCursor, QFont, QTextCharFormat
@@ -157,24 +157,34 @@ class CmdEditDialog(QDialog):
     def __init__(self, name="", cmd="", parent=None):
         super().__init__(parent)
         self.setWindowTitle("编辑快捷指令")
-        self.setMinimumWidth(420)
-        layout = QFormLayout(self)
+        self.resize(860, 320)
+        layout = QVBoxLayout(self)
         layout.setSpacing(10)
 
+        form = QFormLayout()
         self.edit_name = QLineEdit(name)
         self.edit_name.setPlaceholderText("显示名称，如「查看进程」")
-        layout.addRow("名称:", self.edit_name)
+        form.addRow("名称:", self.edit_name)
 
-        self.edit_cmd = QLineEdit(cmd)
-        self.edit_cmd.setPlaceholderText("串口指令内容")
-        layout.addRow("指令:", self.edit_cmd)
+        self.edit_cmd = QTextEdit(cmd)
+        self.edit_cmd.setAcceptRichText(False)
+        self.edit_cmd.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        self.edit_cmd.setFont(QFont("Consolas", 10))
+        self.edit_cmd.setMinimumHeight(150)
+        self.edit_cmd.setPlaceholderText("这里编辑的是单条快捷指令。命令很长也不要手工拆行，直接保持一条完整命令即可。")
+        form.addRow("指令:", self.edit_cmd)
+        layout.addLayout(form)
+
+        hint = QLabel("说明：这是单条快捷指令编辑器。长命令会横向显示，不需要为了视觉换行而拆成多条。")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
 
         btns = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         btns.accepted.connect(self._on_accept)
         btns.rejected.connect(self.reject)
-        layout.addRow(btns)
+        layout.addWidget(btns)
 
     def _on_accept(self):
         if not self.edit_name.text().strip() or not self.edit_cmd.text().strip():
@@ -183,7 +193,7 @@ class CmdEditDialog(QDialog):
         self.accept()
 
     def get_values(self):
-        return self.edit_name.text().strip(), self.edit_cmd.text().strip()
+        return self.edit_name.text().strip(), self.edit_cmd.toPlainText().strip()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -298,75 +308,19 @@ class _CollapsibleSection(QFrame):
             self._do_collapse()
 
     def _do_expand(self):
-        if self._anim and self._anim.state() == self._anim.State.Running:
-            self._anim.stop()
-            self._body.setMaximumHeight(16_777_215)
         self._collapsed = False
         self._arrow.setText("▼")
         self._sep.setVisible(True)
-        # 先将 body 不可见且高度为 0，延迟一帧再开始展开动画，
-        # 避免 setVisible(True) 后立即渲染导致闪屏
-        self._body.setMaximumHeight(0)
         self._body.setMinimumHeight(0)
-        # 注意：不在此处 setVisible(True)，而在 _start() 里才显示，
-        # 避免 Qt 在动画还未开始时就渲染一帧零高度的闪屏
-        self._body.setVisible(False)
-
-        from PyQt6.QtCore import QTimer as _QTimer
-
-        def _start():
-            self._body.setVisible(True)
-            layout = self._body.layout()
-            if layout:
-                layout.activate()
-                target = layout.totalSizeHint().height()
-            else:
-                self._body.adjustSize()
-                target = self._body.sizeHint().height()
-            target = max(target, 48)
-            # 以 self 为父对象，防止 body 动画期间析构引发崩溃
-            anim = QPropertyAnimation(self._body, b"maximumHeight", self)
-            anim.setDuration(200)
-            anim.setStartValue(0)
-            anim.setEndValue(target)
-            anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-
-            def _done():
-                self._body.setMaximumHeight(16_777_215)
-                self._body.setMinimumHeight(0)
-
-            anim.finished.connect(_done)
-            anim.start()
-            self._anim = anim
-
-        _QTimer.singleShot(0, _start)
+        self._body.setVisible(True)
+        self._body.setMaximumHeight(16_777_215)
 
     def _do_collapse(self):
-        if self._anim and self._anim.state() == self._anim.State.Running:
-            self._anim.stop()
         self._collapsed = True
         self._arrow.setText("▶")
-        cur = self._body.height()
-        if cur == 0:
-            # 已经是折叠状态，直接置隐
-            self._body.setVisible(False)
-            self._sep.setVisible(False)
-            return
-        # 以 self 为父对象，防止析构
-        anim = QPropertyAnimation(self._body, b"maximumHeight", self)
-        anim.setDuration(180)
-        anim.setStartValue(cur)
-        anim.setEndValue(0)
-        anim.setEasingCurve(QEasingCurve.Type.InCubic)
-
-        def _done():
-            self._body.setVisible(False)
-            self._sep.setVisible(False)
-            self._body.setMaximumHeight(0)
-
-        anim.finished.connect(_done)
-        anim.start()
-        self._anim = anim
+        self._body.setVisible(False)
+        self._sep.setVisible(False)
+        self._body.setMaximumHeight(0)
 
     def apply_colors(self, hdr_bg: str, hdr_bdr: str, body_bg: str,
                      body_bdr: str, title_c: str, sep_c: str, arrow_c: str):
@@ -460,6 +414,9 @@ class SerialPage(QWidget):
         self._sections_layout     = None   # set in _build_quick_panel
         self._btn_add_section     = None   # "+ 新建板块" 按钮引用
         self._built_in_sections = {}
+        self._quick_panel_loaded = False
+        self._quick_filter_buttons = {}
+        self._quick_filter = 'common'
         # ── 搜索状态
         self._search_visible = False
         self._search_last_pos = None  # QTextCursor position for incremental find
@@ -497,6 +454,7 @@ class SerialPage(QWidget):
 
         # ── 主体：终端 + 快捷指令 ──
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._main_splitter = splitter
 
         # 左：终端区
         terminal_widget = QWidget()
@@ -512,21 +470,21 @@ class SerialPage(QWidget):
         # 右：快捷指令区
         self._right_scroll = QScrollArea()
         self._right_scroll.setWidgetResizable(True)
-        self._right_scroll.setMinimumWidth(320)
-        self._right_scroll.setMaximumWidth(440)
+        self._right_scroll.setMinimumWidth(460)
+        self._right_scroll.setMaximumWidth(680)
         self._right_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._right_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        right_content = self._build_quick_panel()
-        self._right_scroll.setWidget(right_content)
+        self._quick_panel_placeholder = QWidget()
+        self._right_scroll.setWidget(self._quick_panel_placeholder)
 
         splitter.addWidget(terminal_widget)
         splitter.addWidget(self._right_scroll)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 0)
+        self._set_right_panel_visible(False)
         main_layout.addWidget(splitter, stretch=1)
 
         self._apply_theme()  # 所有控件创建完毕后初始化样式
-        self._load_saved_dynamic_sections()  # 加载保存的动态板块（在 UI 初始化完成后）
 
     def _build_port_bar(self) -> QWidget:
         bar = QFrame()
@@ -614,6 +572,14 @@ class SerialPage(QWidget):
         self.chk_tab_passthrough.setToolTip("启用后，Tab 会直接发送到设备，不再触发本地补全")
         layout.addWidget(self.chk_tab_passthrough)
 
+        self.btn_toggle_quick_panel = QToolButton()
+        self.btn_toggle_quick_panel.setText("快捷面板")
+        self.btn_toggle_quick_panel.setCheckable(True)
+        self.btn_toggle_quick_panel.setChecked(False)
+        self.btn_toggle_quick_panel.setToolTip("显示或收起右侧快捷面板")
+        self.btn_toggle_quick_panel.toggled.connect(self._set_right_panel_visible)
+        layout.addWidget(self.btn_toggle_quick_panel)
+
         # 连接/断开
         self.btn_connect = QPushButton("  连接  ")
         self.btn_connect.setObjectName("btn_primary")
@@ -625,6 +591,30 @@ class SerialPage(QWidget):
         layout.addWidget(self.lbl_status)
 
         return bar
+
+    def _set_right_panel_visible(self, visible: bool):
+        if visible:
+            self._ensure_quick_panel_loaded()
+        self._right_scroll.setVisible(bool(visible))
+        if hasattr(self, 'btn_toggle_quick_panel'):
+            self.btn_toggle_quick_panel.blockSignals(True)
+            self.btn_toggle_quick_panel.setChecked(bool(visible))
+            self.btn_toggle_quick_panel.blockSignals(False)
+            self.btn_toggle_quick_panel.setText("收起面板" if visible else "快捷面板")
+        if hasattr(self, '_main_splitter'):
+            if visible:
+                self._main_splitter.setSizes([760, 580])
+            else:
+                self._main_splitter.setSizes([1340, 0])
+
+    def _ensure_quick_panel_loaded(self):
+        if self._quick_panel_loaded:
+            return
+        right_content = self._build_quick_panel()
+        self._right_scroll.setWidget(right_content)
+        self._quick_panel_loaded = True
+        self._load_saved_dynamic_sections()
+        self._apply_theme()
 
     def _build_terminal(self) -> QTextEdit:
         self.terminal = QTextEdit()
@@ -824,6 +814,23 @@ class SerialPage(QWidget):
         self._icon_hint_lbl = icon_lbl
         outer_layout.addWidget(icon_lbl)
 
+        filter_row = QHBoxLayout()
+        filter_row.setContentsMargins(0, 0, 0, 0)
+        filter_row.setSpacing(6)
+        for text, category in [
+            ("常用", "common"),
+            ("KST", "kst"),
+            ("工具", "tools"),
+            ("自定义", "custom"),
+            ("全部", "all"),
+        ]:
+            btn = QPushButton(text)
+            btn.setCheckable(True)
+            btn.clicked.connect(lambda checked=False, c=category: self._apply_quick_filter(c))
+            filter_row.addWidget(btn)
+            self._quick_filter_buttons[category] = btn
+        outer_layout.addLayout(filter_row)
+
         # ── 板块容器（用单独 layout 便于重排）──
         sec_widget = QWidget()
         self._sections_layout = QVBoxLayout(sec_widget)
@@ -833,18 +840,20 @@ class SerialPage(QWidget):
 
         # ── 构建各板块 ──
         built_in_secs = [
-            self._build_firmware_group(),
-            self._build_angle_test_group(),
-            self._build_kst_angle_group(),
-            self._build_kst_coord_group(),
-            self._build_sysutil_group(),
-            self._build_custom_group(),
+            (self._build_firmware_group(), "common"),
+            (self._build_angle_test_group(), "common"),
+            (self._build_kst_angle_group(), "kst"),
+            (self._build_kst_coord_group(), "kst"),
+            (self._build_sysutil_group(), "tools"),
+            (self._build_custom_group(), "custom"),
         ]
-        self._quick_sections_list = built_in_secs[:]
-        for sec in built_in_secs:
+        self._quick_sections_list = [sec for sec, _category in built_in_secs]
+        for sec, category in built_in_secs:
+            sec._quick_category = category
             self._sections_layout.addWidget(sec)
 
         self._refresh_section_controls()
+        self._apply_quick_filter(self._quick_filter)
 
         # ── 新建板块按钮 ──
         btn_add = QPushButton("＋ 新建板块")
@@ -858,6 +867,7 @@ class SerialPage(QWidget):
         btn_add.clicked.connect(self._on_add_section)
         self._btn_add_section = btn_add
         outer_layout.addWidget(btn_add)
+        self._apply_quick_filter(self._quick_filter)
 
         outer_layout.addStretch()
         return panel
@@ -871,6 +881,19 @@ class SerialPage(QWidget):
                 down_cb=(lambda checked, s=sec: self._move_section(s, +1)) if i < n - 1 else None,
                 rename_cb=(lambda checked, s=sec: self._on_rename_section(s)),
             )
+
+    def _apply_quick_filter(self, category: str):
+        self._quick_filter = category
+        for key, btn in self._quick_filter_buttons.items():
+            btn.blockSignals(True)
+            btn.setChecked(key == category)
+            btn.blockSignals(False)
+        for sec in self._quick_sections_list:
+            sec_category = getattr(sec, '_quick_category', 'custom')
+            visible = category == 'all' or sec_category == category
+            sec.setVisible(visible)
+        if self._btn_add_section is not None:
+            self._btn_add_section.setVisible(category in {'custom', 'all'})
 
     def _move_section(self, sec: '_CollapsibleSection', direction: int):
         """在快捷面板内将板块上移（-1）或下移（+1）"""
@@ -979,7 +1002,7 @@ class SerialPage(QWidget):
 
     def _build_firmware_group(self) -> _CollapsibleSection:
         """固件升级准备区"""
-        sec = _CollapsibleSection("📦 固件升级准备")
+        sec = _CollapsibleSection("📦 固件升级准备", collapsed=True)
         layout = sec.body_layout
 
         # 说明文字（可编辑）
@@ -1045,7 +1068,7 @@ class SerialPage(QWidget):
 
     def _build_angle_test_group(self) -> _CollapsibleSection:
         """角度测试"""
-        sec = _CollapsibleSection("🔧 角度测试")
+        sec = _CollapsibleSection("🔧 角度测试", collapsed=True)
         layout = sec.body_layout
 
         # 说明文字
@@ -1135,7 +1158,7 @@ class SerialPage(QWidget):
 
     def _build_sysutil_group(self) -> _CollapsibleSection:
         """系统工具"""
-        sec = _CollapsibleSection("⚙️ 系统工具")
+        sec = _CollapsibleSection("⚙️ 系统工具", collapsed=True)
         layout = sec.body_layout
 
         # 说明文字
@@ -1182,7 +1205,7 @@ class SerialPage(QWidget):
 
     def _build_custom_group(self) -> _CollapsibleSection:
         """自定义命令"""
-        sec = _CollapsibleSection("📝 自定义命令")
+        sec = _CollapsibleSection("📝 自定义命令", collapsed=True)
         layout = sec.body_layout
 
         # 说明文字
@@ -1223,15 +1246,17 @@ class SerialPage(QWidget):
         if not ok or not name.strip():
             return
         sec = self._build_dynamic_section(name.strip())
+        sec._quick_category = 'custom'
         self._quick_sections_list.append(sec)
         self._sections_layout.addWidget(sec)
         self._refresh_section_controls()
+        self._apply_quick_filter(self._quick_filter)
         self._apply_theme()   # 应用当前主题样式到新板块
         self._save_all_data()  # 保存更改
 
     def _build_dynamic_section(self, name: str) -> _CollapsibleSection:
         """动态板块"""
-        sec = _CollapsibleSection(name)
+        sec = _CollapsibleSection(name, collapsed=True)
         layout = sec.body_layout
 
         # 说明文字（可编辑）
@@ -1392,7 +1417,7 @@ class SerialPage(QWidget):
 
     def _build_angle_test_group(self) -> _CollapsibleSection:
         """角度采集测试区（含分辨率和范围参数）"""
-        sec = _CollapsibleSection("🧪 角度采集测试")
+        sec = _CollapsibleSection("🧪 角度采集测试", collapsed=True)
         layout = sec.body_layout
 
         # 说明（可编辑）
@@ -1775,7 +1800,7 @@ class SerialPage(QWidget):
 
     def _build_custom_group(self) -> _CollapsibleSection:
         """自定义快捷指令区"""
-        sec = _CollapsibleSection("📝 自定义快捷指令")
+        sec = _CollapsibleSection("📝 自定义快捷指令", collapsed=True)
         self._custom_group = sec
         layout = sec.body_layout
 
@@ -2765,9 +2790,11 @@ class SerialPage(QWidget):
             if sec_data.get("type") == "dynamic_section":
                 sec = self._build_dynamic_section(sec_data.get("title", "未命名板块"))
                 sec._dyn_cmds = sec_data.get("commands", [])
+                sec._quick_category = 'custom'
                 self._quick_sections_list.append(sec)
                 self._sections_layout.addWidget(sec)
                 self._refresh_dyn_buttons(sec)
+        self._apply_quick_filter(self._quick_filter)
 
     def _refresh_custom_buttons(self):
         # 清空旧按钮
@@ -2924,11 +2951,61 @@ class SerialPage(QWidget):
         self._icon_hint_lbl = icon_lbl
         outer_layout.addWidget(icon_lbl)
 
+        self._quick_panel_search = QLineEdit()
+        self._quick_panel_search.setPlaceholderText('搜索板块标题或命令关键字，例如 reboot / KST / CSV')
+        self._quick_panel_search.textChanged.connect(lambda _text: self._apply_quick_filter(getattr(self, '_quick_filter', 'common')))
+        outer_layout.addWidget(self._quick_panel_search)
+
+        self._quick_filter_buttons = {}
+        filter_row = QHBoxLayout()
+        filter_row.setContentsMargins(0, 0, 0, 0)
+        filter_row.setSpacing(6)
+        for text, category in [
+            ('常用', 'common'),
+            ('KST', 'kst'),
+            ('工具', 'tools'),
+            ('自定义', 'custom'),
+            ('全部', 'all'),
+        ]:
+            btn = QPushButton(text)
+            btn.setCheckable(True)
+            btn.setStyleSheet(
+                'QPushButton{background:#172033;color:#8fb7ff;border:1px solid #2d4f82;'
+                'border-radius:14px;padding:4px 12px;font-size:12px;font-weight:600;}'
+                'QPushButton:checked{background:#f59e0b;color:#1f2937;border-color:#d97706;}'
+                'QPushButton:hover{border-color:#93c5fd;color:#ffffff;}'
+            )
+            btn.clicked.connect(lambda checked=False, c=category: self._apply_quick_filter(c))
+            filter_row.addWidget(btn)
+            self._quick_filter_buttons[category] = btn
+        outer_layout.addLayout(filter_row)
+
+        self._quick_filter_meta = QLabel('当前分类: 全部 | 可见板块: 0')
+        self._quick_filter_meta.setWordWrap(True)
+        outer_layout.addWidget(self._quick_filter_meta)
+
+        content_split = QSplitter(Qt.Orientation.Horizontal)
+        self._quick_section_nav = QListWidget()
+        self._quick_section_nav.setMinimumWidth(180)
+        self._quick_section_nav.setMaximumWidth(260)
+        self._quick_section_nav.currentItemChanged.connect(self._focus_quick_section)
+        content_split.addWidget(self._quick_section_nav)
+
+        content_wrap = QWidget()
+        content_wrap_layout = QVBoxLayout(content_wrap)
+        content_wrap_layout.setContentsMargins(0, 0, 0, 0)
+        content_wrap_layout.setSpacing(8)
+        self._quick_selected_title = QLabel('请选择板块')
+        content_wrap_layout.addWidget(self._quick_selected_title)
+
         sec_widget = QWidget()
         self._sections_layout = QVBoxLayout(sec_widget)
         self._sections_layout.setContentsMargins(0, 0, 0, 0)
         self._sections_layout.setSpacing(10)
-        outer_layout.addWidget(sec_widget)
+        content_wrap_layout.addWidget(sec_widget, 1)
+        content_split.addWidget(content_wrap)
+        content_split.setSizes([220, 620])
+        outer_layout.addWidget(content_split, 1)
 
         self._built_in_sections = {}
         built_in_defs = [
@@ -2942,11 +3019,20 @@ class SerialPage(QWidget):
         self._quick_sections_list = []
         for persist_id, sec in built_in_defs:
             sec._persist_id = persist_id
+            if persist_id in ('firmware', 'angle_collect'):
+                sec._quick_category = 'common'
+            elif persist_id in ('kst_angle', 'kst_coord'):
+                sec._quick_category = 'kst'
+            elif persist_id == 'system_tools':
+                sec._quick_category = 'tools'
+            else:
+                sec._quick_category = 'custom'
             self._built_in_sections[persist_id] = sec
             self._quick_sections_list.append(sec)
             self._sections_layout.addWidget(sec)
 
         self._refresh_section_controls()
+        self._refresh_quick_section_nav()
 
         btn_add = QPushButton('＋ 新建板块')
         btn_add.setObjectName('btn_add_section')
@@ -2959,9 +3045,80 @@ class SerialPage(QWidget):
         btn_add.clicked.connect(self._on_add_section)
         self._btn_add_section = btn_add
         outer_layout.addWidget(btn_add)
+        self._apply_quick_filter('all')
 
         outer_layout.addStretch()
         return panel
+
+    def _apply_quick_filter(self, category: str):
+        self._quick_filter = category
+        keyword = ''
+        if hasattr(self, '_quick_panel_search'):
+            keyword = self._quick_panel_search.text().strip().lower()
+        for key, btn in getattr(self, '_quick_filter_buttons', {}).items():
+            btn.blockSignals(True)
+            btn.setChecked(key == category)
+            btn.blockSignals(False)
+        visible_count = 0
+        for sec in self._quick_sections_list:
+            sec_category = getattr(sec, '_quick_category', 'custom')
+            matches_category = bool(keyword) or category == 'all' or sec_category == category
+            search_blob = [sec._title_lbl.text().lower()]
+            for item in getattr(sec, '_dyn_cmds', []):
+                search_blob.append(str(item.get('name', '')).lower())
+                search_blob.append(str(item.get('cmd', '')).lower())
+            if hasattr(sec, '_hint_text'):
+                search_blob.append(str(getattr(sec, '_hint_text', '')).lower())
+            matches_keyword = not keyword or keyword in ' '.join(search_blob)
+            visible = matches_category and matches_keyword
+            sec.setVisible(visible)
+            if visible:
+                visible_count += 1
+        if getattr(self, '_btn_add_section', None) is not None:
+            self._btn_add_section.setVisible(category in ('custom', 'all'))
+        if hasattr(self, '_quick_filter_meta'):
+            category_map = {'common': '常用', 'kst': 'KST', 'tools': '工具', 'custom': '自定义', 'all': '全部'}
+            suffix = ' | 搜索中' if keyword else ''
+            self._quick_filter_meta.setText(f"当前分类: {category_map.get(category, category)} | 可见板块: {visible_count}{suffix}")
+        self._refresh_quick_section_nav()
+
+    def _refresh_quick_section_nav(self):
+        if not hasattr(self, '_quick_section_nav'):
+            return
+        self._quick_section_nav.blockSignals(True)
+        self._quick_section_nav.clear()
+        for sec in self._quick_sections_list:
+            if sec.isHidden():
+                continue
+            item = QListWidgetItem(sec._title_lbl.text())
+            item.setData(Qt.ItemDataRole.UserRole, getattr(sec, '_persist_id', ''))
+            self._quick_section_nav.addItem(item)
+        self._quick_section_nav.blockSignals(False)
+        if self._quick_section_nav.count() > 0 and self._quick_section_nav.currentRow() < 0:
+            self._quick_section_nav.setCurrentRow(0)
+        elif self._quick_section_nav.count() == 0:
+            for sec in self._quick_sections_list:
+                sec.setVisible(False)
+
+    def _focus_quick_section(self, current, _previous):
+        if current is None:
+            if hasattr(self, '_quick_selected_title'):
+                self._quick_selected_title.setText('请选择板块')
+            return
+        section_id = current.data(Qt.ItemDataRole.UserRole)
+        for sec in self._quick_sections_list:
+            if sec.isHidden():
+                continue
+            if getattr(sec, '_persist_id', '') == section_id:
+                if hasattr(self, '_quick_selected_title'):
+                    self._quick_selected_title.setText(sec._title_lbl.text())
+                sec.setVisible(True)
+                if getattr(sec, '_collapsed', False):
+                    sec._do_expand()
+            else:
+                sec.setVisible(False)
+                if not getattr(sec, '_collapsed', False):
+                    sec._do_collapse()
 
     def _refresh_section_controls(self):
         n = len(self._quick_sections_list)
@@ -3016,7 +3173,7 @@ class SerialPage(QWidget):
             self._save_all_data()
 
     def _build_firmware_group(self) -> _CollapsibleSection:
-        sec = _CollapsibleSection('📦 固件升级准备')
+        sec = _CollapsibleSection('📦 固件升级准备', collapsed=True)
         self._firmware_section = sec
         layout = sec.body_layout
 
@@ -3142,8 +3299,9 @@ class SerialPage(QWidget):
             self._save_all_data()
 
     def _build_dynamic_section(self, name: str, persist_id: str = '') -> _CollapsibleSection:
-        sec = _CollapsibleSection(name)
+        sec = _CollapsibleSection(name, collapsed=True)
         sec._persist_id = persist_id or f'dyn:{int(time.time() * 1000)}'
+        sec._quick_category = 'custom'
         layout = sec.body_layout
 
         sec._hint_text = ''
@@ -3184,7 +3342,7 @@ class SerialPage(QWidget):
         return sec
 
     def _build_sysutil_group(self) -> _CollapsibleSection:
-        sec = _CollapsibleSection('🔧 系统工具')
+        sec = _CollapsibleSection('🔧 系统工具', collapsed=True)
         layout = sec.body_layout
 
         lbl = QLabel(
@@ -3225,6 +3383,7 @@ class SerialPage(QWidget):
             arrow_c='#58A6FF' if self._dark_mode else '#0969DA',
         )
         self._refresh_section_controls()
+        self._apply_quick_filter(getattr(self, '_quick_filter', 'common'))
         self._save_all_data()
 
     def _on_edit_dyn_hint(self, sec: '_CollapsibleSection'):
@@ -3463,3 +3622,4 @@ class SerialPage(QWidget):
 
         self._refresh_section_controls()
         self._refresh_custom_buttons()
+        self._apply_quick_filter(getattr(self, '_quick_filter', 'common'))

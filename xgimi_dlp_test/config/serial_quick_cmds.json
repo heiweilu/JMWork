@@ -27,6 +27,10 @@
     {
       "name": "查看是软梯or硬梯",
       "cmd": "ogcat |grep -i \"act\";\ngmpfUnit info |grep -i \"act\""
+    },
+    {
+      "name": "切换1080p 240hz",
+      "cmd": "gmpfUnit externDisplay setsoctiming 7"
     }
   ],
   "fixed_sections": {

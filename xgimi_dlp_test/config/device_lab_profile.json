@@ -471,19 +471,20 @@
       "commands": [],
       "action_type": "green_screen_detect",
       "roi_text": "",
-      "green_ratio_threshold": 0.35,
-      "green_area_threshold": 0.18,
-      "green_margin": 35,
-      "green_saturation_threshold": 70,
-      "green_value_threshold": 60,
-      "green_check_frames": 3,
-      "green_check_interval_ms": 250,
+      "green_ratio_threshold": 0.22,
+      "green_area_threshold": 0.1,
+      "green_margin": 18,
+      "green_saturation_threshold": 35,
+      "green_value_threshold": 30,
+      "green_check_frames": 2,
+      "green_check_interval_ms": 200,
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
       "reference_dir": "",
       "reference_pool_size": 5,
-      "save_diff_heatmap": true
+      "save_diff_heatmap": true,
+      "green_preview_image": "D:/software/heiweilu/workspace/xgimi/code/xgimi_dlp_test/reports/device_lab_snapshots/screenshot-20260323-150751.png"
     },
     {
       "id": "shortcut-append-reference",
@@ -505,6 +506,30 @@
       "green_check_frames": 3,
       "green_check_interval_ms": 250,
       "save_diff_heatmap": true
+    },
+    {
+      "name": "调用播放器播放视频",
+      "description": "video-path是视频路径，注意需要把U盘视频拷贝到投影仪内存中",
+      "commands": [
+        "am start -a android.intent.action.MAIN -n com.xgimi.gimiplayer/com.xgimi.gimiplayer.activity.VideoPlayerActivity --es video-path \"/sdcard/3D_FSBS_test.mkv\""
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true,
+      "roi_text": "",
+      "green_preview_image": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "id": "shortcut-80be86ec"
     }
   ],
   "remote": {
@@ -663,9 +688,9 @@
     ]
   },
   "ui_state": {
-    "last_project_id": "",
-    "last_script_id": "",
-    "last_step_id": ""
+    "last_project_id": "project-athena-9681",
+    "last_script_id": "script-athena-boot",
+    "last_step_id": "step-f1faf11e"
   },
   "projects": [
     {
