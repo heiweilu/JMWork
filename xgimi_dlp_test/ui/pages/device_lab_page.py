@@ -8,8 +8,8 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
-from PyQt6.QtCore import QEvent, QPoint, QTimer, Qt, pyqtSignal
-from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtCore import QEvent, QPoint, QTimer, Qt, QUrl, pyqtSignal
+from PyQt6.QtGui import QColor, QDesktopServices, QImage, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -39,7 +39,7 @@ from PyQt6.QtWidgets import (
 )
 
 from core.device_lab_store import DeviceLabStore
-from core.image_compare import compare_with_reference_set
+from core.image_compare import compare_with_reference_set, detect_green_screen
 from workers.serial_worker import SerialReaderThread
 
 
@@ -138,14 +138,142 @@ QPushButton#lab_secondary {
 """
 
 
+def _parse_preview_roi_text(roi_text: str) -> Optional[Tuple[float, float, float, float]]:
+    text = (roi_text or "").strip()
+    if not text:
+        return None
+    parts = [part.strip() for part in text.split(",")]
+    if len(parts) != 4:
+        return None
+    try:
+        values = [float(part) for part in parts]
+    except ValueError:
+        return None
+    if all(0.0 <= value <= 100.0 for value in values) and any(value > 1.0 for value in values):
+        values = [value / 100.0 for value in values]
+    x, y, w, h = values
+    if w <= 0.0 or h <= 0.0 or x < 0.0 or y < 0.0 or x + w > 1.0 or y + h > 1.0:
+        return None
+    return x, y, w, h
+
+
+def _build_green_preview_pixmap(
+    roi_text: str,
+    green_ratio_threshold: float,
+    green_area_threshold: float,
+    green_check_frames: int,
+    green_margin: int,
+    saturation_threshold: int,
+    value_threshold: int,
+) -> QPixmap:
+    width = 360
+    height = 180
+    pixmap = QPixmap(width, height)
+    pixmap.fill(QColor("#f8fafc"))
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    frame_x, frame_y, frame_w, frame_h = 16, 18, 180, 104
+    painter.setPen(QPen(QColor("#cbd5e1"), 1))
+    painter.drawRoundedRect(frame_x, frame_y, frame_w, frame_h, 8, 8)
+    for offset in range(1, 4):
+        x = frame_x + int(frame_w * offset / 4)
+        y = frame_y + int(frame_h * offset / 4)
+        painter.drawLine(x, frame_y, x, frame_y + frame_h)
+        painter.drawLine(frame_x, y, frame_x + frame_w, y)
+
+    roi = _parse_preview_roi_text(roi_text)
+    if roi is None and roi_text.strip():
+        painter.setPen(QPen(QColor("#dc2626"), 2))
+        painter.drawText(frame_x, frame_y + frame_h + 18, "ROI 格式无效，需填 x,y,w,h，范围 0-1 或 0-100")
+    elif roi is None:
+        painter.setPen(QPen(QColor("#0f172a"), 1))
+        painter.drawText(frame_x, frame_y + frame_h + 18, "留空表示全图检测")
+    else:
+        roi_x, roi_y, roi_w, roi_h = roi
+        rx = frame_x + int(frame_w * roi_x)
+        ry = frame_y + int(frame_h * roi_y)
+        rw = max(8, int(frame_w * roi_w))
+        rh = max(8, int(frame_h * roi_h))
+        painter.fillRect(rx, ry, rw, rh, QColor(34, 197, 94, 70))
+        painter.setPen(QPen(QColor("#16a34a"), 2))
+        painter.drawRect(rx, ry, rw, rh)
+        painter.drawText(frame_x, frame_y + frame_h + 18, f"ROI: x={roi_x:.2f}, y={roi_y:.2f}, w={roi_w:.2f}, h={roi_h:.2f}")
+
+    text_x = 214
+    painter.setPen(QPen(QColor("#0f172a"), 1))
+    painter.drawText(text_x, 28, "绿屏检测参数预览")
+    painter.drawText(text_x, 56, f"绿像素占比阈值: {green_ratio_threshold:.2f}")
+    painter.drawText(text_x, 76, f"最大连通域阈值: {green_area_threshold:.2f}")
+    painter.drawText(text_x, 96, f"连续命中帧数: {int(green_check_frames)}")
+    painter.drawText(text_x, 116, f"绿色通道领先值: {int(green_margin)}")
+    painter.drawText(text_x, 136, f"饱和度/亮度下限: {int(saturation_threshold)} / {int(value_threshold)}")
+    painter.drawText(text_x, 160, "建议先缩 ROI，再逐步收紧占比和连通域阈值")
+    painter.end()
+    return pixmap
+
+
+def _green_help_text() -> str:
+    return (
+        "ROI 区域按 x,y,w,h 填写，支持 0-1 或 0-100 百分比；留空表示全图。\n"
+        "绿像素占比阈值越高，要求绿色区域越大；最大连通域阈值越高，要求连续整片绿区越大。\n"
+        "绿色通道领先值、饱和度下限、亮度下限用于过滤偏灰、偏暗或杂色噪声；连续命中帧数用于过滤视频瞬时闪帧。"
+    )
+
+
+def _cv_image_to_pixmap(image, max_width: int = 680, max_height: int = 320) -> QPixmap:
+    if image is None:
+        pixmap = QPixmap(max_width, max_height)
+        pixmap.fill(QColor("#f8fafc"))
+        return pixmap
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    qimage = QImage(rgb.data, rgb.shape[1], rgb.shape[0], rgb.strides[0], QImage.Format.Format_RGB888)
+    return QPixmap.fromImage(qimage).scaled(
+        max_width,
+        max_height,
+        Qt.AspectRatioMode.KeepAspectRatio,
+        Qt.TransformationMode.FastTransformation,
+    )
+
+
+def _compose_source_and_overlay(source_image, overlay_image):
+    if source_image is None:
+        return overlay_image
+    if overlay_image is None:
+        return source_image
+    source = source_image.copy()
+    overlay = overlay_image.copy()
+    height = 280
+    source_width = max(1, int(source.shape[1] * height / max(1, source.shape[0])))
+    overlay_width = max(1, int(overlay.shape[1] * height / max(1, overlay.shape[0])))
+    source = cv2.resize(source, (source_width, height), interpolation=cv2.INTER_AREA)
+    overlay = cv2.resize(overlay, (overlay_width, height), interpolation=cv2.INTER_AREA)
+    source = cv2.copyMakeBorder(source, 0, 36, 0, 0, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+    overlay = cv2.copyMakeBorder(overlay, 0, 36, 0, 0, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+    cv2.putText(source, "Source", (10, height + 24), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (15, 23, 42), 2, cv2.LINE_AA)
+    cv2.putText(overlay, "Mask Preview", (10, height + 24), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (15, 23, 42), 2, cv2.LINE_AA)
+    gap = cv2.copyMakeBorder(
+        cv2.resize(source[:, :1], (12, source.shape[0]), interpolation=cv2.INTER_NEAREST),
+        0,
+        0,
+        0,
+        0,
+        cv2.BORDER_CONSTANT,
+        value=(255, 255, 255),
+    )
+    return cv2.hconcat([source, gap, overlay])
+
+
 class CommandItemDialog(QDialog):
     def __init__(self, title: str, data: Optional[Dict[str, Any]] = None, allow_camera_actions: bool = False, parent=None):
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.resize(560, 430)
+        self.resize(900, 760)
 
         values = data or {}
         self._allow_camera_actions = allow_camera_actions
+        self._green_preview_image = None
+        self._green_preview_path = values.get("green_preview_image", "")
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
@@ -155,7 +283,9 @@ class CommandItemDialog(QDialog):
         self.combo_action_type.addItem("串口指令集", "serial_bundle")
         if allow_camera_actions:
             self.combo_action_type.addItem("抓拍保存", "camera_snapshot")
+            self.combo_action_type.addItem("加入参考图库", "append_reference")
             self.combo_action_type.addItem("检查指定正常照片", "compare_reference")
+            self.combo_action_type.addItem("绿屏检测", "green_screen_detect")
         self.edit_commands = QTextEdit("\n".join(values.get("commands", [])))
         self.edit_commands.setPlaceholderText("每行一条串口指令")
         self.spin_capture_count = QSpinBox()
@@ -168,10 +298,56 @@ class CommandItemDialog(QDialog):
         self.spin_capture_interval.setSuffix(" ms")
         self.edit_reference_category = QLineEdit(values.get("reference_category", "default"))
         self.edit_reference_category.setPlaceholderText("例如 default / boot / menu")
+        self.edit_reference_dir = QLineEdit(values.get("reference_dir", ""))
+        self.edit_reference_dir.setPlaceholderText("参考图库目录，留空时走剧本输出目录或右侧手动目录")
+        self.spin_reference_pool_size = QSpinBox()
+        self.spin_reference_pool_size.setRange(1, 50)
+        self.spin_reference_pool_size.setValue(int(values.get("reference_pool_size", 5) or 5))
+        self.chk_save_diff_heatmap = QCheckBox("保存差异/掩码图")
+        self.chk_save_diff_heatmap.setChecked(bool(values.get("save_diff_heatmap", True)))
         self.edit_roi_text = QLineEdit(values.get("roi_text", ""))
         self.edit_roi_text.setPlaceholderText("例如 0.10,0.10,0.80,0.60，按 x,y,w,h 填 0-1")
+        self.spin_green_ratio_threshold = QDoubleSpinBox()
+        self.spin_green_ratio_threshold.setRange(0.01, 1.0)
+        self.spin_green_ratio_threshold.setDecimals(2)
+        self.spin_green_ratio_threshold.setSingleStep(0.01)
+        self.spin_green_ratio_threshold.setValue(float(values.get("green_ratio_threshold", 0.35) or 0.35))
+        self.spin_green_area_threshold = QDoubleSpinBox()
+        self.spin_green_area_threshold.setRange(0.01, 1.0)
+        self.spin_green_area_threshold.setDecimals(2)
+        self.spin_green_area_threshold.setSingleStep(0.01)
+        self.spin_green_area_threshold.setValue(float(values.get("green_area_threshold", 0.18) or 0.18))
+        self.spin_green_margin = QSpinBox()
+        self.spin_green_margin.setRange(0, 255)
+        self.spin_green_margin.setValue(int(values.get("green_margin", 35) or 35))
+        self.spin_green_saturation_threshold = QSpinBox()
+        self.spin_green_saturation_threshold.setRange(0, 255)
+        self.spin_green_saturation_threshold.setValue(int(values.get("green_saturation_threshold", 70) or 70))
+        self.spin_green_value_threshold = QSpinBox()
+        self.spin_green_value_threshold.setRange(0, 255)
+        self.spin_green_value_threshold.setValue(int(values.get("green_value_threshold", 60) or 60))
+        self.spin_green_check_frames = QSpinBox()
+        self.spin_green_check_frames.setRange(1, 10)
+        self.spin_green_check_frames.setValue(int(values.get("green_check_frames", 3) or 3))
+        self.spin_green_check_interval = QSpinBox()
+        self.spin_green_check_interval.setRange(50, 10000)
+        self.spin_green_check_interval.setSingleStep(50)
+        self.spin_green_check_interval.setValue(int(values.get("green_check_interval_ms", 250) or 250))
+        self.spin_green_check_interval.setSuffix(" ms")
         self.lbl_action_hint = QLabel()
         self.lbl_action_hint.setWordWrap(True)
+        self.lbl_green_help = QLabel(_green_help_text())
+        self.lbl_green_help.setWordWrap(True)
+        preview_row = QHBoxLayout()
+        self.btn_pick_green_preview = QPushButton("导入参考图")
+        self.btn_pick_green_preview.clicked.connect(self._pick_green_preview_image)
+        self.lbl_green_preview_info = QLabel("未导入参考图时，显示 ROI 和阈值示意图。")
+        self.lbl_green_preview_info.setWordWrap(True)
+        preview_row.addWidget(self.btn_pick_green_preview)
+        preview_row.addWidget(self.lbl_green_preview_info, 1)
+        self.lbl_green_preview = QLabel()
+        self.lbl_green_preview.setMinimumHeight(380)
+        self.lbl_green_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         current_action_type = values.get("action_type", "serial_bundle")
         index = self.combo_action_type.findData(current_action_type)
@@ -186,10 +362,33 @@ class CommandItemDialog(QDialog):
         form.addRow("抓拍张数", self.spin_capture_count)
         form.addRow("抓拍间隔", self.spin_capture_interval)
         form.addRow("参考分类", self.edit_reference_category)
+        form.addRow("参考图库目录", self.edit_reference_dir)
+        form.addRow("图库样本上限", self.spin_reference_pool_size)
         form.addRow("ROI 区域", self.edit_roi_text)
+        form.addRow("产物开关", self.chk_save_diff_heatmap)
+        form.addRow("绿像素占比阈值", self.spin_green_ratio_threshold)
+        form.addRow("最大连通域阈值", self.spin_green_area_threshold)
+        form.addRow("绿色通道领先值", self.spin_green_margin)
+        form.addRow("饱和度下限", self.spin_green_saturation_threshold)
+        form.addRow("亮度下限", self.spin_green_value_threshold)
+        form.addRow("连续命中帧数", self.spin_green_check_frames)
+        form.addRow("取样间隔", self.spin_green_check_interval)
         layout.addLayout(form)
         layout.addWidget(self.lbl_action_hint)
+        layout.addWidget(self.lbl_green_help)
+        layout.addLayout(preview_row)
+        layout.addWidget(self.lbl_green_preview)
         self._sync_action_type()
+
+        self.edit_roi_text.textChanged.connect(self._refresh_green_preview)
+        self.spin_green_ratio_threshold.valueChanged.connect(self._refresh_green_preview)
+        self.spin_green_area_threshold.valueChanged.connect(self._refresh_green_preview)
+        self.spin_green_check_frames.valueChanged.connect(self._refresh_green_preview)
+        self.spin_green_margin.valueChanged.connect(self._refresh_green_preview)
+        self.spin_green_saturation_threshold.valueChanged.connect(self._refresh_green_preview)
+        self.spin_green_value_threshold.valueChanged.connect(self._refresh_green_preview)
+        if self._green_preview_path:
+            self._load_green_preview_image(self._green_preview_path)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -214,18 +413,88 @@ class CommandItemDialog(QDialog):
     def _sync_action_type(self):
         use_commands = self.combo_action_type.currentData() == "serial_bundle"
         use_capture_config = self.combo_action_type.currentData() in {"camera_snapshot", "compare_reference"}
+        use_append_reference = self.combo_action_type.currentData() == "append_reference"
         use_compare_config = self.combo_action_type.currentData() == "compare_reference"
+        use_green_config = self.combo_action_type.currentData() == "green_screen_detect"
         self.edit_commands.setVisible(use_commands)
         self.spin_capture_count.setVisible(use_capture_config)
         self.spin_capture_interval.setVisible(use_capture_config)
-        self.edit_reference_category.setVisible(use_compare_config)
-        self.edit_roi_text.setVisible(use_compare_config)
+        self.edit_reference_category.setVisible(use_compare_config or use_append_reference)
+        self.edit_reference_dir.setVisible(use_compare_config or use_append_reference)
+        self.spin_reference_pool_size.setVisible(use_compare_config or use_append_reference)
+        self.edit_roi_text.setVisible(use_compare_config or use_green_config)
+        self.chk_save_diff_heatmap.setVisible(use_compare_config or use_green_config)
+        self.spin_green_ratio_threshold.setVisible(use_green_config)
+        self.spin_green_area_threshold.setVisible(use_green_config)
+        self.spin_green_margin.setVisible(use_green_config)
+        self.spin_green_saturation_threshold.setVisible(use_green_config)
+        self.spin_green_value_threshold.setVisible(use_green_config)
+        self.spin_green_check_frames.setVisible(use_green_config)
+        self.spin_green_check_interval.setVisible(use_green_config)
+        self.lbl_green_help.setVisible(use_green_config)
+        self.btn_pick_green_preview.setVisible(use_green_config)
+        self.lbl_green_preview_info.setVisible(use_green_config)
+        self.lbl_green_preview.setVisible(use_green_config)
         if self.combo_action_type.currentData() == "camera_snapshot":
             self.lbl_action_hint.setText("抓拍保存会按张数和间隔连续留档，适合做批量过程记录。")
+        elif self.combo_action_type.currentData() == "append_reference":
+            self.lbl_action_hint.setText("加入参考图库会把当前画面保存到指定分类目录，可配合剧本循环和等待步做周期性参考更新。")
         elif self.combo_action_type.currentData() == "compare_reference":
             self.lbl_action_hint.setText("检查指定正常照片会先抓拍留档，再到所选参考分类里按 ROI 和阈值自动检图，并输出差异热图。")
+        elif self.combo_action_type.currentData() == "green_screen_detect":
+            self.lbl_action_hint.setText("绿屏检测会在 ROI 内连续取样，按绿像素占比和最大连通域判断是否出现大面积绿屏；命中后会按失败处理。")
         else:
             self.lbl_action_hint.setText("串口指令集会按每行一条顺序发送到设备。")
+        self._refresh_green_preview()
+
+    def _refresh_green_preview(self):
+        if self._green_preview_image is not None:
+            detection = detect_green_screen(
+                self._green_preview_image,
+                _parse_preview_roi_text(self.edit_roi_text.text().strip()),
+                green_ratio_threshold=float(self.spin_green_ratio_threshold.value()),
+                area_ratio_threshold=float(self.spin_green_area_threshold.value()),
+                green_margin=int(self.spin_green_margin.value()),
+                saturation_threshold=int(self.spin_green_saturation_threshold.value()),
+                value_threshold=int(self.spin_green_value_threshold.value()),
+            )
+            combined_preview = _compose_source_and_overlay(self._green_preview_image, detection.get("heatmap"))
+            self.lbl_green_preview.setPixmap(_cv_image_to_pixmap(combined_preview, 820, 420))
+            self.lbl_green_preview_info.setText(
+                f"参考图: {os.path.basename(self._green_preview_path)} | 绿像素占比={float(detection.get('green_ratio', 0.0)):.4f} | "
+                f"最大连通域={float(detection.get('largest_component_ratio', 0.0)):.4f} | 判定={'命中绿屏' if detection.get('detected', False) else '未命中'}"
+            )
+            return
+        self.lbl_green_preview.setPixmap(
+            _build_green_preview_pixmap(
+                self.edit_roi_text.text().strip(),
+                float(self.spin_green_ratio_threshold.value()),
+                float(self.spin_green_area_threshold.value()),
+                int(self.spin_green_check_frames.value()),
+                int(self.spin_green_margin.value()),
+                int(self.spin_green_saturation_threshold.value()),
+                int(self.spin_green_value_threshold.value()),
+            )
+        )
+        self.lbl_green_preview_info.setText("未导入参考图时，显示 ROI 和阈值示意图。")
+
+    def _load_green_preview_image(self, file_path: str):
+        image = cv2.imread(file_path)
+        if image is None:
+            self._green_preview_image = None
+            self._green_preview_path = ""
+            self.lbl_green_preview_info.setText("参考图读取失败，请重新选择。")
+            self._refresh_green_preview()
+            return
+        self._green_preview_image = image
+        self._green_preview_path = file_path
+        self._refresh_green_preview()
+
+    def _pick_green_preview_image(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "选择绿屏预览参考图", "", "Images (*.png *.jpg *.jpeg *.bmp)")
+        if not file_path:
+            return
+        self._load_green_preview_image(file_path)
 
     def get_data(self) -> Dict[str, Any]:
         action_type = self.combo_action_type.currentData()
@@ -237,7 +506,18 @@ class CommandItemDialog(QDialog):
             "capture_count": int(self.spin_capture_count.value()),
             "capture_interval_ms": int(self.spin_capture_interval.value()),
             "reference_category": self.edit_reference_category.text().strip() or "default",
+            "reference_dir": self.edit_reference_dir.text().strip(),
+            "reference_pool_size": int(self.spin_reference_pool_size.value()),
+            "save_diff_heatmap": self.chk_save_diff_heatmap.isChecked(),
             "roi_text": self.edit_roi_text.text().strip(),
+            "green_preview_image": self._green_preview_path,
+            "green_ratio_threshold": float(self.spin_green_ratio_threshold.value()),
+            "green_area_threshold": float(self.spin_green_area_threshold.value()),
+            "green_margin": int(self.spin_green_margin.value()),
+            "green_saturation_threshold": int(self.spin_green_saturation_threshold.value()),
+            "green_value_threshold": int(self.spin_green_value_threshold.value()),
+            "green_check_frames": int(self.spin_green_check_frames.value()),
+            "green_check_interval_ms": int(self.spin_green_check_interval.value()),
         }
 
 
@@ -260,7 +540,7 @@ class ScriptDialog(QDialog):
         self.spin_cycle_interval.setSingleStep(100)
         self.spin_cycle_interval.setValue(int(values.get("cycle_interval_ms", 0)))
         self.spin_cycle_interval.setSuffix(" ms")
-        self.chk_stop_on_fail = QCheckBox("步骤失败时中止整个剧本")
+        self.chk_stop_on_fail = QCheckBox("步骤失败时暂停整个剧本")
         self.chk_stop_on_fail.setChecked(bool(values.get("stop_on_fail", True)))
         form.addRow("剧本名", self.edit_name)
         form.addRow("说明", self.edit_desc)
@@ -300,7 +580,9 @@ class ScriptStepDialog(QDialog):
         "wait": "等待",
         "set_variable": "变量赋值",
         "capture_snapshot": "抓拍保存",
+        "append_reference": "加入参考图库",
         "compare_reference": "检查参考图",
+        "green_screen_detect": "绿屏检测",
     }
 
     _TYPE_HELP = {
@@ -310,14 +592,18 @@ class ScriptStepDialog(QDialog):
         "wait": "仅等待，不发串口；适合留给系统加载或界面切换。",
         "set_variable": "给剧本变量赋值，后续指令和条件表达式都可以引用。",
         "capture_snapshot": "保存当前相机画面到设备联调抓拍目录。",
+        "append_reference": "把当前画面加入指定参考分类目录，可用于剧本内定时刷新稳定参考图。",
         "compare_reference": "把当前画面与指定参考分类对比；支持 ROI、变量回写和失败恢复。",
+        "green_screen_detect": "连续检测当前画面是否出现大面积绿屏；支持 ROI、结果变量、失败恢复和重试。",
     }
 
     def __init__(self, quick_settings: List[Dict[str, Any]], shortcuts: List[Dict[str, Any]], data: Optional[Dict[str, Any]] = None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("编辑剧本步骤")
-        self.resize(620, 560)
+        self.resize(920, 820)
         values = data or {}
+        self._green_preview_image = None
+        self._green_preview_path = values.get("green_preview_image", "")
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
@@ -387,8 +673,52 @@ class ScriptStepDialog(QDialog):
         self.edit_reference_category = QLineEdit(values.get("reference_category", "default"))
         self.edit_reference_category.setPlaceholderText("例如 default / boot / menu")
 
+        self.edit_reference_dir = QLineEdit(values.get("reference_dir", ""))
+        self.edit_reference_dir.setPlaceholderText("参考图库目录，留空时走剧本输出目录或右侧手动目录")
+
+        self.spin_reference_pool_size = QSpinBox()
+        self.spin_reference_pool_size.setRange(1, 50)
+        self.spin_reference_pool_size.setValue(int(values.get("reference_pool_size", 5) or 5))
+
+        self.chk_save_diff_heatmap = QCheckBox("保存差异/掩码图")
+        self.chk_save_diff_heatmap.setChecked(bool(values.get("save_diff_heatmap", True)))
+
         self.edit_roi_text = QLineEdit(values.get("roi_text", ""))
         self.edit_roi_text.setPlaceholderText("例如 0.15,0.10,0.70,0.65，按 x,y,w,h 填 0-1")
+
+        self.spin_green_ratio_threshold = QDoubleSpinBox()
+        self.spin_green_ratio_threshold.setRange(0.01, 1.0)
+        self.spin_green_ratio_threshold.setDecimals(2)
+        self.spin_green_ratio_threshold.setSingleStep(0.01)
+        self.spin_green_ratio_threshold.setValue(float(values.get("green_ratio_threshold", 0.35) or 0.35))
+
+        self.spin_green_area_threshold = QDoubleSpinBox()
+        self.spin_green_area_threshold.setRange(0.01, 1.0)
+        self.spin_green_area_threshold.setDecimals(2)
+        self.spin_green_area_threshold.setSingleStep(0.01)
+        self.spin_green_area_threshold.setValue(float(values.get("green_area_threshold", 0.18) or 0.18))
+
+        self.spin_green_margin = QSpinBox()
+        self.spin_green_margin.setRange(0, 255)
+        self.spin_green_margin.setValue(int(values.get("green_margin", 35) or 35))
+
+        self.spin_green_saturation_threshold = QSpinBox()
+        self.spin_green_saturation_threshold.setRange(0, 255)
+        self.spin_green_saturation_threshold.setValue(int(values.get("green_saturation_threshold", 70) or 70))
+
+        self.spin_green_value_threshold = QSpinBox()
+        self.spin_green_value_threshold.setRange(0, 255)
+        self.spin_green_value_threshold.setValue(int(values.get("green_value_threshold", 60) or 60))
+
+        self.spin_green_check_frames = QSpinBox()
+        self.spin_green_check_frames.setRange(1, 10)
+        self.spin_green_check_frames.setValue(int(values.get("green_check_frames", 3) or 3))
+
+        self.spin_green_check_interval = QSpinBox()
+        self.spin_green_check_interval.setRange(50, 10000)
+        self.spin_green_check_interval.setSingleStep(50)
+        self.spin_green_check_interval.setValue(int(values.get("green_check_interval_ms", 250) or 250))
+        self.spin_green_check_interval.setSuffix(" ms")
 
         self.spin_repeat = QSpinBox()
         self.spin_repeat.setRange(1, 999)
@@ -405,6 +735,18 @@ class ScriptStepDialog(QDialog):
 
         self.lbl_help = QLabel()
         self.lbl_help.setWordWrap(True)
+        self.lbl_green_help = QLabel(_green_help_text())
+        self.lbl_green_help.setWordWrap(True)
+        preview_row = QHBoxLayout()
+        self.btn_pick_green_preview = QPushButton("导入参考图")
+        self.btn_pick_green_preview.clicked.connect(self._pick_green_preview_image)
+        self.lbl_green_preview_info = QLabel("未导入参考图时，显示 ROI 和阈值示意图。")
+        self.lbl_green_preview_info.setWordWrap(True)
+        preview_row.addWidget(self.btn_pick_green_preview)
+        preview_row.addWidget(self.lbl_green_preview_info, 1)
+        self.lbl_green_preview = QLabel()
+        self.lbl_green_preview.setMinimumHeight(380)
+        self.lbl_green_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         form.addRow("步骤类型", self.combo_type)
         form.addRow("执行条件", self.edit_condition)
@@ -419,7 +761,17 @@ class ScriptStepDialog(QDialog):
         form.addRow("结果变量", self.edit_result_variable)
         form.addRow("恢复动作", self.combo_recovery_shortcut)
         form.addRow("参考分类", self.edit_reference_category)
+        form.addRow("参考图库目录", self.edit_reference_dir)
+        form.addRow("图库样本上限", self.spin_reference_pool_size)
         form.addRow("ROI 区域", self.edit_roi_text)
+        form.addRow("产物开关", self.chk_save_diff_heatmap)
+        form.addRow("绿像素占比阈值", self.spin_green_ratio_threshold)
+        form.addRow("最大连通域阈值", self.spin_green_area_threshold)
+        form.addRow("绿色通道领先值", self.spin_green_margin)
+        form.addRow("饱和度下限", self.spin_green_saturation_threshold)
+        form.addRow("亮度下限", self.spin_green_value_threshold)
+        form.addRow("连续命中帧数", self.spin_green_check_frames)
+        form.addRow("取样间隔", self.spin_green_check_interval)
         form.addRow("失败重试", self.spin_retry_count)
         form.addRow("重试间隔", self.spin_retry_interval)
         form.addRow("失败策略", self.chk_pause_on_fail)
@@ -428,6 +780,9 @@ class ScriptStepDialog(QDialog):
         form.addRow("备注", self.edit_note)
         layout.addLayout(form)
         layout.addWidget(self.lbl_help)
+        layout.addLayout(preview_row)
+        layout.addWidget(self.lbl_green_help)
+        layout.addWidget(self.lbl_green_preview)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -448,6 +803,15 @@ class ScriptStepDialog(QDialog):
                 self.combo_shortcut.setCurrentIndex(shortcut_index)
         self.combo_type.currentIndexChanged.connect(self._sync_type_widgets)
         self._sync_type_widgets()
+        self.edit_roi_text.textChanged.connect(self._refresh_green_preview)
+        self.spin_green_ratio_threshold.valueChanged.connect(self._refresh_green_preview)
+        self.spin_green_area_threshold.valueChanged.connect(self._refresh_green_preview)
+        self.spin_green_check_frames.valueChanged.connect(self._refresh_green_preview)
+        self.spin_green_margin.valueChanged.connect(self._refresh_green_preview)
+        self.spin_green_saturation_threshold.valueChanged.connect(self._refresh_green_preview)
+        self.spin_green_value_threshold.valueChanged.connect(self._refresh_green_preview)
+        if self._green_preview_path:
+            self._load_green_preview_image(self._green_preview_path)
 
     def _sync_type_widgets(self):
         current_type = self.combo_type.currentData()
@@ -457,7 +821,10 @@ class ScriptStepDialog(QDialog):
         show_wait = current_type == "wait"
         show_variable = current_type == "set_variable"
         show_capture = current_type == "capture_snapshot"
+        show_append_reference = current_type == "append_reference"
         show_compare = current_type == "compare_reference"
+        show_green = current_type == "green_screen_detect"
+        show_detect_result = show_compare or show_green
 
         self.combo_setting.setVisible(show_setting)
         self.combo_shortcut.setVisible(show_shortcut)
@@ -467,14 +834,82 @@ class ScriptStepDialog(QDialog):
         self.edit_variable_value.setVisible(show_variable)
         self.spin_capture_count.setVisible(show_capture)
         self.spin_capture_interval.setVisible(show_capture)
-        self.edit_result_variable.setVisible(show_compare)
-        self.combo_recovery_shortcut.setVisible(show_compare)
-        self.edit_reference_category.setVisible(show_compare)
-        self.edit_roi_text.setVisible(show_compare)
-        self.spin_retry_count.setVisible(show_compare)
-        self.spin_retry_interval.setVisible(show_compare)
-        self.chk_pause_on_fail.setVisible(show_compare)
+        self.edit_result_variable.setVisible(show_detect_result)
+        self.combo_recovery_shortcut.setVisible(show_detect_result)
+        self.edit_reference_category.setVisible(show_compare or show_append_reference)
+        self.edit_reference_dir.setVisible(show_compare or show_append_reference)
+        self.spin_reference_pool_size.setVisible(show_compare or show_append_reference)
+        self.edit_roi_text.setVisible(show_compare or show_green)
+        self.chk_save_diff_heatmap.setVisible(show_detect_result)
+        self.spin_green_ratio_threshold.setVisible(show_green)
+        self.spin_green_area_threshold.setVisible(show_green)
+        self.spin_green_margin.setVisible(show_green)
+        self.spin_green_saturation_threshold.setVisible(show_green)
+        self.spin_green_value_threshold.setVisible(show_green)
+        self.spin_green_check_frames.setVisible(show_green)
+        self.spin_green_check_interval.setVisible(show_green)
+        self.btn_pick_green_preview.setVisible(show_green)
+        self.lbl_green_preview_info.setVisible(show_green)
+        self.lbl_green_help.setVisible(show_green)
+        self.lbl_green_preview.setVisible(show_green)
+        self.spin_retry_count.setVisible(show_detect_result)
+        self.spin_retry_interval.setVisible(show_detect_result)
+        self.chk_pause_on_fail.setVisible(show_detect_result)
+        if show_green:
+            self.edit_result_variable.setPlaceholderText("例如 screen_ok；未检出绿屏会写入 true")
+        elif show_compare:
+            self.edit_result_variable.setPlaceholderText("例如 boot_ok，检图结果会写入 true/false")
         self.lbl_help.setText(self._TYPE_HELP.get(current_type, ""))
+        self._refresh_green_preview()
+
+    def _refresh_green_preview(self):
+        if self._green_preview_image is not None:
+            detection = detect_green_screen(
+                self._green_preview_image,
+                _parse_preview_roi_text(self.edit_roi_text.text().strip()),
+                green_ratio_threshold=float(self.spin_green_ratio_threshold.value()),
+                area_ratio_threshold=float(self.spin_green_area_threshold.value()),
+                green_margin=int(self.spin_green_margin.value()),
+                saturation_threshold=int(self.spin_green_saturation_threshold.value()),
+                value_threshold=int(self.spin_green_value_threshold.value()),
+            )
+            combined_preview = _compose_source_and_overlay(self._green_preview_image, detection.get("heatmap"))
+            self.lbl_green_preview.setPixmap(_cv_image_to_pixmap(combined_preview, 820, 420))
+            self.lbl_green_preview_info.setText(
+                f"参考图: {os.path.basename(self._green_preview_path)} | 绿像素占比={float(detection.get('green_ratio', 0.0)):.4f} | "
+                f"最大连通域={float(detection.get('largest_component_ratio', 0.0)):.4f} | 判定={'命中绿屏' if detection.get('detected', False) else '未命中'}"
+            )
+            return
+        self.lbl_green_preview.setPixmap(
+            _build_green_preview_pixmap(
+                self.edit_roi_text.text().strip(),
+                float(self.spin_green_ratio_threshold.value()),
+                float(self.spin_green_area_threshold.value()),
+                int(self.spin_green_check_frames.value()),
+                int(self.spin_green_margin.value()),
+                int(self.spin_green_saturation_threshold.value()),
+                int(self.spin_green_value_threshold.value()),
+            )
+        )
+        self.lbl_green_preview_info.setText("未导入参考图时，显示 ROI 和阈值示意图。")
+
+    def _load_green_preview_image(self, file_path: str):
+        image = cv2.imread(file_path)
+        if image is None:
+            self._green_preview_image = None
+            self._green_preview_path = ""
+            self.lbl_green_preview_info.setText("参考图读取失败，请重新选择。")
+            self._refresh_green_preview()
+            return
+        self._green_preview_image = image
+        self._green_preview_path = file_path
+        self._refresh_green_preview()
+
+    def _pick_green_preview_image(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "选择绿屏预览参考图", "", "Images (*.png *.jpg *.jpeg *.bmp)")
+        if not file_path:
+            return
+        self._load_green_preview_image(file_path)
 
     def _on_accept(self):
         current_type = self.combo_type.currentData()
@@ -523,7 +958,18 @@ class ScriptStepDialog(QDialog):
             "result_variable": self.edit_result_variable.text().strip(),
             "recovery_target": self.combo_recovery_shortcut.currentData() or "",
             "reference_category": self.edit_reference_category.text().strip() or "default",
+            "reference_dir": self.edit_reference_dir.text().strip(),
+            "reference_pool_size": int(self.spin_reference_pool_size.value()),
+            "save_diff_heatmap": self.chk_save_diff_heatmap.isChecked(),
             "roi_text": self.edit_roi_text.text().strip(),
+            "green_preview_image": self._green_preview_path,
+            "green_ratio_threshold": float(self.spin_green_ratio_threshold.value()),
+            "green_area_threshold": float(self.spin_green_area_threshold.value()),
+            "green_margin": int(self.spin_green_margin.value()),
+            "green_saturation_threshold": int(self.spin_green_saturation_threshold.value()),
+            "green_value_threshold": int(self.spin_green_value_threshold.value()),
+            "green_check_frames": int(self.spin_green_check_frames.value()),
+            "green_check_interval_ms": int(self.spin_green_check_interval.value()),
         }
 
 
@@ -676,6 +1122,18 @@ class DeviceLabPage(QWidget):
         self._snapshot_batch_dir = ""
         self._snapshot_batch_token = ""
         self._last_snapshot_path = ""
+        self._last_run_output_dir = ""
+        self._active_run_context: Optional[Dict[str, Any]] = None
+        self._queue_paused = False
+        self._queue_busy = False
+        self._script_camera_capture = None
+        self._running_step_id: Optional[str] = None
+        self._last_preview_render_at = 0.0
+        self._last_preview_size = None
+        self._run_metrics: Dict[str, Any] = {}
+        self._run_stats_timer = QTimer(self)
+        self._run_stats_timer.setInterval(1000)
+        self._run_stats_timer.timeout.connect(self._update_run_stats)
         self._reference_capture_timer = QTimer(self)
         self._reference_capture_timer.timeout.connect(self._attempt_auto_reference_capture)
         self._reference_reject_count = 0
@@ -699,7 +1157,7 @@ class DeviceLabPage(QWidget):
         self._init_ui()
         self._load_profile_to_ui()
         self._refresh_serial_ports()
-        self._scan_cameras()
+        self._refresh_queue_controls()
 
     def _init_ui(self):
         root_layout = QVBoxLayout(self)
@@ -759,7 +1217,7 @@ class DeviceLabPage(QWidget):
         right_layout.addStretch(1)
         right_scroll.setWidget(right_wrap)
         splitter.addWidget(right_scroll)
-        splitter.setSizes([760, 540])
+        splitter.setSizes([700, 620])
 
     def _build_serial_card(self) -> QGroupBox:
         card = QGroupBox("串口工作台")
@@ -923,6 +1381,14 @@ class DeviceLabPage(QWidget):
         self.lbl_step_detail.setWordWrap(True)
         layout.addWidget(self.lbl_step_detail)
 
+        self.lbl_run_output = QLabel("输出目录: 待执行")
+        self.lbl_run_output.setWordWrap(True)
+        layout.addWidget(self.lbl_run_output)
+
+        self.lbl_run_stats = QLabel("运行状态: 空闲")
+        self.lbl_run_stats.setWordWrap(True)
+        layout.addWidget(self.lbl_run_stats)
+
         row = QHBoxLayout()
         for text, slot, primary in [
             ("新增剧本", self._add_script, False),
@@ -939,6 +1405,20 @@ class DeviceLabPage(QWidget):
             button.setObjectName("lab_primary" if primary else "lab_secondary")
             button.clicked.connect(slot)
             row.addWidget(button)
+        self.btn_script_pause = QPushButton("暂停执行")
+        self.btn_script_pause.setObjectName("lab_secondary")
+        self.btn_script_pause.setEnabled(False)
+        self.btn_script_pause.clicked.connect(self._toggle_script_pause)
+        row.addWidget(self.btn_script_pause)
+        self.btn_open_output_dir = QPushButton("打开输出目录")
+        self.btn_open_output_dir.setObjectName("lab_secondary")
+        self.btn_open_output_dir.clicked.connect(self._open_run_output_dir)
+        row.addWidget(self.btn_open_output_dir)
+        self.btn_script_stop = QPushButton("停止执行")
+        self.btn_script_stop.setObjectName("lab_secondary")
+        self.btn_script_stop.setEnabled(False)
+        self.btn_script_stop.clicked.connect(self._stop_script_run)
+        row.addWidget(self.btn_script_stop)
         layout.addLayout(row)
         return card
 
@@ -961,6 +1441,9 @@ class DeviceLabPage(QWidget):
         btn_snapshot = QPushButton("抓拍保存")
         btn_snapshot.setObjectName("lab_secondary")
         btn_snapshot.clicked.connect(self._save_camera_snapshot)
+        btn_open_snapshot_dir = QPushButton("打开保存路径")
+        btn_open_snapshot_dir.setObjectName("lab_secondary")
+        btn_open_snapshot_dir.clicked.connect(self._open_snapshot_dir)
         row.addWidget(QLabel("相机"))
         row.addWidget(self.combo_camera, 1)
         row.addWidget(QLabel("扫描上限"))
@@ -968,6 +1451,7 @@ class DeviceLabPage(QWidget):
         row.addWidget(btn_scan)
         row.addWidget(self.btn_camera_toggle)
         row.addWidget(btn_snapshot)
+        row.addWidget(btn_open_snapshot_dir)
         layout.addLayout(row)
 
         preview_tools = QHBoxLayout()
@@ -983,29 +1467,13 @@ class DeviceLabPage(QWidget):
         preview_tools.addStretch(1)
         layout.addLayout(preview_tools)
 
-        adaptive_row = QHBoxLayout()
         self.edit_reference_dir = QLineEdit()
         self.edit_reference_dir.setPlaceholderText("参考图库目录")
         self.edit_reference_dir.editingFinished.connect(self._persist_profile)
-        btn_pick_reference_dir = QPushButton("选择图库目录")
-        btn_pick_reference_dir.setObjectName("lab_secondary")
-        btn_pick_reference_dir.clicked.connect(self._browse_reference_dir)
         self.spin_reference_pool_size = QSpinBox()
         self.spin_reference_pool_size.setRange(1, 20)
         self.spin_reference_pool_size.setValue(5)
         self.spin_reference_pool_size.valueChanged.connect(lambda _v: self._persist_profile())
-        btn_compare_now = QPushButton("立即检图")
-        btn_compare_now.setObjectName("lab_primary")
-        btn_compare_now.clicked.connect(self._compare_current_frame_with_reference)
-        adaptive_row.addWidget(QLabel("图库目录"))
-        adaptive_row.addWidget(self.edit_reference_dir, 1)
-        adaptive_row.addWidget(btn_pick_reference_dir)
-        adaptive_row.addWidget(QLabel("图库上限"))
-        adaptive_row.addWidget(self.spin_reference_pool_size)
-        adaptive_row.addWidget(btn_compare_now)
-        layout.addLayout(adaptive_row)
-
-        compare_option_row = QHBoxLayout()
         self.edit_reference_category = QLineEdit()
         self.edit_reference_category.setPlaceholderText("参考分类，例如 default / boot / menu")
         self.edit_reference_category.editingFinished.connect(self._persist_profile)
@@ -1014,14 +1482,6 @@ class DeviceLabPage(QWidget):
         self.edit_compare_roi.editingFinished.connect(self._persist_profile)
         self.chk_save_diff_heatmap = QCheckBox("检图时生成差异热图")
         self.chk_save_diff_heatmap.toggled.connect(lambda _checked: self._persist_profile())
-        compare_option_row.addWidget(QLabel("参考分类"))
-        compare_option_row.addWidget(self.edit_reference_category)
-        compare_option_row.addWidget(QLabel("ROI"))
-        compare_option_row.addWidget(self.edit_compare_roi, 1)
-        compare_option_row.addWidget(self.chk_save_diff_heatmap)
-        layout.addLayout(compare_option_row)
-
-        auto_ref_row = QHBoxLayout()
         self.chk_auto_reference = QCheckBox("自动更新稳定参考图")
         self.chk_auto_reference.toggled.connect(self._toggle_auto_reference_capture)
         self.spin_auto_reference_interval = QSpinBox()
@@ -1034,21 +1494,13 @@ class DeviceLabPage(QWidget):
         self.spin_auto_reference_retry.setRange(1, 20)
         self.spin_auto_reference_retry.setValue(3)
         self.spin_auto_reference_retry.valueChanged.connect(lambda _v: self._persist_profile())
-        btn_add_reference_now = QPushButton("当前帧加入图库")
-        btn_add_reference_now.setObjectName("lab_secondary")
-        btn_add_reference_now.clicked.connect(self._append_current_frame_to_reference_pool)
-        auto_ref_row.addWidget(self.chk_auto_reference)
-        auto_ref_row.addWidget(QLabel("周期"))
-        auto_ref_row.addWidget(self.spin_auto_reference_interval)
-        auto_ref_row.addWidget(QLabel("最大重试"))
-        auto_ref_row.addWidget(self.spin_auto_reference_retry)
-        auto_ref_row.addWidget(btn_add_reference_now)
-        auto_ref_row.addStretch(1)
-        layout.addLayout(auto_ref_row)
-
         self.lbl_reference_meta = QLabel("参考图库: 0 张")
         self.lbl_reference_meta.setWordWrap(True)
-        layout.addWidget(self.lbl_reference_meta)
+        self.lbl_reference_meta.setVisible(False)
+
+        hint = QLabel("拍摄参数已迁移到快捷指令和剧本步骤。右侧仅保留手动预览与抓拍回显。")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
 
         self.lbl_camera_meta = QLabel("等待扫描 USB 相机")
         layout.addWidget(self.lbl_camera_meta)
@@ -1132,7 +1584,7 @@ class DeviceLabPage(QWidget):
         self.edit_compare_roi.setText(camera_data.get("compare_roi", ""))
         self.chk_save_diff_heatmap.setChecked(bool(camera_data.get("save_diff_heatmap", True)))
         self.spin_reference_pool_size.setValue(int(camera_data.get("reference_pool_size", 5)))
-        self.chk_auto_reference.setChecked(bool(camera_data.get("auto_reference_enabled", False)))
+        self.chk_auto_reference.setChecked(False)
         self.spin_auto_reference_interval.setValue(int(camera_data.get("auto_reference_interval_ms", 5000)))
         self.spin_auto_reference_retry.setValue(int(camera_data.get("auto_reference_max_retry", 3)))
         self.chk_remote_edit_mode.setChecked(bool(self._profile.get("remote", {}).get("edit_mode", False)))
@@ -1168,10 +1620,20 @@ class DeviceLabPage(QWidget):
             return
         if data.get("action_type") == "camera_snapshot":
             detail = f"相机动作: 抓拍保存 x{int(data.get('capture_count', 1) or 1)}，间隔 {int(data.get('capture_interval_ms', 1000) or 1000)} ms"
+        elif data.get("action_type") == "append_reference":
+            category = data.get("reference_category", "default") or "default"
+            detail = f"相机动作: 当前帧写入参考图库[{category}]，样本上限={int(data.get('reference_pool_size', 5) or 5)}"
         elif data.get("action_type") == "compare_reference":
             category = data.get("reference_category", "default") or "default"
             roi_text = data.get("roi_text", "").strip() or "全图"
-            detail = f"相机动作: 先抓拍留档，再按分类 {category} 自动检图，ROI={roi_text}"
+            detail = f"相机动作: 先抓拍留档，再按分类 {category} 自动检图，ROI={roi_text}，热图={'开' if data.get('save_diff_heatmap', True) else '关'}"
+        elif data.get("action_type") == "green_screen_detect":
+            roi_text = data.get("roi_text", "").strip() or "全图"
+            detail = (
+                f"相机动作: 连续检测绿屏，ROI={roi_text}，"
+                f"占比阈值={float(data.get('green_ratio_threshold', 0.35) or 0.35):.2f}，"
+                f"连通域阈值={float(data.get('green_area_threshold', 0.18) or 0.18):.2f}，热图={'开' if data.get('save_diff_heatmap', True) else '关'}"
+            )
         else:
             commands_text = " | ".join(data.get("commands", [])[:3]) or "无指令"
             detail = f"指令: {commands_text}"
@@ -1241,7 +1703,7 @@ class DeviceLabPage(QWidget):
             f"{script.get('description', '无说明')}\n"
             f"循环次数: {int(script.get('run_count', 1) or 1)} | "
             f"轮次间隔: {int(script.get('cycle_interval_ms', 0) or 0)} ms | "
-            f"失败策略: {'失败即停' if script.get('stop_on_fail', True) else '失败继续'}"
+            f"失败策略: {'失败暂停' if script.get('stop_on_fail', True) else '失败继续'}"
         )
         self._refresh_script_steps()
 
@@ -1312,9 +1774,16 @@ class DeviceLabPage(QWidget):
             base = f"变量赋值 {step.get('variable_name', '')}={step.get('variable_value', '')}"
         elif step_type == "capture_snapshot":
             base = f"抓拍保存 {max(1, int(step.get('capture_count', 1) or 1))}张"
+        elif step_type == "append_reference":
+            category = step.get("reference_category", "default") or "default"
+            base = f"加入参考图库[{category}]"
         elif step_type == "compare_reference":
             category = step.get("reference_category", "default") or "default"
             base = f"检查参考图库[{category}]"
+        elif step_type == "green_screen_detect":
+            base = (
+                f"绿屏检测[{step.get('roi_text', '').strip() or '全图'}]"
+            )
         else:
             base = step.get("command", "串口指令") or "串口指令"
         if repeat > 1:
@@ -1333,10 +1802,16 @@ class DeviceLabPage(QWidget):
         if step.get("type") == "capture_snapshot":
             lines.append(f"单次抓拍张数: {max(1, int(step.get('capture_count', 1) or 1))}")
             lines.append(f"单次抓拍间隔: {int(step.get('capture_interval_ms', 1000) or 1000)} ms")
-        if step.get("type") == "compare_reference":
-            lines.append(f"参考图库: {self.edit_reference_dir.text().strip() or '未指定'}")
+        if step.get("type") == "append_reference":
+            lines.append(f"参考图库: {step.get('reference_dir', '').strip() or self.edit_reference_dir.text().strip() or '未指定'}")
             lines.append(f"参考分类: {step.get('reference_category', 'default') or 'default'}")
+            lines.append(f"图库样本上限: {int(step.get('reference_pool_size', self.spin_reference_pool_size.value()) or self.spin_reference_pool_size.value())}")
+        if step.get("type") == "compare_reference":
+            lines.append(f"参考图库: {step.get('reference_dir', '').strip() or self.edit_reference_dir.text().strip() or '未指定'}")
+            lines.append(f"参考分类: {step.get('reference_category', 'default') or 'default'}")
+            lines.append(f"图库样本上限: {int(step.get('reference_pool_size', self.spin_reference_pool_size.value()) or self.spin_reference_pool_size.value())}")
             lines.append(f"ROI 区域: {step.get('roi_text', '').strip() or '全图'}")
+            lines.append("热图输出: 开" if step.get("save_diff_heatmap", True) else "热图输出: 关")
             if step.get("result_variable"):
                 lines.append(f"结果变量: {step.get('result_variable')}")
             if step.get("recovery_target"):
@@ -1344,6 +1819,23 @@ class DeviceLabPage(QWidget):
             lines.append(f"失败重试: {int(step.get('retry_count', 0) or 0)} 次")
             lines.append(f"重试间隔: {int(step.get('retry_interval_ms', 1000) or 1000)} ms")
             lines.append("失败策略: 不通过暂停" if step.get("pause_on_fail", True) else "失败策略: 仅记录失败")
+        if step.get("type") == "green_screen_detect":
+            lines.append(f"ROI 区域: {step.get('roi_text', '').strip() or '全图'}")
+            lines.append("掩码图输出: 开" if step.get("save_diff_heatmap", True) else "掩码图输出: 关")
+            lines.append(f"绿像素占比阈值: {float(step.get('green_ratio_threshold', 0.35) or 0.35):.2f}")
+            lines.append(f"最大连通域阈值: {float(step.get('green_area_threshold', 0.18) or 0.18):.2f}")
+            lines.append(f"绿色通道领先值: {int(step.get('green_margin', 35) or 35)}")
+            lines.append(f"饱和度下限: {int(step.get('green_saturation_threshold', 70) or 70)}")
+            lines.append(f"亮度下限: {int(step.get('green_value_threshold', 60) or 60)}")
+            lines.append(f"连续命中帧数: {int(step.get('green_check_frames', 3) or 3)}")
+            lines.append(f"取样间隔: {int(step.get('green_check_interval_ms', 250) or 250)} ms")
+            if step.get("result_variable"):
+                lines.append(f"结果变量: {step.get('result_variable')}")
+            if step.get("recovery_target"):
+                lines.append(f"恢复动作: {step.get('recovery_target')}")
+            lines.append(f"失败重试: {int(step.get('retry_count', 0) or 0)} 次")
+            lines.append(f"重试间隔: {int(step.get('retry_interval_ms', 1000) or 1000)} ms")
+            lines.append("失败策略: 检出即暂停" if step.get("pause_on_fail", True) else "失败策略: 仅记录命中")
         if step.get("note"):
             lines.append(f"说明: {step.get('note')}")
         return "\n".join(lines)
@@ -1702,14 +2194,24 @@ class DeviceLabPage(QWidget):
 
     def _queue_commands(self, steps: List[Dict[str, Any]]):
         self._command_queue.extend(steps)
+        self._queue_paused = False
+        self._refresh_queue_controls()
         if not self._queue_timer.isActive():
             self._process_next_queue_item()
 
     def _process_next_queue_item(self):
-        if not self._command_queue:
-            self._log("执行队列完成")
+        if self._queue_paused:
+            self._refresh_queue_controls()
             return
+        if not self._command_queue:
+            self._queue_busy = False
+            self._log("执行队列完成")
+            self._finish_queue_run("执行队列完成")
+            return
+        self._queue_busy = True
+        self._refresh_queue_controls()
         action = self._command_queue.pop(0)
+        self._highlight_running_step(action.get("step_id"))
         action_type = action.get("type", "serial")
         delay_seconds = float(action.get("delay_seconds", 0.0) or 0.0)
         source = self._interpolate_text(action.get("source", "设备联调"))
@@ -1719,7 +2221,9 @@ class DeviceLabPage(QWidget):
 
         if not self._evaluate_condition(action.get("condition", "")):
             self._log(f"条件不满足，跳过: {source}", "WARN")
+            self._queue_busy = False
             self._queue_timer.start(max(0, int(delay_seconds * 1000)))
+            self._refresh_queue_controls()
             return
 
         success = True
@@ -1735,21 +2239,48 @@ class DeviceLabPage(QWidget):
                 self._log(f"变量写入: {variable_name}={variable_value}")
         elif action_type == "capture_snapshot":
             success = bool(self._capture_snapshot_frame(file_prefix=action.get("file_prefix", "snapshot")))
+        elif action_type == "append_reference":
+            success = self._append_current_frame_to_reference_pool(
+                quiet=True,
+                category=action.get("reference_category", "default"),
+                reference_dir_override=action.get("reference_dir", ""),
+            )
         elif action_type == "compare_reference":
             success = self._compare_against_reference(
                 pause_on_fail=bool(action.get("pause_on_fail", True)),
                 source=source,
                 save_snapshot=bool(action.get("save_snapshot", True)),
                 category=action.get("reference_category", "default"),
+                reference_dir=action.get("reference_dir", ""),
+                reference_pool_size=int(action.get("reference_pool_size", self.spin_reference_pool_size.value()) or self.spin_reference_pool_size.value()),
+                save_diff_heatmap=bool(action.get("save_diff_heatmap", True)),
                 roi_text=action.get("roi_text", ""),
                 result_variable=action.get("result_variable", ""),
+            )
+        elif action_type == "green_screen_detect":
+            success = self._detect_green_screen(
+                pause_on_fail=bool(action.get("pause_on_fail", True)),
+                source=source,
+                save_snapshot=bool(action.get("save_snapshot", True)),
+                roi_text=action.get("roi_text", ""),
+                result_variable=action.get("result_variable", ""),
+                save_diff_heatmap=bool(action.get("save_diff_heatmap", True)),
+                green_ratio_threshold=float(action.get("green_ratio_threshold", 0.35) or 0.35),
+                green_area_threshold=float(action.get("green_area_threshold", 0.18) or 0.18),
+                green_margin=int(action.get("green_margin", 35) or 35),
+                green_saturation_threshold=int(action.get("green_saturation_threshold", 70) or 70),
+                green_value_threshold=int(action.get("green_value_threshold", 60) or 60),
+                green_check_frames=int(action.get("green_check_frames", 3) or 3),
+                green_check_interval_ms=int(action.get("green_check_interval_ms", 250) or 250),
             )
 
         if not success and retry_count > 0:
             action["retry_count"] = retry_count - 1
             self._command_queue.insert(0, action)
             self._log(f"执行失败，准备重试: {source}，剩余 {retry_count} 次", "WARN")
+            self._queue_busy = False
             self._queue_timer.start(max(0, retry_interval_ms))
+            self._refresh_queue_controls()
             return
 
         if not success and action.get("recovery_target"):
@@ -1761,13 +2292,18 @@ class DeviceLabPage(QWidget):
 
         if not success and stop_on_fail:
             self._queue_timer.stop()
-            self._command_queue.clear()
-            self._log(f"执行队列已中止: {source}", "ERROR")
+            self._queue_paused = True
+            self._log(f"执行失败，已暂停: {source}", "ERROR")
+            self._queue_busy = False
+            self._update_run_stats(force_status="失败暂停")
+            self._refresh_queue_controls()
             return
         if not success:
             self._log(f"执行失败但按配置继续: {source}", "WARN")
 
+        self._queue_busy = False
         self._queue_timer.start(max(0, int(delay_seconds * 1000)))
+        self._refresh_queue_controls()
 
     def _build_actions_from_shortcut(self, item: Optional[Dict[str, Any]], source_prefix: str, stop_on_fail: bool = True) -> List[Dict[str, Any]]:
         if not item:
@@ -1786,6 +2322,16 @@ class DeviceLabPage(QWidget):
                     "file_prefix": "shortcut_snapshot",
                 })
             return actions
+        if action_type == "append_reference":
+            return [{
+                "type": "append_reference",
+                "delay_seconds": 0.25,
+                "source": f"{source_prefix} {item['name']}",
+                "stop_on_fail": stop_on_fail,
+                "reference_category": item.get("reference_category", "default"),
+                "reference_dir": item.get("reference_dir", ""),
+                "reference_pool_size": int(item.get("reference_pool_size", 5) or 5),
+            }]
         if action_type == "compare_reference":
             return [{
                 "type": "compare_reference",
@@ -1795,7 +2341,28 @@ class DeviceLabPage(QWidget):
                 "stop_on_fail": stop_on_fail,
                 "save_snapshot": True,
                 "reference_category": item.get("reference_category", "default"),
+                "reference_dir": item.get("reference_dir", ""),
+                "reference_pool_size": int(item.get("reference_pool_size", 5) or 5),
+                "save_diff_heatmap": bool(item.get("save_diff_heatmap", True)),
                 "roi_text": item.get("roi_text", ""),
+            }]
+        if action_type == "green_screen_detect":
+            return [{
+                "type": "green_screen_detect",
+                "pause_on_fail": True,
+                "delay_seconds": 0.25,
+                "source": f"{source_prefix} {item['name']}",
+                "stop_on_fail": stop_on_fail,
+                "save_snapshot": True,
+                "roi_text": item.get("roi_text", ""),
+                "save_diff_heatmap": bool(item.get("save_diff_heatmap", True)),
+                "green_ratio_threshold": item.get("green_ratio_threshold", 0.35),
+                "green_area_threshold": item.get("green_area_threshold", 0.18),
+                "green_margin": item.get("green_margin", 35),
+                "green_saturation_threshold": item.get("green_saturation_threshold", 70),
+                "green_value_threshold": item.get("green_value_threshold", 60),
+                "green_check_frames": item.get("green_check_frames", 3),
+                "green_check_interval_ms": item.get("green_check_interval_ms", 250),
             }]
         return [
             {"type": "serial", "command": command, "delay_seconds": 0.25, "source": f"{source_prefix} {item['name']}", "stop_on_fail": stop_on_fail}
@@ -1814,16 +2381,17 @@ class DeviceLabPage(QWidget):
                 item = self._find_item_by_name(self._profile.get("quick_settings", []), step.get("target", ""))
                 if item:
                     for command in item.get("commands", []):
-                        actions.append({"type": "serial", "command": command, "delay_seconds": delay_seconds, "source": source, "stop_on_fail": stop_on_fail, "condition": step.get("condition", "")})
+                        actions.append({"type": "serial", "command": command, "delay_seconds": delay_seconds, "source": source, "stop_on_fail": stop_on_fail, "condition": step.get("condition", ""), "step_id": step.get("id", "")})
             elif step_type == "shortcut":
                 item = self._find_item_by_name(self._profile.get("shortcuts", []), step.get("target", ""))
                 shortcut_actions = self._build_actions_from_shortcut(item, "剧本步骤", stop_on_fail=stop_on_fail)
                 for shortcut_action in shortcut_actions:
                     shortcut_action["delay_seconds"] = delay_seconds
                     shortcut_action["condition"] = step.get("condition", "")
+                    shortcut_action["step_id"] = step.get("id", "")
                 actions.extend(shortcut_actions)
             elif step_type == "wait":
-                actions.append({"type": "wait", "delay_seconds": float(step.get("seconds", 0.0) or 0.0), "source": source, "stop_on_fail": stop_on_fail, "condition": step.get("condition", "")})
+                actions.append({"type": "wait", "delay_seconds": float(step.get("seconds", 0.0) or 0.0), "source": source, "stop_on_fail": stop_on_fail, "condition": step.get("condition", ""), "step_id": step.get("id", "")})
             elif step_type == "set_variable":
                 actions.append({
                     "type": "set_variable",
@@ -1833,6 +2401,7 @@ class DeviceLabPage(QWidget):
                     "condition": step.get("condition", ""),
                     "variable_name": step.get("variable_name", ""),
                     "variable_value": step.get("variable_value", ""),
+                    "step_id": step.get("id", ""),
                 })
             elif step_type == "capture_snapshot":
                 capture_count = max(1, int(step.get("capture_count", 1) or 1))
@@ -1845,7 +2414,20 @@ class DeviceLabPage(QWidget):
                         "stop_on_fail": stop_on_fail,
                         "file_prefix": "script_snapshot",
                         "condition": step.get("condition", ""),
+                        "step_id": step.get("id", ""),
                     })
+            elif step_type == "append_reference":
+                actions.append({
+                    "type": "append_reference",
+                    "delay_seconds": delay_seconds,
+                    "source": source,
+                    "stop_on_fail": stop_on_fail,
+                    "condition": step.get("condition", ""),
+                    "reference_category": step.get("reference_category", "default"),
+                    "reference_dir": step.get("reference_dir", ""),
+                    "reference_pool_size": int(step.get("reference_pool_size", 5) or 5),
+                    "step_id": step.get("id", ""),
+                })
             elif step_type == "compare_reference":
                 actions.append({
                     "type": "compare_reference",
@@ -1858,14 +2440,42 @@ class DeviceLabPage(QWidget):
                     "retry_interval_ms": int(step.get("retry_interval_ms", 1000) or 1000),
                     "condition": step.get("condition", ""),
                     "reference_category": step.get("reference_category", "default"),
+                    "reference_dir": step.get("reference_dir", ""),
+                    "reference_pool_size": int(step.get("reference_pool_size", 5) or 5),
+                    "save_diff_heatmap": bool(step.get("save_diff_heatmap", True)),
                     "roi_text": step.get("roi_text", ""),
                     "result_variable": step.get("result_variable", ""),
                     "recovery_target": step.get("recovery_target", ""),
+                    "step_id": step.get("id", ""),
+                })
+            elif step_type == "green_screen_detect":
+                actions.append({
+                    "type": "green_screen_detect",
+                    "pause_on_fail": bool(step.get("pause_on_fail", True)),
+                    "delay_seconds": delay_seconds,
+                    "source": source,
+                    "stop_on_fail": stop_on_fail,
+                    "save_snapshot": True,
+                    "retry_count": int(step.get("retry_count", 0) or 0),
+                    "retry_interval_ms": int(step.get("retry_interval_ms", 1000) or 1000),
+                    "condition": step.get("condition", ""),
+                    "roi_text": step.get("roi_text", ""),
+                    "save_diff_heatmap": bool(step.get("save_diff_heatmap", True)),
+                    "result_variable": step.get("result_variable", ""),
+                    "recovery_target": step.get("recovery_target", ""),
+                    "step_id": step.get("id", ""),
+                    "green_ratio_threshold": float(step.get("green_ratio_threshold", 0.35) or 0.35),
+                    "green_area_threshold": float(step.get("green_area_threshold", 0.18) or 0.18),
+                    "green_margin": int(step.get("green_margin", 35) or 35),
+                    "green_saturation_threshold": int(step.get("green_saturation_threshold", 70) or 70),
+                    "green_value_threshold": int(step.get("green_value_threshold", 60) or 60),
+                    "green_check_frames": int(step.get("green_check_frames", 3) or 3),
+                    "green_check_interval_ms": int(step.get("green_check_interval_ms", 250) or 250),
                 })
             else:
                 command = step.get("command", "").strip()
                 if command:
-                    actions.append({"type": "serial", "command": command, "delay_seconds": delay_seconds, "source": source, "stop_on_fail": stop_on_fail, "condition": step.get("condition", "")})
+                    actions.append({"type": "serial", "command": command, "delay_seconds": delay_seconds, "source": source, "stop_on_fail": stop_on_fail, "condition": step.get("condition", ""), "step_id": step.get("id", "")})
         return actions
 
     def _build_actions_from_script(self, script: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -1937,11 +2547,13 @@ class DeviceLabPage(QWidget):
         self._profile.setdefault("camera", {})["last_index"] = int(camera_index)
         self._persist_profile()
         interval = int(self._profile.get("camera", {}).get("preview_interval_ms", 33))
-        self._camera_timer.start(max(15, interval))
+        self._camera_timer.start(max(50, interval))
         self.btn_camera_toggle.setText("断开预览")
         self.lbl_camera_chip.setText(f"相机在线: {self.combo_camera.currentText()}")
         self._camera_frame_counter = 0
         self._camera_fps_anchor = time.time()
+        self._last_preview_render_at = 0.0
+        self._last_preview_size = None
         self._current_camera_frame = None
         if self.chk_auto_reference.isChecked():
             self._reference_capture_timer.start(self.spin_auto_reference_interval.value())
@@ -1974,13 +2586,22 @@ class DeviceLabPage(QWidget):
         now = time.time()
         elapsed = max(now - self._camera_fps_anchor, 0.001)
         fps = self._camera_frame_counter / elapsed
-        self._render_camera_frame(frame)
+        if now - self._last_preview_render_at >= 0.08:
+            self._render_camera_frame(frame)
+            self._last_preview_render_at = now
         self.lbl_camera_meta.setText(f"分辨率 {frame.shape[1]}x{frame.shape[0]} | 预览 FPS {fps:.1f}")
 
     def _save_camera_snapshot(self):
         saved_path = self._capture_snapshot_frame()
         if saved_path:
             QMessageBox.information(self, "抓拍成功", saved_path)
+
+    def _open_snapshot_dir(self):
+        snapshot_dir = self._action_snapshot_dir()
+        if not snapshot_dir or not os.path.isdir(snapshot_dir):
+            QMessageBox.information(self, "提示", "当前还没有可打开的抓拍目录")
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(snapshot_dir))
 
     def _browse_reference_dir(self):
         dir_path = QFileDialog.getExistingDirectory(self, "选择参考图库目录", self.edit_reference_dir.text().strip() or "")
@@ -1993,9 +2614,65 @@ class DeviceLabPage(QWidget):
     def _compare_current_frame_with_reference(self):
         self._compare_against_reference(source="手动检图")
 
-    def _reference_dir_path(self, category: Optional[str] = None) -> str:
+    def _get_latest_camera_frame(self) -> Optional[Any]:
+        if self._current_camera_frame is not None:
+            return self._current_camera_frame.copy()
+        capture = self._camera_capture
+        if capture is None:
+            capture = self._ensure_script_capture()
+        if capture is not None:
+            ret, frame = capture.read()
+            if ret and frame is not None:
+                self._current_camera_frame = frame.copy()
+                return frame
+        return None
+
+    def _selected_camera_index(self) -> int:
+        camera_index = self.combo_camera.currentData()
+        if camera_index is None or int(camera_index) < 0:
+            return int(self._profile.get("camera", {}).get("last_index", 0) or 0)
+        return int(camera_index)
+
+    def _ensure_script_capture(self):
+        if self._script_camera_capture is not None and self._script_camera_capture.isOpened():
+            return self._script_camera_capture
+        if not self._active_run_context:
+            return None
+        capture = self._open_camera(self._selected_camera_index())
+        if not capture.isOpened():
+            return None
+        self._script_camera_capture = capture
+        self.lbl_camera_chip.setText("剧本拍摄中")
+        return self._script_camera_capture
+
+    def _close_script_capture(self):
+        if self._script_camera_capture is not None:
+            try:
+                self._script_camera_capture.release()
+            except Exception:
+                pass
+            self._script_camera_capture = None
+
+    def _action_snapshot_dir(self) -> str:
+        if self._active_run_context:
+            return self._active_run_context.get("snapshot_dir", "")
         project_root = self._config_mgr.get_project_root() if self._config_mgr else os.getcwd()
-        base_dir = self._store.resolve_path(self.edit_reference_dir.text().strip() or "reports/device_lab_references", project_root)
+        rel_dir = self._profile.get("camera", {}).get("snapshot_dir", "reports/device_lab_snapshots")
+        return self._store.resolve_path(rel_dir, project_root)
+
+    def _action_artifact_dir(self) -> str:
+        if self._active_run_context:
+            return self._active_run_context.get("artifact_dir", self._action_snapshot_dir())
+        return self._action_snapshot_dir()
+
+    def _reference_dir_path(self, category: Optional[str] = None, reference_dir_override: str = "") -> str:
+        project_root = self._config_mgr.get_project_root() if self._config_mgr else os.getcwd()
+        if reference_dir_override.strip():
+            base_dir = self._store.resolve_path(reference_dir_override.strip(), project_root)
+        elif self._active_run_context:
+            base_dir = self._active_run_context.get("reference_dir", self._action_snapshot_dir())
+        else:
+            base_dir = self._store.resolve_path(self.edit_reference_dir.text().strip() or "reports/device_lab_references", project_root)
         normalized_category = self._normalized_category(category or self.edit_reference_category.text().strip() or "default")
         return os.path.join(base_dir, normalized_category)
 
@@ -2106,8 +2783,8 @@ class DeviceLabPage(QWidget):
             self._log(f"条件表达式解析失败: {expr} ({exc})", "WARN")
             return False
 
-    def _load_reference_pool(self, category: Optional[str] = None) -> List[str]:
-        reference_dir = self._reference_dir_path(category)
+    def _load_reference_pool(self, category: Optional[str] = None, reference_dir_override: str = "", pool_size: Optional[int] = None) -> List[str]:
+        reference_dir = self._reference_dir_path(category, reference_dir_override=reference_dir_override)
         if not os.path.isdir(reference_dir):
             return []
         image_names = [
@@ -2115,7 +2792,7 @@ class DeviceLabPage(QWidget):
             if os.path.isfile(os.path.join(reference_dir, name)) and name.lower().endswith((".png", ".jpg", ".jpeg", ".bmp"))
         ]
         image_names.sort(key=lambda name: os.path.getmtime(os.path.join(reference_dir, name)), reverse=True)
-        limit = max(1, int(self.spin_reference_pool_size.value()))
+        limit = max(1, int(pool_size if pool_size is not None else self.spin_reference_pool_size.value()))
         return [os.path.join(reference_dir, name) for name in image_names[:limit]]
 
     def _refresh_reference_meta(self):
@@ -2125,12 +2802,12 @@ class DeviceLabPage(QWidget):
             f"ROI: {self.edit_compare_roi.text().strip() or '全图'} | 最新参考: {os.path.basename(pool_paths[0]) if pool_paths else '未设置'}"
         )
 
-    def _append_current_frame_to_reference_pool(self, quiet: bool = False, category: Optional[str] = None) -> bool:
+    def _append_current_frame_to_reference_pool(self, quiet: bool = False, category: Optional[str] = None, reference_dir_override: str = "") -> bool:
         if self._current_camera_frame is None:
             if not quiet:
                 QMessageBox.warning(self, "提示", "请先连接相机预览")
             return False
-        reference_dir = self._reference_dir_path(category)
+        reference_dir = self._reference_dir_path(category, reference_dir_override=reference_dir_override)
         os.makedirs(reference_dir, exist_ok=True)
         file_path = self._capture_snapshot_frame(file_prefix="reference_pool")
         if not file_path:
@@ -2194,20 +2871,14 @@ class DeviceLabPage(QWidget):
         return False
 
     def _capture_snapshot_frame(self, batch_index: Optional[int] = None, batch_total: Optional[int] = None, file_prefix: str = "snapshot") -> Optional[str]:
-        if self._camera_capture is None and self._current_camera_frame is None:
+        if self._camera_capture is None and self._current_camera_frame is None and self._active_run_context is None:
             QMessageBox.warning(self, "提示", "请先连接相机预览")
             return None
-        frame = self._current_camera_frame.copy() if self._current_camera_frame is not None else None
-        if frame is None and self._camera_capture is not None:
-            ret, latest = self._camera_capture.read()
-            if ret and latest is not None:
-                frame = latest
+        frame = self._get_latest_camera_frame()
         if frame is None:
             QMessageBox.warning(self, "提示", "当前帧获取失败")
             return None
-        project_root = self._config_mgr.get_project_root() if self._config_mgr else os.getcwd()
-        rel_dir = self._profile.get("camera", {}).get("snapshot_dir", "reports/device_lab_snapshots")
-        snapshot_dir = self._store.resolve_path(rel_dir, project_root)
+        snapshot_dir = self._action_snapshot_dir()
         os.makedirs(snapshot_dir, exist_ok=True)
         if batch_index is not None and batch_total is not None:
             file_path = os.path.join(
@@ -2218,7 +2889,14 @@ class DeviceLabPage(QWidget):
             file_path = os.path.join(snapshot_dir, f"{file_prefix}_{time.strftime('%Y%m%d_%H%M%S')}.png")
         cv2.imwrite(file_path, frame)
         self._last_snapshot_path = file_path
+        self._current_camera_frame = frame.copy()
+        self._render_camera_frame(frame)
+        if self._active_run_context and self._camera_capture is None:
+            self.lbl_camera_meta.setText(f"剧本拍摄回显 | 最近照片: {os.path.basename(file_path)}")
         self._log(f"相机抓拍已保存: {file_path}")
+        if self._run_metrics:
+            self._run_metrics["saved_images"] = int(self._run_metrics.get("saved_images", 0)) + 1
+            self._update_run_stats()
         return file_path
 
     def _compare_against_reference(
@@ -2227,12 +2905,17 @@ class DeviceLabPage(QWidget):
         source: str = "图片检查",
         save_snapshot: bool = True,
         category: Optional[str] = None,
+        reference_dir: str = "",
+        reference_pool_size: Optional[int] = None,
+        save_diff_heatmap: Optional[bool] = None,
         roi_text: str = "",
         result_variable: str = "",
     ) -> bool:
-        if self._current_camera_frame is None:
+        current_frame = self._get_latest_camera_frame()
+        if current_frame is None:
             self._log("当前没有可用于检图的相机画面", "ERROR")
             return False
+        self._current_camera_frame = current_frame.copy()
 
         compare_category = self._normalized_category(category or self.edit_reference_category.text().strip() or "default")
         compare_roi_text = (roi_text or self.edit_compare_roi.text().strip()).strip()
@@ -2242,7 +2925,7 @@ class DeviceLabPage(QWidget):
             self._capture_snapshot_frame(file_prefix="compare_snapshot")
 
         reference_images = []
-        reference_paths = self._load_reference_pool(compare_category)
+        reference_paths = self._load_reference_pool(compare_category, reference_dir_override=reference_dir, pool_size=reference_pool_size)
 
         if not reference_paths:
             self._log(f"参考图库[{compare_category}]为空，无法执行检图", "ERROR")
@@ -2259,7 +2942,7 @@ class DeviceLabPage(QWidget):
 
         compare_result = compare_with_reference_set(
             reference_images,
-            self._current_camera_frame,
+            current_frame,
             float(self._profile.get("camera", {}).get("compare_threshold", 0.72)),
             roi=compare_roi,
         )
@@ -2273,10 +2956,9 @@ class DeviceLabPage(QWidget):
 
         heatmap_path = ""
         heatmap = compare_result.get("heatmap")
-        if getattr(heatmap, "shape", None) is not None and self.chk_save_diff_heatmap.isChecked():
-            project_root = self._config_mgr.get_project_root() if self._config_mgr else os.getcwd()
-            rel_dir = self._profile.get("camera", {}).get("snapshot_dir", "reports/device_lab_snapshots")
-            snapshot_dir = self._store.resolve_path(rel_dir, project_root)
+        save_heatmap = self.chk_save_diff_heatmap.isChecked() if save_diff_heatmap is None else bool(save_diff_heatmap)
+        if getattr(heatmap, "shape", None) is not None and save_heatmap:
+            snapshot_dir = self._action_artifact_dir()
             os.makedirs(snapshot_dir, exist_ok=True)
             heatmap_path = os.path.join(snapshot_dir, f"compare_heatmap_{time.strftime('%Y%m%d_%H%M%S')}.png")
             cv2.imwrite(heatmap_path, heatmap)
@@ -2298,6 +2980,95 @@ class DeviceLabPage(QWidget):
                 self,
                 "图片检查失败",
                 f"{source} 未通过\nscore={compare_result['final_score']:.4f}\nthreshold={compare_result['threshold_used']:.4f}",
+            )
+        return False
+
+    def _detect_green_screen(
+        self,
+        *,
+        pause_on_fail: bool = True,
+        source: str = "绿屏检测",
+        save_snapshot: bool = True,
+        roi_text: str = "",
+        result_variable: str = "",
+        save_diff_heatmap: Optional[bool] = None,
+        green_ratio_threshold: float = 0.35,
+        green_area_threshold: float = 0.18,
+        green_margin: int = 35,
+        green_saturation_threshold: int = 70,
+        green_value_threshold: int = 60,
+        green_check_frames: int = 3,
+        green_check_interval_ms: int = 250,
+    ) -> bool:
+        compare_roi_text = (roi_text or self.edit_compare_roi.text().strip()).strip()
+        compare_roi = self._parse_roi_text(compare_roi_text)
+        sample_frames = max(1, int(green_check_frames or 1))
+        sample_interval = max(0, int(green_check_interval_ms or 0))
+
+        if save_snapshot:
+            self._capture_snapshot_frame(file_prefix="green_detect_snapshot")
+
+        sample_results: List[Dict[str, Any]] = []
+        for sample_index in range(sample_frames):
+            frame = self._get_latest_camera_frame()
+            if frame is None:
+                self._log("当前没有可用于绿屏检测的相机画面", "ERROR")
+                return False
+            detection = detect_green_screen(
+                frame,
+                compare_roi,
+                green_ratio_threshold=green_ratio_threshold,
+                area_ratio_threshold=green_area_threshold,
+                green_margin=green_margin,
+                saturation_threshold=green_saturation_threshold,
+                value_threshold=green_value_threshold,
+            )
+            sample_results.append(detection)
+            if sample_index < sample_frames - 1 and sample_interval > 0:
+                time.sleep(sample_interval / 1000.0)
+
+        hit_count = sum(1 for item in sample_results if item.get("detected", False))
+        detected = hit_count >= sample_frames
+        peak_green_ratio = max(float(item.get("green_ratio", 0.0)) for item in sample_results)
+        peak_area_ratio = max(float(item.get("largest_component_ratio", 0.0)) for item in sample_results)
+        peak_excess = max(float(item.get("mean_green_excess", 0.0)) for item in sample_results)
+        self._script_variables["last_green_detected"] = detected
+        self._script_variables["last_green_passed"] = not detected
+        self._script_variables["last_green_ratio"] = peak_green_ratio
+        self._script_variables["last_green_area_ratio"] = peak_area_ratio
+        self._script_variables["last_green_excess"] = peak_excess
+        self._script_variables["last_green_sample_frames"] = sample_frames
+        self._script_variables["last_green_hit_count"] = hit_count
+        if result_variable:
+            self._script_variables[result_variable] = not detected
+
+        last_result = sample_results[-1]
+        heatmap_path = ""
+        heatmap = last_result.get("heatmap")
+        save_heatmap = self.chk_save_diff_heatmap.isChecked() if save_diff_heatmap is None else bool(save_diff_heatmap)
+        if getattr(heatmap, "shape", None) is not None and save_heatmap:
+            snapshot_dir = self._action_artifact_dir()
+            os.makedirs(snapshot_dir, exist_ok=True)
+            heatmap_path = os.path.join(snapshot_dir, f"green_detect_mask_{time.strftime('%Y%m%d_%H%M%S')}.png")
+            cv2.imwrite(heatmap_path, heatmap)
+
+        self._log(
+            f"{source}: roi={compare_roi_text or 'full'}, sampled={sample_frames}, hits={hit_count}, "
+            f"green_ratio={peak_green_ratio:.4f}/{float(green_ratio_threshold):.4f}, "
+            f"area_ratio={peak_area_ratio:.4f}/{float(green_area_threshold):.4f}, "
+            f"green_excess={peak_excess:.4f}, margin={int(green_margin)}, sat>={int(green_saturation_threshold)}, value>={int(green_value_threshold)}"
+        )
+        if heatmap_path:
+            self._log(f"绿屏掩码图已保存: {heatmap_path}")
+        if not detected:
+            return True
+
+        self._log(f"{source} 命中大面积绿屏，已判定为异常画面", "ERROR")
+        if pause_on_fail:
+            QMessageBox.warning(
+                self,
+                "绿屏检测失败",
+                f"{source} 命中绿屏\n绿像素占比={peak_green_ratio:.4f}\n最大连通域={peak_area_ratio:.4f}",
             )
         return False
 
@@ -2347,29 +3118,145 @@ class DeviceLabPage(QWidget):
             target_width,
             target_height,
             Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
+            Qt.TransformationMode.FastTransformation,
         )
         self.lbl_camera_preview.setPixmap(pixmap)
-        self.lbl_camera_preview.resize(pixmap.size())
+        preview_size = (pixmap.width(), pixmap.height())
+        if self._last_preview_size != preview_size:
+            self.lbl_camera_preview.resize(pixmap.size())
+            self._last_preview_size = preview_size
+
+    def _sanitize_output_name(self, text: str) -> str:
+        value = re.sub(r'[<>:"/\\|?*]+', '_', (text or '').strip())
+        value = value.strip(' ._')
+        return value or 'unnamed'
+
+    def _create_run_context(self, script: Dict[str, Any]) -> Dict[str, Any]:
+        project_root = self._config_mgr.get_project_root() if self._config_mgr else os.getcwd()
+        project = self._current_project() or {}
+        timestamp = time.strftime('%Y%m%d_%H%M%S')
+        folder_name = f"{timestamp}__{self._sanitize_output_name(project.get('name', 'project'))}__{self._sanitize_output_name(script.get('name', 'script'))}"
+        base_dir = os.path.join(project_root, 'reports', 'device_lab_runs', folder_name)
+        snapshot_dir = os.path.join(base_dir, 'snapshots')
+        reference_dir = os.path.join(base_dir, 'references')
+        artifact_dir = os.path.join(base_dir, 'artifacts')
+        os.makedirs(snapshot_dir, exist_ok=True)
+        os.makedirs(reference_dir, exist_ok=True)
+        os.makedirs(artifact_dir, exist_ok=True)
+        self._last_run_output_dir = base_dir
+        self.lbl_run_output.setText(f"输出目录: {base_dir}")
+        return {
+            'base_dir': base_dir,
+            'snapshot_dir': snapshot_dir,
+            'reference_dir': reference_dir,
+            'artifact_dir': artifact_dir,
+        }
+
+    def _refresh_queue_controls(self):
+        has_running_queue = self._queue_busy or self._queue_timer.isActive() or bool(self._command_queue)
+        if hasattr(self, 'btn_script_pause'):
+            self.btn_script_pause.setEnabled(has_running_queue)
+            self.btn_script_pause.setText('继续执行' if self._queue_paused else '暂停执行')
+        if hasattr(self, 'btn_open_output_dir'):
+            self.btn_open_output_dir.setEnabled(bool(self._last_run_output_dir or (self._active_run_context and self._active_run_context.get('base_dir'))))
+        if hasattr(self, 'btn_script_stop'):
+            self.btn_script_stop.setEnabled(has_running_queue)
+
+    def _finish_queue_run(self, message: str):
+        self._queue_paused = False
+        self._queue_busy = False
+        self._refresh_queue_controls()
+        self._close_script_capture()
+        self._run_stats_timer.stop()
+        self._highlight_running_step(None)
+        if self._active_run_context:
+            self._log(f"{message}，输出目录: {self._active_run_context.get('base_dir', '')}")
+            self._last_run_output_dir = self._active_run_context.get('base_dir', self._last_run_output_dir)
+            self.lbl_run_output.setText(f"输出目录: {self._last_run_output_dir}")
+        self._active_run_context = None
+        self._update_run_stats(force_status="空闲")
+        if self._camera_capture is None:
+            self.lbl_camera_chip.setText('相机未连接')
+
+    def _toggle_script_pause(self):
+        has_running_queue = self._queue_busy or self._queue_timer.isActive() or bool(self._command_queue)
+        if not has_running_queue:
+            return
+        if not self._queue_paused:
+            self._queue_paused = True
+            self._queue_timer.stop()
+            self._log('剧本执行已暂停', 'WARN')
+            self._refresh_queue_controls()
+            return
+        self._queue_paused = False
+        self._log('剧本执行已继续')
+        self._update_run_stats(force_status="运行中")
+        self._refresh_queue_controls()
+        self._process_next_queue_item()
+
+    def _stop_script_run(self):
+        has_running_queue = self._queue_busy or self._queue_timer.isActive() or bool(self._command_queue)
+        if not has_running_queue:
+            return
+        self._queue_timer.stop()
+        self._command_queue.clear()
+        self._queue_paused = False
+        self._queue_busy = False
+        self._log('剧本执行已手动停止', 'WARN')
+        self._finish_queue_run('剧本执行已手动停止')
+
+    def _highlight_running_step(self, step_id: Optional[str]):
+        self._running_step_id = step_id or None
+        for row in range(self.list_script_steps.count()):
+            item = self.list_script_steps.item(row)
+            if item.data(Qt.ItemDataRole.UserRole) == self._running_step_id:
+                item.setBackground(QColor('#fef3c7'))
+                item.setForeground(QColor('#92400e'))
+                self.list_script_steps.setCurrentRow(row)
+            else:
+                item.setBackground(QColor())
+                item.setForeground(QColor())
+
+    def _open_run_output_dir(self):
+        target_dir = self._last_run_output_dir
+        if self._active_run_context:
+            target_dir = self._active_run_context.get('base_dir', target_dir)
+        if not target_dir or not os.path.isdir(target_dir):
+            QMessageBox.information(self, '提示', '当前还没有可打开的输出目录')
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(target_dir))
+
+    def _update_run_stats(self, force_status: str = ""):
+        if not self._run_metrics:
+            self.lbl_run_stats.setText('运行状态: 空闲')
+            return
+        start_time = float(self._run_metrics.get('start_time', time.time()))
+        elapsed_seconds = max(0, int(time.time() - start_time))
+        status = force_status or ('已暂停' if self._queue_paused else '运行中')
+        self.lbl_run_stats.setText(
+            f"运行状态: {status} | 剧本: {self._run_metrics.get('script_name', '-') } | 总时长: {elapsed_seconds}s | "
+            f"总轮次: {self._run_metrics.get('run_count', 1)} | 已保存图片: {self._run_metrics.get('saved_images', 0)} | "
+            f"报错次数: {self._run_metrics.get('error_count', 0)} | 剩余动作: {len(self._command_queue)}"
+        )
 
     def _open_camera(self, index: int):
         logger = getattr(cv2, "utils", None)
         logging_api = getattr(logger, "logging", None)
         if logging_api is None:
-            capture = cv2.VideoCapture(index)
+            capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
             if capture.isOpened():
                 return capture
             capture.release()
-            return cv2.VideoCapture(index, cv2.CAP_DSHOW)
+            return cv2.VideoCapture(index)
 
         old_level = logging_api.getLogLevel()
         logging_api.setLogLevel(logging_api.LOG_LEVEL_SILENT)
         try:
-            capture = cv2.VideoCapture(index)
+            capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
             if capture.isOpened():
                 return capture
             capture.release()
-            return cv2.VideoCapture(index, cv2.CAP_DSHOW)
+            return cv2.VideoCapture(index)
         finally:
             logging_api.setLogLevel(old_level)
 
@@ -2690,12 +3577,30 @@ class DeviceLabPage(QWidget):
         script = self._current_script()
         if not script:
             return
+        if self._queue_busy or self._queue_timer.isActive() or self._command_queue:
+            QMessageBox.warning(self, "提示", "当前已有执行中的队列，请先等待完成或暂停后处理")
+            return
+        if self._camera_capture is not None:
+            self._log("执行剧本前已断开实时预览，后续拍摄将显示静态回显", "WARN")
+            self._stop_camera_preview()
+        self._active_run_context = self._create_run_context(script)
         self._script_variables = {}
+        self._run_metrics = {
+            'script_name': script.get('name', ''),
+            'run_count': int(script.get('run_count', 1) or 1),
+            'saved_images': 0,
+            'error_count': 0,
+            'start_time': time.time(),
+        }
         actions = self._build_actions_from_script(script)
         if not actions:
             QMessageBox.warning(self, "提示", "当前剧本没有可执行步骤")
+            self._active_run_context = None
+            self._run_metrics = {}
             return
-        self._log(f"开始执行联调剧本: {script['name']}")
+        self._log(f"开始执行联调剧本: {script['name']} | 输出目录: {self._active_run_context.get('base_dir', '')}")
+        self._run_stats_timer.start()
+        self._update_run_stats(force_status='运行中')
         self._queue_commands(actions)
 
     def _add_quick_setting(self):
@@ -2790,7 +3695,7 @@ class DeviceLabPage(QWidget):
         self._profile["camera"]["compare_roi"] = self.edit_compare_roi.text().strip()
         self._profile["camera"]["save_diff_heatmap"] = self.chk_save_diff_heatmap.isChecked()
         self._profile["camera"]["reference_pool_size"] = self.spin_reference_pool_size.value()
-        self._profile["camera"]["auto_reference_enabled"] = self.chk_auto_reference.isChecked()
+        self._profile["camera"]["auto_reference_enabled"] = False
         self._profile["camera"]["auto_reference_interval_ms"] = self.spin_auto_reference_interval.value()
         self._profile["camera"]["auto_reference_max_retry"] = self.spin_auto_reference_retry.value()
         ui_state = self._profile.setdefault("ui_state", {})
@@ -2806,6 +3711,9 @@ class DeviceLabPage(QWidget):
     def _log(self, message: str, level: str = "INFO"):
         timestamp = time.strftime("%H:%M:%S")
         self.text_log.appendPlainText(f"[{timestamp}] {level:<5} {message}")
+        if level == 'ERROR' and self._run_metrics:
+            self._run_metrics['error_count'] = int(self._run_metrics.get('error_count', 0)) + 1
+            self._update_run_stats()
         if self._log_panel is not None:
             panel_level = {
                 "INFO": "INFO",
@@ -2817,5 +3725,6 @@ class DeviceLabPage(QWidget):
     def cleanup(self):
         self._persist_profile()
         self._reference_capture_timer.stop()
+        self._close_script_capture()
         self._stop_camera_preview()
         self._disconnect_serial()

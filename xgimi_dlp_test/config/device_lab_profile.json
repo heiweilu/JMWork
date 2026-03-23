@@ -3,7 +3,7 @@
     "last_index": 0,
     "scan_max_index": 5,
     "preview_interval_ms": 33,
-    "preview_zoom_percent": 100,
+    "preview_zoom_percent": 78,
     "reference_dir": "",
     "reference_pool_size": 5,
     "compare_threshold": 0.72,
@@ -11,6 +11,13 @@
     "reference_category": "default",
     "compare_roi": "",
     "save_diff_heatmap": false,
+    "green_ratio_threshold": 0.35,
+    "green_area_threshold": 0.18,
+    "green_margin": 35,
+    "green_saturation_threshold": 70,
+    "green_value_threshold": 60,
+    "green_check_frames": 3,
+    "green_check_interval_ms": 250,
     "auto_reference_enabled": false,
     "auto_reference_interval_ms": 5000,
     "auto_reference_max_retry": 3,
@@ -104,7 +111,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-down",
@@ -117,7 +134,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-left",
@@ -130,7 +157,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-right",
@@ -143,7 +180,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-ok",
@@ -156,7 +203,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-power",
@@ -169,7 +226,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-home",
@@ -182,7 +249,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-menu",
@@ -195,7 +272,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-back",
@@ -208,7 +295,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-setting",
@@ -221,7 +318,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-sleep",
@@ -234,7 +341,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-volume-up",
@@ -247,7 +364,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-volume-down",
@@ -260,7 +387,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-pair-open",
@@ -273,7 +410,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-take-photo",
@@ -284,7 +431,17 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
     },
     {
       "id": "shortcut-check-reference",
@@ -295,7 +452,59 @@
       "capture_count": 1,
       "capture_interval_ms": 1000,
       "reference_category": "default",
-      "roi_text": ""
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
+    },
+    {
+      "id": "shortcut-detect-green-screen",
+      "name": "绿屏检测",
+      "description": "连续取样当前画面，命中大面积绿屏后立即判定异常。",
+      "commands": [],
+      "action_type": "green_screen_detect",
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true
+    },
+    {
+      "id": "shortcut-append-reference",
+      "name": "当前帧加入图库",
+      "description": "把当前拍摄画面归档到指定参考分类目录。",
+      "commands": [],
+      "action_type": "append_reference",
+      "reference_category": "default",
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "roi_text": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "save_diff_heatmap": true
     }
   ],
   "remote": {
@@ -454,9 +663,9 @@
     ]
   },
   "ui_state": {
-    "last_project_id": "project-athena-9681",
-    "last_script_id": "script-athena-boot",
-    "last_step_id": "step-f1faf11e"
+    "last_project_id": "",
+    "last_script_id": "",
+    "last_step_id": ""
   },
   "projects": [
     {
@@ -491,7 +700,17 @@
               "result_variable": "",
               "recovery_target": "",
               "reference_category": "default",
-              "roi_text": ""
+              "roi_text": "",
+              "green_ratio_threshold": 0.35,
+              "green_area_threshold": 0.18,
+              "green_margin": 35,
+              "green_saturation_threshold": 70,
+              "green_value_threshold": 60,
+              "green_check_frames": 3,
+              "green_check_interval_ms": 250,
+              "reference_dir": "",
+              "reference_pool_size": 5,
+              "save_diff_heatmap": true
             },
             {
               "id": "step-28a1c5c1",
@@ -515,7 +734,17 @@
               "result_variable": "",
               "recovery_target": "",
               "reference_category": "default",
-              "roi_text": ""
+              "roi_text": "",
+              "green_ratio_threshold": 0.35,
+              "green_area_threshold": 0.18,
+              "green_margin": 35,
+              "green_saturation_threshold": 70,
+              "green_value_threshold": 60,
+              "green_check_frames": 3,
+              "green_check_interval_ms": 250,
+              "reference_dir": "",
+              "reference_pool_size": 5,
+              "save_diff_heatmap": true
             },
             {
               "id": "step-2590f655",
@@ -539,7 +768,17 @@
               "result_variable": "",
               "recovery_target": "",
               "reference_category": "default",
-              "roi_text": ""
+              "roi_text": "",
+              "green_ratio_threshold": 0.35,
+              "green_area_threshold": 0.18,
+              "green_margin": 35,
+              "green_saturation_threshold": 70,
+              "green_value_threshold": 60,
+              "green_check_frames": 3,
+              "green_check_interval_ms": 250,
+              "reference_dir": "",
+              "reference_pool_size": 5,
+              "save_diff_heatmap": true
             },
             {
               "id": "step-c0777b31",
@@ -563,7 +802,17 @@
               "result_variable": "",
               "recovery_target": "",
               "reference_category": "default",
-              "roi_text": ""
+              "roi_text": "",
+              "green_ratio_threshold": 0.35,
+              "green_area_threshold": 0.18,
+              "green_margin": 35,
+              "green_saturation_threshold": 70,
+              "green_value_threshold": 60,
+              "green_check_frames": 3,
+              "green_check_interval_ms": 250,
+              "reference_dir": "",
+              "reference_pool_size": 5,
+              "save_diff_heatmap": true
             },
             {
               "id": "step-aab6722a",
@@ -587,12 +836,31 @@
               "result_variable": "",
               "recovery_target": "",
               "reference_category": "default",
-              "roi_text": ""
+              "roi_text": "",
+              "green_ratio_threshold": 0.35,
+              "green_area_threshold": 0.18,
+              "green_margin": 35,
+              "green_saturation_threshold": 70,
+              "green_value_threshold": 60,
+              "green_check_frames": 3,
+              "green_check_interval_ms": 250,
+              "reference_dir": "",
+              "reference_pool_size": 5,
+              "save_diff_heatmap": true
             }
           ],
           "run_count": 1,
           "cycle_interval_ms": 0,
           "stop_on_fail": true
+        },
+        {
+          "name": "绿屏压测",
+          "description": "",
+          "run_count": 1,
+          "cycle_interval_ms": 0,
+          "stop_on_fail": true,
+          "id": "script-0369a706",
+          "steps": []
         }
       ]
     }

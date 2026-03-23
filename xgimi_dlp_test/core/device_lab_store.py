@@ -31,6 +31,16 @@ def _make_step(
     recovery_target: str = "",
     reference_category: str = "default",
     roi_text: str = "",
+    green_ratio_threshold: float = 0.35,
+    green_area_threshold: float = 0.18,
+    green_margin: int = 35,
+    green_saturation_threshold: int = 70,
+    green_value_threshold: int = 60,
+    green_check_frames: int = 3,
+    green_check_interval_ms: int = 250,
+    reference_dir: str = "",
+    reference_pool_size: int = 5,
+    save_diff_heatmap: bool = True,
 ) -> Dict[str, Any]:
     return {
         "id": f"step-{uuid.uuid4().hex[:8]}",
@@ -55,6 +65,16 @@ def _make_step(
         "recovery_target": recovery_target,
         "reference_category": reference_category,
         "roi_text": roi_text,
+        "green_ratio_threshold": green_ratio_threshold,
+        "green_area_threshold": green_area_threshold,
+        "green_margin": green_margin,
+        "green_saturation_threshold": green_saturation_threshold,
+        "green_value_threshold": green_value_threshold,
+        "green_check_frames": green_check_frames,
+        "green_check_interval_ms": green_check_interval_ms,
+        "reference_dir": reference_dir,
+        "reference_pool_size": reference_pool_size,
+        "save_diff_heatmap": save_diff_heatmap,
     }
 
 
@@ -231,6 +251,16 @@ DEFAULT_SHORTCUTS = [
         "capture_interval_ms": 1000,
     },
     {
+        "id": "shortcut-append-reference",
+        "name": "当前帧加入图库",
+        "description": "把当前拍摄画面归档到指定参考分类目录。",
+        "commands": [],
+        "action_type": "append_reference",
+        "reference_category": "default",
+        "reference_dir": "",
+        "reference_pool_size": 5,
+    },
+    {
         "id": "shortcut-check-reference",
         "name": "检查指定正常照片",
         "description": "先保存当前画面，再按参考图库自动检图；不通过时会中止后续队列。",
@@ -239,7 +269,26 @@ DEFAULT_SHORTCUTS = [
         "capture_count": 1,
         "capture_interval_ms": 1000,
         "reference_category": "default",
+        "reference_dir": "",
+        "reference_pool_size": 5,
+        "save_diff_heatmap": True,
         "roi_text": "",
+    },
+    {
+        "id": "shortcut-detect-green-screen",
+        "name": "绿屏检测",
+        "description": "连续取样当前画面，命中大面积绿屏后立即判定异常。",
+        "commands": [],
+        "action_type": "green_screen_detect",
+        "roi_text": "",
+        "green_ratio_threshold": 0.35,
+        "green_area_threshold": 0.18,
+        "green_margin": 35,
+        "green_saturation_threshold": 70,
+        "green_value_threshold": 60,
+        "green_check_frames": 3,
+        "green_check_interval_ms": 250,
+        "save_diff_heatmap": True,
     },
 ]
 
@@ -299,6 +348,13 @@ DEFAULT_PROFILE = {
         "reference_category": "default",
         "compare_roi": "",
         "save_diff_heatmap": True,
+        "green_ratio_threshold": 0.35,
+        "green_area_threshold": 0.18,
+        "green_margin": 35,
+        "green_saturation_threshold": 70,
+        "green_value_threshold": 60,
+        "green_check_frames": 3,
+        "green_check_interval_ms": 250,
         "auto_reference_enabled": False,
         "auto_reference_interval_ms": 5000,
         "auto_reference_max_retry": 3,
@@ -416,6 +472,13 @@ class DeviceLabStore:
         camera.setdefault("reference_category", "default")
         camera.setdefault("compare_roi", "")
         camera.setdefault("save_diff_heatmap", True)
+        camera.setdefault("green_ratio_threshold", 0.35)
+        camera.setdefault("green_area_threshold", 0.18)
+        camera.setdefault("green_margin", 35)
+        camera.setdefault("green_saturation_threshold", 70)
+        camera.setdefault("green_value_threshold", 60)
+        camera.setdefault("green_check_frames", 3)
+        camera.setdefault("green_check_interval_ms", 250)
         camera.setdefault("auto_reference_enabled", False)
         camera.setdefault("auto_reference_interval_ms", 5000)
         camera.setdefault("auto_reference_max_retry", 3)
@@ -438,6 +501,16 @@ class DeviceLabStore:
             item.setdefault("capture_interval_ms", 1000)
             item.setdefault("reference_category", "default")
             item.setdefault("roi_text", "")
+            item.setdefault("green_ratio_threshold", 0.35)
+            item.setdefault("green_area_threshold", 0.18)
+            item.setdefault("green_margin", 35)
+            item.setdefault("green_saturation_threshold", 70)
+            item.setdefault("green_value_threshold", 60)
+            item.setdefault("green_check_frames", 3)
+            item.setdefault("green_check_interval_ms", 250)
+            item.setdefault("reference_dir", "")
+            item.setdefault("reference_pool_size", 5)
+            item.setdefault("save_diff_heatmap", True)
         remote = self._data.setdefault("remote", {})
         remote.setdefault("edit_mode", False)
         buttons = remote.setdefault("buttons", [])
@@ -506,5 +579,15 @@ class DeviceLabStore:
                     step.setdefault("recovery_target", "")
                     step.setdefault("reference_category", "default")
                     step.setdefault("roi_text", "")
+                    step.setdefault("green_ratio_threshold", 0.35)
+                    step.setdefault("green_area_threshold", 0.18)
+                    step.setdefault("green_margin", 35)
+                    step.setdefault("green_saturation_threshold", 70)
+                    step.setdefault("green_value_threshold", 60)
+                    step.setdefault("green_check_frames", 3)
+                    step.setdefault("green_check_interval_ms", 250)
+                    step.setdefault("reference_dir", "")
+                    step.setdefault("reference_pool_size", 5)
+                    step.setdefault("save_diff_heatmap", True)
                     normalized_steps.append(step)
                 script["steps"] = normalized_steps

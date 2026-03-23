@@ -95,6 +95,93 @@ def _build_diff_heatmap(reference_image: np.ndarray, candidate_image: np.ndarray
     return cv2.applyColorMap(normalized, cv2.COLORMAP_JET)
 
 
+def _largest_component_ratio(mask: np.ndarray) -> float:
+    binary_mask = (mask > 0).astype(np.uint8)
+    if binary_mask.size == 0 or int(binary_mask.sum()) == 0:
+        return 0.0
+    component_count, _labels, stats, _centroids = cv2.connectedComponentsWithStats(binary_mask, connectivity=8)
+    if component_count <= 1:
+        return 0.0
+    largest_area = int(stats[1:, cv2.CC_STAT_AREA].max())
+    return float(largest_area) / float(binary_mask.shape[0] * binary_mask.shape[1])
+
+
+def _build_mask_overlay(image: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    overlay = image.copy()
+    if overlay.shape[:2] != mask.shape[:2]:
+        mask = cv2.resize(mask, (overlay.shape[1], overlay.shape[0]), interpolation=cv2.INTER_NEAREST)
+    overlay[mask > 0] = (0, 0, 255)
+    return cv2.addWeighted(image, 0.62, overlay, 0.38, 0.0)
+
+
+def detect_green_screen(
+    candidate_image: np.ndarray,
+    roi: Optional[Tuple[float, float, float, float]] = None,
+    *,
+    green_ratio_threshold: float = 0.35,
+    area_ratio_threshold: float = 0.18,
+    green_margin: int = 35,
+    saturation_threshold: int = 70,
+    value_threshold: int = 60,
+) -> Dict[str, Any]:
+    normalized_roi = _clamp_roi(roi)
+    roi_image = _extract_roi(candidate_image, normalized_roi)
+    if roi_image.size == 0:
+        roi_image = candidate_image
+        normalized_roi = None
+
+    roi_resized = cv2.resize(roi_image, (640, 360), interpolation=cv2.INTER_AREA)
+    hsv_image = cv2.cvtColor(roi_resized, cv2.COLOR_BGR2HSV)
+    hue = hsv_image[:, :, 0]
+    saturation = hsv_image[:, :, 1]
+    value = hsv_image[:, :, 2]
+
+    bgr_image = roi_resized.astype(np.int16)
+    green_channel = bgr_image[:, :, 1]
+    red_channel = bgr_image[:, :, 2]
+    blue_channel = bgr_image[:, :, 0]
+
+    green_hsv_mask = (
+        (hue >= 35)
+        & (hue <= 95)
+        & (saturation >= int(saturation_threshold))
+        & (value >= int(value_threshold))
+    )
+    dominant_green_mask = (
+        (green_channel >= red_channel + int(green_margin))
+        & (green_channel >= blue_channel + int(green_margin))
+    )
+    combined_mask = np.where(green_hsv_mask & dominant_green_mask, 255, 0).astype(np.uint8)
+
+    green_ratio = float(np.count_nonzero(combined_mask)) / float(combined_mask.size)
+    largest_component_ratio = _largest_component_ratio(combined_mask)
+    green_excess = np.maximum(green_channel - np.maximum(red_channel, blue_channel), 0)
+    mean_green_excess = float(np.mean(green_excess) / 255.0)
+
+    detected = green_ratio >= float(green_ratio_threshold) and largest_component_ratio >= float(area_ratio_threshold)
+    return {
+        "passed": not detected,
+        "detected": detected,
+        "green_ratio": round(green_ratio, 4),
+        "largest_component_ratio": round(largest_component_ratio, 4),
+        "mean_green_excess": round(mean_green_excess, 4),
+        "roi_used": normalized_roi,
+        "thresholds": {
+            "green_ratio": round(float(green_ratio_threshold), 4),
+            "area_ratio": round(float(area_ratio_threshold), 4),
+            "green_margin": int(green_margin),
+            "saturation_threshold": int(saturation_threshold),
+            "value_threshold": int(value_threshold),
+        },
+        "heatmap": _build_mask_overlay(roi_resized, combined_mask),
+        "metrics": {
+            "green_ratio": round(green_ratio, 4),
+            "largest_component_ratio": round(largest_component_ratio, 4),
+            "mean_green_excess": round(mean_green_excess, 4),
+        },
+    }
+
+
 def compare_images(
     reference_image: np.ndarray,
     candidate_image: np.ndarray,
