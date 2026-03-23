@@ -1,0 +1,600 @@
+{
+  "camera": {
+    "last_index": 0,
+    "scan_max_index": 5,
+    "preview_interval_ms": 33,
+    "preview_zoom_percent": 100,
+    "reference_dir": "",
+    "reference_pool_size": 5,
+    "compare_threshold": 0.72,
+    "reference_accept_threshold": 0.82,
+    "reference_category": "default",
+    "compare_roi": "",
+    "save_diff_heatmap": false,
+    "auto_reference_enabled": false,
+    "auto_reference_interval_ms": 5000,
+    "auto_reference_max_retry": 3,
+    "snapshot_dir": "reports/device_lab_snapshots"
+  },
+  "serial": {
+    "last_port": "",
+    "baudrate": 115200,
+    "newline": true,
+    "newline_mode": "\\r\\n",
+    "auto_su": false,
+    "tab_passthrough": false
+  },
+  "quick_settings": [
+    {
+      "id": "setting-close-ak-shift",
+      "name": "关闭位移AK",
+      "description": "关闭位移触发 AK，适合做稳定性联调前的基线配置。",
+      "commands": [
+        "setprop persist.sys.acc.trigger.ak 0"
+      ]
+    },
+    {
+      "id": "setting-open-ak-shift",
+      "name": "打开位移AK",
+      "description": "恢复位移触发 AK。",
+      "commands": [
+        "setprop persist.sys.acc.trigger.ak 1"
+      ]
+    },
+    {
+      "id": "setting-close-ak-boot",
+      "name": "关闭开机AK",
+      "description": "关闭开机 AK。",
+      "commands": [
+        "setprop persist.sys.poweron.ak 0"
+      ]
+    },
+    {
+      "id": "setting-open-ak-boot",
+      "name": "打开开机AK",
+      "description": "恢复开机 AK。",
+      "commands": [
+        "setprop persist.sys.poweron.ak 1"
+      ]
+    },
+    {
+      "id": "setting-open-remote-pair",
+      "name": "开放遥控器配对",
+      "description": "沿用 Cattle 的煲机配置项。",
+      "commands": [
+        "setprop persist.sys.btrrsi -65"
+      ]
+    },
+    {
+      "id": "setting-close-remote-pair",
+      "name": "屏蔽遥控器配对",
+      "description": "限制配对入口，方便封闭场景测试。",
+      "commands": [
+        "setprop persist.sys.btrrsi -21"
+      ]
+    },
+    {
+      "id": "setting-open-log-cn",
+      "name": "国内通用日志指令",
+      "description": "批量打开核心日志开关。",
+      "commands": [
+        "su",
+        "setprop persist.xgimilog.data true",
+        "setprop persist.sys.xgimi.log true",
+        "setprop persist.vendor.xgimi.logserver 1",
+        "setprop persist.xgimilog.buffersize 102400",
+        "setprop persist.xgimilog.buffernumber 30",
+        "setprop persist.sys.xgimi.kernellog true",
+        "setprop persist.sys.bt.debug 1",
+        "setprop persist.sys.bt.ble.testmode.enabled true",
+        "setprop persist.bluetooth.xgimi.log 5",
+        "setprop persist.xgimilog.maxbootcount 50"
+      ]
+    }
+  ],
+  "shortcuts": [
+    {
+      "id": "shortcut-up",
+      "name": "上键",
+      "description": "遥控方向上。",
+      "commands": [
+        "input keyevent 19"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-down",
+      "name": "下键",
+      "description": "遥控方向下。",
+      "commands": [
+        "input keyevent 20"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-left",
+      "name": "左键",
+      "description": "遥控方向左。",
+      "commands": [
+        "input keyevent 21"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-right",
+      "name": "右键",
+      "description": "遥控方向右。",
+      "commands": [
+        "input keyevent 22"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-ok",
+      "name": "OK键",
+      "description": "遥控确认。",
+      "commands": [
+        "input keyevent 23"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-power",
+      "name": "电源键",
+      "description": "投影仪电源键。",
+      "commands": [
+        "input keyevent KEYCODE_KPPOWER"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-home",
+      "name": "主页键",
+      "description": "回到桌面。",
+      "commands": [
+        "input keyevent 3"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-menu",
+      "name": "菜单键",
+      "description": "打开菜单。",
+      "commands": [
+        "input keyevent 82"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-back",
+      "name": "返回键",
+      "description": "返回上一级。",
+      "commands": [
+        "input keyevent 4"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-setting",
+      "name": "设置键",
+      "description": "打开设置。",
+      "commands": [
+        "input keyevent 122"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-sleep",
+      "name": "休眠键",
+      "description": "发送休眠键值，用于待机相关验证。",
+      "commands": [
+        "input keyevent 223"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-volume-up",
+      "name": "音量+",
+      "description": "调高音量。",
+      "commands": [
+        "input keyevent 24"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-volume-down",
+      "name": "音量-",
+      "description": "调低音量。",
+      "commands": [
+        "input keyevent 25"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-pair-open",
+      "name": "开放遥控器配对",
+      "description": "配对调试快捷入口。",
+      "commands": [
+        "setprop persist.sys.btrrsi -65"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-take-photo",
+      "name": "抓拍保存",
+      "description": "直接抓拍当前相机画面并保存到设备联调目录。",
+      "commands": [],
+      "action_type": "camera_snapshot",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    },
+    {
+      "id": "shortcut-check-reference",
+      "name": "检查指定正常照片",
+      "description": "先保存当前画面，再按参考图库自动检图；不通过时会中止后续队列。",
+      "commands": [],
+      "action_type": "compare_reference",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "roi_text": ""
+    }
+  ],
+  "remote": {
+    "edit_mode": false,
+    "buttons": [
+      {
+        "id": "remote-power",
+        "name": "电源",
+        "binding_type": "shortcut",
+        "binding_value": "电源键",
+        "x": 112,
+        "y": 24,
+        "w": 76,
+        "h": 34
+      },
+      {
+        "id": "remote-home",
+        "name": "主页",
+        "binding_type": "shortcut",
+        "binding_value": "主页键",
+        "x": 42,
+        "y": 82,
+        "w": 76,
+        "h": 34
+      },
+      {
+        "id": "remote-menu",
+        "name": "菜单",
+        "binding_type": "shortcut",
+        "binding_value": "菜单键",
+        "x": 182,
+        "y": 82,
+        "w": 76,
+        "h": 34
+      },
+      {
+        "id": "remote-up",
+        "name": "上",
+        "binding_type": "shortcut",
+        "binding_value": "上键",
+        "x": 112,
+        "y": 144,
+        "w": 76,
+        "h": 40
+      },
+      {
+        "id": "remote-left",
+        "name": "左",
+        "binding_type": "shortcut",
+        "binding_value": "左键",
+        "x": 42,
+        "y": 196,
+        "w": 76,
+        "h": 40
+      },
+      {
+        "id": "remote-ok",
+        "name": "确定",
+        "binding_type": "shortcut",
+        "binding_value": "OK键",
+        "x": 112,
+        "y": 196,
+        "w": 76,
+        "h": 40
+      },
+      {
+        "id": "remote-right",
+        "name": "右",
+        "binding_type": "shortcut",
+        "binding_value": "右键",
+        "x": 182,
+        "y": 196,
+        "w": 76,
+        "h": 40
+      },
+      {
+        "id": "remote-down",
+        "name": "下",
+        "binding_type": "shortcut",
+        "binding_value": "下键",
+        "x": 112,
+        "y": 248,
+        "w": 76,
+        "h": 40
+      },
+      {
+        "id": "remote-back",
+        "name": "返回",
+        "binding_type": "shortcut",
+        "binding_value": "返回键",
+        "x": 42,
+        "y": 318,
+        "w": 76,
+        "h": 34
+      },
+      {
+        "id": "remote-setting",
+        "name": "设置",
+        "binding_type": "shortcut",
+        "binding_value": "设置键",
+        "x": 182,
+        "y": 318,
+        "w": 76,
+        "h": 34
+      },
+      {
+        "id": "remote-vol-up",
+        "name": "音量+",
+        "binding_type": "shortcut",
+        "binding_value": "音量+",
+        "x": 42,
+        "y": 386,
+        "w": 76,
+        "h": 34
+      },
+      {
+        "id": "remote-vol-down",
+        "name": "音量-",
+        "binding_type": "shortcut",
+        "binding_value": "音量-",
+        "x": 182,
+        "y": 386,
+        "w": 76,
+        "h": 34
+      },
+      {
+        "id": "remote-sleep",
+        "name": "休眠",
+        "binding_type": "shortcut",
+        "binding_value": "休眠键",
+        "x": 42,
+        "y": 438,
+        "w": 76,
+        "h": 34
+      },
+      {
+        "id": "remote-photo",
+        "name": "抓拍",
+        "binding_type": "shortcut",
+        "binding_value": "抓拍保存",
+        "x": 112,
+        "y": 438,
+        "w": 76,
+        "h": 34
+      },
+      {
+        "id": "remote-check-reference",
+        "name": "检图",
+        "binding_type": "shortcut",
+        "binding_value": "检查指定正常照片",
+        "x": 182,
+        "y": 438,
+        "w": 76,
+        "h": 34
+      }
+    ]
+  },
+  "ui_state": {
+    "last_project_id": "project-athena-9681",
+    "last_script_id": "script-athena-boot",
+    "last_step_id": "step-f1faf11e"
+  },
+  "projects": [
+    {
+      "id": "project-athena-9681",
+      "name": "9681雅典娜",
+      "description": "默认联调项目示例。",
+      "scripts": [
+        {
+          "id": "script-athena-boot",
+          "name": "开机联调基线",
+          "description": "先打开日志，再开放配对，最后回到桌面。",
+          "steps": [
+            {
+              "id": "step-f1faf11e",
+              "type": "setting",
+              "target": "国内通用日志指令",
+              "command": "",
+              "seconds": 0.0,
+              "repeat": 1,
+              "delay_ms": 250,
+              "note": "批量打开日志，方便后续排障。",
+              "reference_image": "",
+              "threshold": 0.72,
+              "pause_on_fail": true,
+              "capture_count": 1,
+              "capture_interval_ms": 1000,
+              "retry_count": 0,
+              "retry_interval_ms": 1000,
+              "condition": "",
+              "variable_name": "",
+              "variable_value": "",
+              "result_variable": "",
+              "recovery_target": "",
+              "reference_category": "default",
+              "roi_text": ""
+            },
+            {
+              "id": "step-28a1c5c1",
+              "type": "wait",
+              "target": "",
+              "command": "",
+              "seconds": 1.0,
+              "repeat": 1,
+              "delay_ms": 250,
+              "note": "等待系统把日志属性落地。",
+              "reference_image": "",
+              "threshold": 0.72,
+              "pause_on_fail": true,
+              "capture_count": 1,
+              "capture_interval_ms": 1000,
+              "retry_count": 0,
+              "retry_interval_ms": 1000,
+              "condition": "",
+              "variable_name": "",
+              "variable_value": "",
+              "result_variable": "",
+              "recovery_target": "",
+              "reference_category": "default",
+              "roi_text": ""
+            },
+            {
+              "id": "step-2590f655",
+              "type": "setting",
+              "target": "开放遥控器配对",
+              "command": "",
+              "seconds": 0.0,
+              "repeat": 1,
+              "delay_ms": 250,
+              "note": "联调默认开放蓝牙配对。",
+              "reference_image": "",
+              "threshold": 0.72,
+              "pause_on_fail": true,
+              "capture_count": 1,
+              "capture_interval_ms": 1000,
+              "retry_count": 0,
+              "retry_interval_ms": 1000,
+              "condition": "",
+              "variable_name": "",
+              "variable_value": "",
+              "result_variable": "",
+              "recovery_target": "",
+              "reference_category": "default",
+              "roi_text": ""
+            },
+            {
+              "id": "step-c0777b31",
+              "type": "shortcut",
+              "target": "主页键",
+              "command": "",
+              "seconds": 0.0,
+              "repeat": 1,
+              "delay_ms": 400,
+              "note": "回到桌面确认设备可响应。",
+              "reference_image": "",
+              "threshold": 0.72,
+              "pause_on_fail": true,
+              "capture_count": 1,
+              "capture_interval_ms": 1000,
+              "retry_count": 0,
+              "retry_interval_ms": 1000,
+              "condition": "",
+              "variable_name": "",
+              "variable_value": "",
+              "result_variable": "",
+              "recovery_target": "",
+              "reference_category": "default",
+              "roi_text": ""
+            },
+            {
+              "id": "step-aab6722a",
+              "type": "capture_snapshot",
+              "target": "",
+              "command": "",
+              "seconds": 0.0,
+              "repeat": 1,
+              "delay_ms": 250,
+              "note": "抓一张当前桌面图，留作联调记录。",
+              "reference_image": "",
+              "threshold": 0.72,
+              "pause_on_fail": true,
+              "capture_count": 1,
+              "capture_interval_ms": 1000,
+              "retry_count": 0,
+              "retry_interval_ms": 1000,
+              "condition": "",
+              "variable_name": "",
+              "variable_value": "",
+              "result_variable": "",
+              "recovery_target": "",
+              "reference_category": "default",
+              "roi_text": ""
+            }
+          ],
+          "run_count": 1,
+          "cycle_interval_ms": 0,
+          "stop_on_fail": true
+        }
+      ]
+    }
+  ]
+}

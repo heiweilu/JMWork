@@ -900,12 +900,18 @@ class SerialPage(QWidget):
         dlg = CmdEditDialog(parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             name, cmd = dlg.get_values()
+            if not hasattr(sec, '_dyn_cmds'):
+                sec._dyn_cmds = []
             sec._dyn_cmds.append({"name": name, "cmd": cmd})
             self._save_all_data()  # 保存更改
             self._refresh_dyn_buttons(sec)
 
     def _refresh_dyn_buttons(self, sec: '_CollapsibleSection'):
         t = _DARK if self._dark_mode else _LIGHT
+        if not hasattr(sec, '_dyn_btns_layout'):
+            return
+        if not hasattr(sec, '_dyn_cmds'):
+            sec._dyn_cmds = []
         while sec._dyn_btns_layout.count():
             item = sec._dyn_btns_layout.takeAt(0)
             if item.widget():
@@ -917,13 +923,6 @@ class SerialPage(QWidget):
             f"QPushButton:hover{{background:{t['btn_hover']};"
             f"border-color:{t['btn_hover_bdr']};color:{t['combo_text']};}}"
         )
-        
-        # 获取动态板块在列表中的索引，用于编辑命令时定位
-        sec_idx = None
-        for idx, s in enumerate(self._quick_sections_list):
-            if s is sec:
-                sec_idx = idx
-                break
         
         for i, item in enumerate(sec._dyn_cmds):
             row = QHBoxLayout()
@@ -941,39 +940,42 @@ class SerialPage(QWidget):
             btn_edit.setText("✏")
             btn_edit.setToolTip("编辑")
             btn_edit.setStyleSheet(f"color:{t['grp_title']};background:transparent;border:none;font-size:12px;")
-            btn_edit.clicked.connect(lambda checked, s_idx=sec_idx, c_idx=i: self._on_edit_dyn_cmd(s_idx, c_idx))
+            btn_edit.clicked.connect(lambda checked=False, s=sec, c_idx=i: self._on_edit_dyn_cmd(s, c_idx))
             row.addWidget(btn_edit)
             
             btn_del = QToolButton()
             btn_del.setText("✕")
             btn_del.setStyleSheet("color:#E74C3C;background:transparent;border:none;")
-            # 使用列表推导式避免闭包陷阱
-            btn_del.clicked.connect((lambda s_idx, c_idx: lambda: (
-                self._quick_sections_list[s_idx]._dyn_cmds.pop(c_idx),
-                self._refresh_dyn_buttons(self._quick_sections_list[s_idx]),
-                self._save_all_data()
-            ))(sec_idx, i))
+            btn_del.clicked.connect(lambda checked=False, s=sec, c_idx=i: self._on_delete_dyn_cmd(s, c_idx))
             row.addWidget(btn_del)
             
             container = QWidget()
             container.setLayout(row)
             sec._dyn_btns_layout.addWidget(container)
-    
-    def _on_edit_dyn_cmd(self, sec_idx: int, cmd_idx: int):
+
+    def _on_edit_dyn_cmd(self, sec: '_CollapsibleSection', cmd_idx: int):
         """编辑动态板块中的命令"""
-        if not (0 <= sec_idx < len(self._quick_sections_list)):
+        dyn_cmds = getattr(sec, '_dyn_cmds', None)
+        if dyn_cmds is None:
             return
-        sec = self._quick_sections_list[sec_idx]
-        if not (0 <= cmd_idx < len(sec._dyn_cmds)):
+        if not (0 <= cmd_idx < len(dyn_cmds)):
             return
-        
-        item = sec._dyn_cmds[cmd_idx]
+
+        item = dyn_cmds[cmd_idx]
         dlg = CmdEditDialog(name=item['name'], cmd=item['cmd'], parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             name, cmd = dlg.get_values()
-            sec._dyn_cmds[cmd_idx] = {"name": name, "cmd": cmd}
+            dyn_cmds[cmd_idx] = {"name": name, "cmd": cmd}
             self._save_all_data()
             self._refresh_dyn_buttons(sec)
+
+    def _on_delete_dyn_cmd(self, sec: '_CollapsibleSection', cmd_idx: int):
+        dyn_cmds = getattr(sec, '_dyn_cmds', None)
+        if dyn_cmds is None or not (0 <= cmd_idx < len(dyn_cmds)):
+            return
+        dyn_cmds.pop(cmd_idx)
+        self._refresh_dyn_buttons(sec)
+        self._save_all_data()
 
     def _build_firmware_group(self) -> _CollapsibleSection:
         """固件升级准备区"""
