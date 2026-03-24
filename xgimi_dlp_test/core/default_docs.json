@@ -1,0 +1,56 @@
+[
+  {
+    "title": "📁 项目结构总览",
+    "category": "未分类",
+    "format": "markdown",
+    "content": "## 项目结构总览\n\n```\nxgimi_dlp_test/\n├── main.py                 # 程序入口\n├── config/\n│   └── default_config.json # 默认配置文件\n├── assets/\n│   └── reference_images/   # 各模块参考结果图\n├── core/\n│   ├── app_meta.py         # 名称/版本/署名统一维护\n│   ├── admin_console_store.py # 管理员配置（版本/邮箱/开发文档）\n│   ├── config_manager.py   # 配置管理\n│   ├── task_registry.py    # 模块注册表（自动发现）\n│   └── file_utils.py       # 文件工具\n├── modules/                # ★ 功能模块目录（核心业务代码）\n│   ├── analysis/           #   分析执行类模块\n│   ├── preprocessing/      #   数据预处理类模块\n│   └── test/               #   硬件测试类模块\n├── ui/\n│   ├── main_window.py      # 主窗口（导航 + 页面切换）\n│   ├── styles.py           # 全局样式\n│   ├── animations.py       # UI动效\n│   ├── pages/              # 各功能页面\n│   └── widgets/            # 可复用组件（含树状工作区容器）\n└── workers/\n    └── task_worker.py      # 后台任务线程\n```\n\n所有业务逻辑写在 modules/ 下，UI 层通过 task_registry 自动发现并展示，\n两层完全解耦——修改模块不需要改任何 UI 代码。当前预处理、分析/SVM、配置、硬件测试、串口调试、设备联调台均已收敛为树状工作区交互模型。\n\n若需要在运行期调整顶部版本号、作者邮箱或开发文档，可通过主窗口顶部的「管理员控制台」进入，默认密码为系统初始化密码。"
+  },
+  {
+    "title": "➕ 新增分析模块",
+    "category": "未分类",
+    "format": "markdown",
+    "content": "## 新增分析模块（分析执行页）\n\n### 第一步：在 modules/analysis/ 下新建 xxx.py\n\n```\n# modules/analysis/my_analysis.py\n\nMODULE_INFO = {\n    \"name\": \"我的分析\",            # 显示在下拉框的名称\n    \"category\": \"analysis\",        # 固定写 \"analysis\"\n    \"description\": \"功能说明...\",\n    \"input_type\": \"csv\",           # csv / txt / directory\n    \"input_description\": \"输入文件格式说明\",\n    \"output_type\": \"image\",        # image / excel / csv\n    \"script_file\": \"my_analysis.py\",    # 便于调试定位\n    # 如有参考结果图，把图放到 assets/reference_images/ 并填写文件名：\n    \"reference_image\": \"my_analysis.png\",\n    \"params\": [\n        {\"key\": \"threshold\", \"label\": \"阈值\", \"type\": \"float\",\n         \"default\": 0.5, \"min\": 0.0, \"max\": 1.0},\n    ],\n}\n\ndef run(input_path: str, output_dir: str, params: dict,\n        progress_callback=None, log_callback=None) -> dict:\n    \"\"\"\n    返回值规范:\n      成功: {\"status\": \"success\", \"output_path\": \"...\", \"figure\": fig_or_None}\n      失败: {\"status\": \"error\",   \"message\": \"错误描述\"}\n      取消: {\"status\": \"cancelled\"}\n    \"\"\"\n    try:\n        # 你的业务逻辑 ...\n        if log_callback:\n            log_callback(\"处理中...\", \"INFO\")\n        if progress_callback:\n            progress_callback(1, 1)\n        return {\"status\": \"success\", \"output_path\": output_dir, \"figure\": None}\n    except Exception as e:\n        import traceback\n        return {\"status\": \"error\", \"message\": f\"{e}\\n{traceback.format_exc()}\"}\n```\n\n### 第二步：重启程序\n\ntask_registry 会自动扫描 modules/analysis/，无需修改任何 UI 代码，\n新模块会自动出现在「分析执行 / SVM训练」页的“执行控制”子节点中，下拉框仍用于选择具体模块。\n\n### params 支持的类型\n\n| type | 控件 | 额外字段 |\n| --- | --- | --- |\n| string | 文本框 | default |\n| int | 整数输入 | default, min, max |\n| float | 浮点输入 | default, min, max, decimals |\n| bool | 复选框 | default (True/False) |\n| choice | 下拉框 | options(标签列表), values(实际值列表), default |\n| tuple | 范围输入(两框) | default=(min,max) |"
+  },
+  {
+    "title": "➕ 新增预处理模块",
+    "category": "未分类",
+    "format": "markdown",
+    "content": "## 新增预处理模块（数据预处理页）\n\n### 在 modules/preprocessing/ 下新建 xxx.py\n\n```\n# modules/preprocessing/my_preprocess.py\n\nMODULE_INFO = {\n    \"name\": \"我的预处理\",\n    \"category\": \"preprocessing\",   # 固定写 \"preprocessing\"\n    \"description\": \"功能说明...\",\n    \"input_type\": \"csv\",            # csv / txt / directory / csv_or_dir\n    \"input_description\": \"输入格式说明\",\n    \"output_type\": \"csv\",\n    \"script_file\": \"my_preprocess.py\",\n    \"params\": [\n        {\"key\": \"encoding\", \"label\": \"编码\", \"type\": \"choice\",\n         \"options\": [\"utf-8-sig\", \"gbk\"],\n         \"values\":  [\"utf-8-sig\", \"gbk\"],\n         \"default\": \"utf-8-sig\"},\n    ],\n}\n\ndef run(input_path: str, output_dir: str, params: dict,\n        progress_callback=None, log_callback=None) -> dict:\n    # 同分析模块，返回规范一样\n    ...\n```\n\n重启后自动出现在「数据预处理」页左侧树状导航中，每个预处理模块对应一个子节点。"
+  },
+  {
+    "title": "🗑️ 删除/禁用模块",
+    "category": "未分类",
+    "format": "markdown",
+    "content": "## 删除或禁用模块\n\n### 方法一：直接删除文件（彻底删除）\n\n删除 `modules/analysis/` 或 `modules/preprocessing/`\n或 `modules/test/` 下对应的 `.py` 文件，重启程序即生效。\n\n### 方法二：重命名为下划线开头（临时禁用）\n\n将文件改名为 `_xxx.py`（加下划线前缀），\ntask_registry 会跳过所有以 `_` 开头的文件，等于软禁用，\n恢复时改回原名即可。\n\n# 禁用：\nmy_analysis.py  →  _my_analysis.py\n\n# 恢复：\n_my_analysis.py  →  my_analysis.py\n\n```\n\n### 相关代码位置\n\n跳过逻辑在 `core/task_registry.py`：\n\nif name.startswith('_'):\ncontinue\n\n```"
+  },
+  {
+    "title": "✏️ 修改已有模块",
+    "category": "未分类",
+    "format": "markdown",
+    "content": "## 修改已有模块\n\n### 只改业务逻辑（不改 MODULE_INFO）\n\n直接编辑 `modules/xxx/yyy.py` 中的 `run()` 函数，\n重启程序生效。UI 自动适配，无需改任何界面代码。\n\n### 修改参数列表\n\n编辑 `MODULE_INFO[\"params\"]`，重启后 UI 会重新生成表单控件。\n\n### 修改下拉框显示名称\n\n编辑 `MODULE_INFO[\"name\"]`，显示名称和脚本文件名分离，互不干扰。\n\n### 修改参考结果图\n\n- 替换 `assets/reference_images/xxx.png`\n\n- 或修改对应脚本的 `MODULE_INFO[\"reference_image\"]` 指向新文件名\n\n### 修改输出路径逻辑\n\n输出路径由 `run(output_dir, ...)` 的第二个参数传入，\n可在模块内部自行决定最终写入路径，不受 UI 限制。"
+  },
+  {
+    "title": "⚙️ 配置说明",
+    "category": "未分类",
+    "format": "markdown",
+    "content": "## 配置文件说明\n\n### 配置文件位置\n\n```\ntest_ui/config/default_config.json\n```\n\n### 常用配置项\n\n| 配置键 | 说明 | 示例值 |\n| --- | --- | --- |\n| general.project_root | DLP 自动化测试工程根目录 | D:/...../202602027_dlp_auto |\n| paths.angle_results_dir | 角度测试结果目录（相对工程根） | reports/Angle_test_results |\n| paths.csv_quadrant_dir | 象限CSV目录（相对工程根） | data/CSV_quadrant_data |\n| paths.reports_dir | 报告输出目录（相对工程根） | reports |\n| screen.height | 投影屏幕高度（像素） | 2159 |\n| angle.yaw_max / yaw_min | Yaw 角度范围 | 40 / -40 |\n| angle.pitch_max / pitch_min | Pitch 角度范围 | 40 / -40 |\n\n### 修改配置\n\n在「配置管理」页左侧树状分组中选择对应配置块，编辑后点击「保存配置」即可，\n所有模块的 run() 通过 params['project_root'] 获取工程根目录。"
+  },
+  {
+    "title": "🖥️ 新增导航菜单页",
+    "category": "未分类",
+    "format": "markdown",
+    "content": "## 新增导航菜单页（UI 级别扩展）\n\n### 第一步：新建页面文件\n\n在 `ui/pages/` 下新建 `my_page.py`，继承 `QWidget`：\n\nfrom PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel\n\nclass MyPage(QWidget):\ndef __init__(self, log_panel=None, config_mgr=None, parent=None):\nsuper().__init__(parent)\nlayout = QVBoxLayout(self)\nlayout.addWidget(QLabel(\"我的新页面\"))\n\n```\n\n### 第二步：在 `ui/main_window.py` 注册\n\n# 1. 顶部导入\nfrom ui.pages.my_page import MyPage\n\n# 2. NAV_ITEMS 中添加一项\nNAV_ITEMS = [\n...\n{\"name\": \"我的页面\", \"icon\": \"🆕\", \"enabled\": True},  # ← 新增\n]\n\n# 3. _init_ui() 中创建并加入 page_stack\nself.my_page = MyPage(log_panel=self.log_panel, config_mgr=self._config_mgr)\nself.page_stack.addWidget(self.my_page)\n\n# 注意：page_stack 中页面顺序须与 NAV_ITEMS 顺序一致\n\n```"
+  },
+  {
+    "title": "🔍 调试技巧",
+    "category": "未分类",
+    "format": "markdown",
+    "content": "## 调试技巧\n\n### 快速定位某功能对应的脚本\n\n在「分析执行」页的下拉框中，每个选项显示格式为：\n\n`模块名  —  script_file.py`\n\n直接打开 `modules/analysis/script_file.py` 即可。\n\n### 查看运行日志\n\n底部日志面板会记录所有 INFO / SUCCESS / WARNING / ERROR 信息，\n点击「导出日志」可保存为文件。\n\n### 模块加载失败排查\n\n若某模块未出现在下拉框：检查启动时控制台输出，\ntask_registry 会打印加载失败原因：\n\n[TaskRegistry] 模块 modules.analysis.xxx 加载失败: <错误信息>\n\n```\n\n常见原因：`MODULE_INFO` 缺字段、`run()` 函数签名不对、\n依赖库未安装。\n\n### 让模块打印中间日志\n\ndef run(input_path, output_dir, params,\nprogress_callback=None, log_callback=None):\nif log_callback:\nlog_callback(\"步骤1完成\", \"INFO\")     # 显示在日志面板\nif progress_callback:\nprogress_callback(1, 3)               # 更新进度条 (当前, 总数)\n\n```"
+  },
+  {
+    "title": "🔌 串口调试 & 角度采集",
+    "category": "未分类",
+    "format": "markdown",
+    "content": "## 串口调试 & 极米角度采集测试\n\n### 串口界面功能说明\n\n| 功能 | 说明 |\n| --- | --- |\n| 端口配置 | COM 口、波特率（默认115200）、数据位/校验位/停止位 |\n| 彩色终端 | 绿色=发送，白色=接收，黄色=系统提示，红色=错误 |\n| 快捷指令 | 固件升级流程、角度采集、系统工具均有一键按钮 |\n| 自定义指令 | 可添加/编辑/删除，自动保存到 config/serial_quick_cmds.json |\n| 下载日志 | 将终端内容保存为 .log 文件 |\n\n### 固件升级流程（libxgimi.so）\n\n内置 so 文件路径: assets/firmware/libxgimi.so\n\n```\nsu                                                    # 切换 root 用户\nremount                                               # 重新挂载为可读写\ncp /vendor/lib/libxgimi.so /data/                     # 备份原始 so 文件\ncp /mnt/media_rw/0182-0265/libxgimi.so /vendor/lib/  # 从 U 盘安装新 so\nsync                                                  # 刷新文件系统缓冲\nreboot                                                # 重启生效\n```\n\n⚠ 注意：U 盘 UUID 0182-0265 是固定挂载路径，不同 U 盘 UUID 不同，\n若找不到需先执行 ls /mnt/media_rw/ 确认实际挂载目录。\n\n### 角度采集测试说明\n\n使用极米杨兴角度坐标映射采集接口，遍历指定范围内的 Yaw/Pitch 角度组合，\n记录每个角度对应的投影仪四角屏幕坐标（TL/TR/BL/BR）。\n\n#### 前置条件\n\n#### 采集指令\n\n```\ngmpfUnit externDisplay kst_dev batchGetDisplayPointByAngle \\\n    \"yaw;pitch;0;-40;40;-40;40;{step};/data/vendor\"\n```\n\n| 参数位置 | 值 | 含义 |\n| --- | --- | --- |\n| axis1 | yaw | 第一扫描轴为 Yaw（水平偏航角） |\n| axis2 | pitch | 第二扫描轴为 Pitch（垂直俯仰角） |\n| fixed | 0 | Roll（滚转角）固定为 0° |\n| start1 ~ end1 | -40 ~ 40 | Yaw 扫描范围（度） |\n| start2 ~ end2 | -40 ~ 40 | Pitch 扫描范围（度） |\n| step | 0.1 / 0.5 / 1 | 步进间隔（度） |\n| output_path | /data/vendor | CSV 输出目录（设备内部） |\n\n步进对应数据量估算：\n  • step=0.1 → 约 161×161 = 25921 个点（约 30 分钟）\n  • step=0.5 → 约 33×33 = 1089 个点\n  • step=1.0 → 约 17×17 = 289 个点（快速验证）\n\n#### 输出文件格式\n\n```\n文件名: ak_scan_yaw_pitch_step{step}_{timestamp}.csv\n列:    Yaw, Pitch, Fixed_Axis, TL_X, TL_Y, TR_X, TR_Y, BL_X, BL_Y, BR_X, BR_Y\n坐标:  已×2 放大为 4K 分辨率（算法内部为 2K，自动扩展）\n```\n\n#### 数据取回\n\n```\ncp /data/vendor/ak_scan_*.csv /mnt/media_rw/0182-0265/\n```\n\n将 CSV 全部拷贝到 U 盘，然后拔 U 盘在电脑上用「分析执行」模块处理数据。\n\n### 其他常用系统指令\n\n| 功能 | 指令 |\n| --- | --- |\n| 监听 GM 调试日志 | logcat | grep GM_DISP_DBG |\n| 关闭 AVB 验证 | avb init 0;avb set-devicestate 0;avb set-verity disable;save;reset |\n| 调整休眠(24h) | settings put system screen_off_timeout 86400000 |\n| 查看 U 盘挂载 | ls /mnt/media_rw/ |"
+  }
+]

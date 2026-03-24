@@ -19,6 +19,7 @@ from PyQt6.QtGui import QFont, QColor
 from ui.widgets.param_editor import ParamEditor
 from ui.widgets.file_selector import FileSelector
 from ui.widgets.progress_bar import ProgressWidget
+from ui.widgets.tree_workspace import TreeWorkspace
 from workers.task_worker import TaskWorker
 from core import task_registry
 
@@ -42,7 +43,11 @@ class TestPage(QWidget):
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(12)
 
-        # ========== 1. 设备连接栏 ==========
+        self.workspace = TreeWorkspace(
+            '硬件测试',
+            '通过树状导航切换设备连接、测试执行和日志结果，减少长页面堆叠。',
+        )
+
         conn_group = QGroupBox("🔌 DLP 设备连接")
         conn_group.setStyleSheet("""
             QGroupBox {
@@ -119,11 +124,8 @@ class TestPage(QWidget):
         conn_layout.addWidget(self._btn_detect)
 
         main_layout.addWidget(conn_group)
+        main_layout.addWidget(self.workspace, 1)
 
-        # ========== 2. 主内容区 ==========
-        content_splitter = QSplitter(Qt.Orientation.Vertical)
-
-        # ---- 左侧: 测试配置 ----
         left_panel = QWidget()
         left_panel.setMinimumWidth(540)
         left_layout = QVBoxLayout(left_panel)
@@ -252,9 +254,6 @@ class TestPage(QWidget):
         left_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         left_scroll.setWidget(left_panel)
 
-        content_splitter.addWidget(left_scroll)
-
-        # ---- 底部: 实时日志 ----
         bottom_panel = QWidget()
         bottom_layout = QVBoxLayout(bottom_panel)
         bottom_layout.setContentsMargins(0, 0, 0, 0)
@@ -322,13 +321,14 @@ class TestPage(QWidget):
         self._result_label.setVisible(False)
         bottom_layout.addWidget(self._result_label)
 
-        content_splitter.addWidget(bottom_panel)
-        content_splitter.setChildrenCollapsible(False)
-        content_splitter.setStretchFactor(0, 7)
-        content_splitter.setStretchFactor(1, 3)
-        content_splitter.setSizes([620, 250])
-
-        main_layout.addWidget(content_splitter, 1)
+        overview = QLabel('请选择左侧节点。建议先在“设备连接”确认状态，再进入“测试执行”配置参数，最后到“日志与结果”查看过程与摘要。')
+        overview.setWordWrap(True)
+        overview.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        overview.setStyleSheet('padding: 16px; color: #445; font-size: 13px;')
+        self.workspace.add_page('test_overview', '硬件测试', overview)
+        self.workspace.add_page('test_execute', '测试执行', left_scroll, parent_key='test_overview')
+        self.workspace.add_page('test_logs', '日志与结果', bottom_panel, parent_key='test_overview')
+        self.workspace.select_page('test_execute')
 
         # 初始化模块列表
         self.refresh_modules()

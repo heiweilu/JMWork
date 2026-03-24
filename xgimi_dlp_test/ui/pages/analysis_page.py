@@ -10,7 +10,7 @@ from datetime import datetime
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                               QComboBox, QLabel, QPushButton, QGroupBox,
                               QMessageBox, QFileDialog, QScrollArea,
-                              QTabWidget, QSizePolicy, QTextBrowser, QTextEdit, QFrame)
+                              QSizePolicy, QTextBrowser, QTextEdit, QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap
 
@@ -18,6 +18,7 @@ from ui.widgets.file_selector import FileSelector
 from ui.widgets.param_editor import ParamEditor
 from ui.widgets.matplotlib_canvas import PlotWidget
 from ui.widgets.progress_bar import ProgressWidget
+from ui.widgets.tree_workspace import TreeWorkspace
 from workers.task_worker import TaskWorker
 from core import task_registry
 
@@ -42,13 +43,18 @@ class AnalysisPage(QWidget):
         self._init_ui()
 
     def _init_ui(self):
-        main_layout = QHBoxLayout(self)
+        main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(8, 8, 8, 8)
 
-        # 左右分割
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        page_title = 'SVM训练' if self._category == 'svm' else '分析执行'
+        page_desc = (
+            '通过树状导航切换执行控制、参考结果、分析结果和分析报告。'
+            if self._category != 'svm' else
+            '通过树状导航切换训练控制、参考结果、训练结果和训练报告。'
+        )
+        self.workspace = TreeWorkspace(page_title, page_desc)
+        main_layout.addWidget(self.workspace, 1)
 
-        # ======= 左侧控制面板 =======
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setSpacing(12)
@@ -155,17 +161,6 @@ class AnalysisPage(QWidget):
         self.progress = ProgressWidget()
         left_layout.addWidget(self.progress)
 
-        left_panel.setMinimumWidth(430)
-        left_panel.setMaximumWidth(500)
-
-        # ======= 右侧: Tab(参考结果 | 分析结果) =======
-        self.right_tabs = QTabWidget()
-        self.right_tabs.setStyleSheet(
-            "QTabBar::tab { padding: 6px 18px; font-size: 12px; }"
-            "QTabBar::tab:selected { font-weight: bold; color: #2A64D6; }"
-        )
-
-        # Tab0: 参考结果
         self.ref_scroll = QScrollArea()
         self.ref_scroll.setWidgetResizable(True)
         self.ref_scroll.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -207,13 +202,9 @@ class AnalysisPage(QWidget):
         self.ref_layout.addWidget(self.ref_text_label)
         self.ref_layout.addStretch()
         self.ref_scroll.setWidget(self.ref_content)
-        self.right_tabs.addTab(self.ref_scroll, "📷  参考结果")
 
-        # Tab1: 分析结果
         self.plot_widget = PlotWidget()
-        self.right_tabs.addTab(self.plot_widget, "📈  分析结果")
 
-        # Tab2: 分析报告
         report_tab = QWidget()
         report_layout = QVBoxLayout(report_tab)
         report_layout.setContentsMargins(8, 6, 8, 8)
@@ -242,17 +233,23 @@ class AnalysisPage(QWidget):
             " padding:10px; line-height:1.6;}")
         self._report_text.setPlaceholderText("（执行后，含报告的模块输出会自动显示在此处）")
         report_layout.addWidget(self._report_text, 1)
-        self.right_tabs.addTab(report_tab, "📝  分析报告")
 
-        splitter.addWidget(left_panel)
-        splitter.addWidget(self.right_tabs)
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-
-        main_layout.addWidget(splitter)
+        overview = QLabel('请选择左侧工作区。执行控制页负责选择模块、输入和参数；结果页负责查看参考图、输出图表和报告。')
+        overview.setWordWrap(True)
+        overview.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        overview.setStyleSheet('padding: 16px; color: #445; font-size: 13px;')
+        self.workspace.add_page('analysis_overview', page_title, overview)
+        self.workspace.add_page('analysis_execute', '执行控制', left_panel, parent_key='analysis_overview')
+        self.workspace.add_page('analysis_reference', '参考结果', self.ref_scroll, parent_key='analysis_overview')
+        self.workspace.add_page('analysis_plot', '分析结果', self.plot_widget, parent_key='analysis_overview')
+        self.workspace.add_page('analysis_report', '分析报告', report_tab, parent_key='analysis_overview')
+        self.workspace.select_page('analysis_execute')
 
         # 模块ID列表（与 combo 索引对应）
         self._module_ids = []
+
+    def _select_workspace_page(self, key: str):
+        self.workspace.select_page(key)
 
     # 参考图所在目录
     ASSETS_DIR = os.path.join(
@@ -606,7 +603,7 @@ class AnalysisPage(QWidget):
                 self._report_text.setPlainText(report_text)
                 self._btn_export_report.setEnabled(True)
                 self._current_report_text = report_text
-                self.right_tabs.setCurrentIndex(2)  # 自动切到报告 Tab
+                self._select_workspace_page('analysis_report')
             else:
                 self._current_report_text = ''
                 self._btn_export_report.setEnabled(False)
@@ -620,11 +617,11 @@ class AnalysisPage(QWidget):
             if image_paths:
                 self.plot_widget.display_image_paths(image_paths)
                 self.btn_export.setEnabled(True)
-                self.right_tabs.setCurrentIndex(1)
+                self._select_workspace_page('analysis_plot')
             elif fig:
                 self.plot_widget.display_figure(fig)
                 self.btn_export.setEnabled(True)
-                self.right_tabs.setCurrentIndex(1)
+                self._select_workspace_page('analysis_plot')
             if self._log_panel:
                 self._log_panel.append_log(
                     f"执行成功! 输出: {output_path}", "SUCCESS")
@@ -777,7 +774,7 @@ class AnalysisPage(QWidget):
         self._btn_clear_ref.setVisible(True)
         self._set_manual_ref_path(self._get_current_module_id(), path)
         # 切换到参考结果 Tab
-        self.right_tabs.setCurrentIndex(0)
+        self._select_workspace_page('analysis_reference')
         if self._log_panel:
             self._log_panel.append_log(f"已导入参考图: {path}", "INFO")
 

@@ -3,6 +3,8 @@
 
 import json
 
+from PyQt6.QtCore import Qt
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QMessageBox,
     QScrollArea, QGroupBox, QFormLayout, QLineEdit, QSpinBox, QDoubleSpinBox,
@@ -10,6 +12,7 @@ from PyQt6.QtWidgets import (
 )
 
 from core.config_manager import ConfigManager, CONFIG_DESCRIPTIONS, CONFIG_TYPES
+from ui.widgets.tree_workspace import TreeWorkspace
 
 
 GROUP_TITLES = {
@@ -48,16 +51,11 @@ class ConfigPage(QWidget):
         desc.setStyleSheet('color: #666; margin-bottom: 8px;')
         layout.addWidget(desc)
 
-        self._scroll = QScrollArea()
-        self._scroll.setWidgetResizable(True)
-        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
-
-        self._content = QWidget()
-        self._content_layout = QVBoxLayout(self._content)
-        self._content_layout.setContentsMargins(0, 0, 0, 0)
-        self._content_layout.setSpacing(12)
-        self._scroll.setWidget(self._content)
-        layout.addWidget(self._scroll, 1)
+        self.workspace = TreeWorkspace(
+            '',
+            '左侧按配置分组切换，右侧只展示当前分组，避免长表单挤压。',
+        )
+        layout.addWidget(self.workspace, 1)
 
         btn_layout = QHBoxLayout()
 
@@ -134,17 +132,19 @@ class ConfigPage(QWidget):
         return value_str
 
     def _clear_content(self):
-        while self._content_layout.count():
-            item = self._content_layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
+        self.workspace.clear()
 
     def _load_config(self):
         if not self._config_mgr:
             return
         self._clear_content()
         self._editors.clear()
+
+        overview = QLabel('请选择左侧配置分组。保存、恢复默认、刷新仍作用于整套配置。')
+        overview.setWordWrap(True)
+        overview.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        overview.setStyleSheet('padding: 16px; color: #445; font-size: 13px;')
+        self.workspace.add_page('config_overview', '配置管理', overview)
 
         flat = self._config_mgr.get_flat()
         grouped = {}
@@ -153,6 +153,11 @@ class ConfigPage(QWidget):
             grouped.setdefault(group, []).append((key, value))
 
         for group, items in grouped.items():
+            page = QWidget()
+            page_layout = QVBoxLayout(page)
+            page_layout.setContentsMargins(0, 0, 0, 0)
+            page_layout.setSpacing(8)
+
             box = QGroupBox(GROUP_TITLES.get(group, group))
             form = QFormLayout(box)
             form.setContentsMargins(12, 12, 12, 12)
@@ -164,9 +169,11 @@ class ConfigPage(QWidget):
                 label.setToolTip(key)
                 form.addRow(label, editor)
                 self._editors[key] = editor
-            self._content_layout.addWidget(box)
+            page_layout.addWidget(box)
+            page_layout.addStretch(1)
+            self.workspace.add_page(f'config:{group}', GROUP_TITLES.get(group, group), page, parent_key='config_overview')
 
-        self._content_layout.addStretch()
+        self.workspace.select_page(self.workspace.first_key())
 
     def showEvent(self, event):
         super().showEvent(event)

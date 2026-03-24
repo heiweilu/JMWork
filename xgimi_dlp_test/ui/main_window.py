@@ -8,9 +8,9 @@
 import os
 
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-                              QListWidget, QListWidgetItem, QStackedWidget,
+                              QTreeWidget, QTreeWidgetItem, QStackedWidget,
                               QSplitter, QStatusBar, QMessageBox, QFrame,
-                              QLabel, QPushButton)
+                              QLabel, QPushButton, QInputDialog, QLineEdit, QDialog)
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QIcon, QFont
 
@@ -26,7 +26,10 @@ from ui.pages.test_page import TestPage
 from ui.pages.docs_page import DocsPage
 from ui.pages.device_lab_page import DeviceLabPage
 from ui.pages.serial_page import SerialPage
+from core.app_meta import APP_NAME, APP_AUTHOR_EMAIL, APP_SIGNATURE, APP_VERSION, full_app_title
+from core.admin_console_store import AdminConsoleStore
 from core.config_manager import ConfigManager
+from ui.dialogs.admin_console_dialog import AdminConsoleDialog
 from ui.animations import UIAnimator, TypewriterEffect, NeonPulse
 
 
@@ -43,6 +46,12 @@ NAV_ITEMS = [
     {"name": "硬件测试",   "icon": "🔧", "enabled": True},
 ]
 
+NAV_GROUPS = [
+    ("数据处理", ["数据预处理", "分析执行", "SVM训练"]),
+    ("系统管理", ["配置管理", "历史浏览", "开发文档"]),
+    ("设备工作台", ["串口调试", "设备联调台", "硬件测试"]),
+]
+
 
 class MainWindow(QMainWindow):
     """应用主窗口"""
@@ -55,7 +64,9 @@ class MainWindow(QMainWindow):
         self._log_fade_animation = None
         self._log_panel_visible = True
         self._last_log_width = 360
-        self.setWindowTitle("DLP 自动化测试系统")
+        self._nav_items_by_name = {}
+        self._admin_store = AdminConsoleStore(self._config_mgr._config_dir)
+        self.setWindowTitle(full_app_title())
         self.setMinimumSize(1200, 750)
         self.resize(1400, 900)
 
@@ -98,21 +109,33 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(6)
 
         # ====== 左侧导航栏 ======
-        self.nav_list = QListWidget()
+        self.nav_list = QTreeWidget()
         self.nav_list.setObjectName("nav_list")
         self.nav_list.setFixedWidth(160)
         self.nav_list.setFont(QFont("Microsoft YaHei", 12))
         self.nav_list.setIconSize(QSize(20, 20))
+        self.nav_list.setHeaderHidden(True)
 
-        for item_def in NAV_ITEMS:
-            item = QListWidgetItem(f" {item_def['icon']}  {item_def['name']}")
-            if not item_def['enabled']:
-                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
-                item.setToolTip("需要硬件 SDK 支持")
-            self.nav_list.addItem(item)
+        item_defs = {item['name']: item for item in NAV_ITEMS}
+        for group_name, child_names in NAV_GROUPS:
+            root_item = QTreeWidgetItem([group_name])
+            root_item.setData(0, Qt.ItemDataRole.UserRole, -1)
+            self.nav_list.addTopLevelItem(root_item)
+            root_item.setExpanded(True)
+            for child_name in child_names:
+                item_def = item_defs.get(child_name, {'enabled': True})
+                child_item = QTreeWidgetItem([child_name])
+                child_item.setData(0, Qt.ItemDataRole.UserRole, self._nav_index_by_name(child_name))
+                if not item_def.get('enabled', True):
+                    child_item.setDisabled(True)
+                    child_item.setToolTip(0, '需要硬件 SDK 支持')
+                root_item.addChild(child_item)
+                self._nav_items_by_name[child_name] = child_item
 
-        self.nav_list.setCurrentRow(0)
-        self.nav_list.currentRowChanged.connect(self._on_nav_changed)
+        first_item = self._nav_items_by_name.get(NAV_ITEMS[0]['name'])
+        if first_item is not None:
+            self.nav_list.setCurrentItem(first_item)
+        self.nav_list.currentItemChanged.connect(self._on_nav_changed)
         main_layout.addWidget(self.nav_list)
         
         # 给导航栏添加立体阴影
@@ -123,6 +146,22 @@ class MainWindow(QMainWindow):
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(10, 10, 10, 10)
         right_layout.setSpacing(10)
+
+        header = QFrame()
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(10, 8, 10, 8)
+        self._header_title = QLabel(APP_NAME)
+        self._header_title.setStyleSheet('font-size:18px;font-weight:bold;color:#1f2937;')
+        self._header_meta = QLabel('')
+        self._header_meta.setStyleSheet('color:#617A9D; font-size:12px;')
+        self._btn_admin_console = QPushButton('管理员控制台')
+        self._btn_admin_console.clicked.connect(self._open_admin_console)
+        header_layout.addWidget(self._header_title)
+        header_layout.addStretch(1)
+        header_layout.addWidget(self._header_meta)
+        header_layout.addSpacing(8)
+        header_layout.addWidget(self._btn_admin_console)
+        right_layout.addWidget(header)
 
         # 左右分割: 页面 + 日志
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -233,7 +272,7 @@ class MainWindow(QMainWindow):
         self.page_stack.addWidget(self.svm_page)
         self.page_stack.addWidget(self.config_page)
         self.page_stack.addWidget(self.history_page)
-        self.docs_page = DocsPage()
+        self.docs_page = DocsPage(admin_store=self._admin_store)
         self.page_stack.addWidget(self.docs_page)
         self.serial_page = SerialPage(config_mgr=self._config_mgr)
         self.page_stack.addWidget(self.serial_page)
@@ -261,6 +300,8 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self.splitter)
         main_layout.addWidget(right_panel)
 
+        self._refresh_app_meta_ui()
+
         for button in self.findChildren(QPushButton):
             UIAnimator.install_button_hover(button)
 
@@ -269,6 +310,10 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("就绪")
+
+        self._status_app_meta = QLabel('')
+        self._status_app_meta.setStyleSheet('color:#617A9D; padding:0 8px;')
+        self.status_bar.addPermanentWidget(self._status_app_meta)
 
         self._status_toggle_log = QPushButton("收起日志")
         self._status_toggle_log.setObjectName("btn_status_log_toggle")
@@ -280,6 +325,50 @@ class MainWindow(QMainWindow):
         # 全局进度条
         self.global_progress = ProgressWidget()
         self.status_bar.addPermanentWidget(self.global_progress)
+        self._refresh_app_meta_ui()
+
+    def _current_app_version(self) -> str:
+        return self._admin_store.get_app_version() or APP_VERSION
+
+    def _current_author_email(self) -> str:
+        return self._admin_store.get_author_email() or APP_AUTHOR_EMAIL
+
+    def _refresh_app_meta_ui(self):
+        version = self._current_app_version()
+        email = self._current_author_email()
+        self.setWindowTitle(f'{APP_NAME} {version} {APP_SIGNATURE}')
+        if hasattr(self, '_header_meta'):
+            self._header_meta.setText(f'{version} | {APP_SIGNATURE} | {email}')
+        if hasattr(self, '_status_app_meta'):
+            self._status_app_meta.setText(f'{APP_NAME} {version} | {APP_SIGNATURE} | {email}')
+
+    def _open_admin_console(self):
+        password, ok = QInputDialog.getText(
+            self,
+            '管理员验证',
+            '请输入管理员密码',
+            QLineEdit.EchoMode.Password,
+        )
+        if not ok:
+            return
+        if not self._admin_store.verify_password(password):
+            QMessageBox.warning(self, '验证失败', '管理员密码不正确')
+            return
+        dialog = AdminConsoleDialog(
+            app_version=self._current_app_version(),
+            author_email=self._current_author_email(),
+            docs=[dict(item) for item in getattr(self.docs_page, '_docs', [])],
+            parent=self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        data = dialog.get_data()
+        self._admin_store.set_app_version(data.get('app_version', APP_VERSION))
+        self._admin_store.set_author_email(data.get('author_email', APP_AUTHOR_EMAIL))
+        self._admin_store.set_docs(data.get('docs', []))
+        self._admin_store.save()
+        self.docs_page.refresh_docs()
+        self._refresh_app_meta_ui()
 
     def _collapse_log_immediately(self):
         """首次启动时无动画收起日志面板"""
@@ -333,8 +422,27 @@ class MainWindow(QMainWindow):
             self._status_toggle_log.setText("收起日志")
             self._log_panel_visible = True
 
-    def _on_nav_changed(self, index: int):
+    def _nav_index_by_name(self, name: str) -> int:
+        return next((i for i, item in enumerate(NAV_ITEMS) if item['name'] == name), -1)
+
+    def _select_nav_page_by_name(self, name: str):
+        item = self._nav_items_by_name.get(name)
+        if item is not None:
+            parent = item.parent()
+            if parent is not None:
+                parent.setExpanded(True)
+            self.nav_list.setCurrentItem(item)
+
+    def _on_nav_changed(self, current, _previous):
         """导航切换，附带淡入动效 + 打字机状态栏。"""
+        if current is None:
+            return
+        index = current.data(0, Qt.ItemDataRole.UserRole)
+        if index is None or int(index) < 0:
+            if current.childCount() > 0:
+                self.nav_list.setCurrentItem(current.child(0))
+            return
+        index = int(index)
         if 0 <= index < self.page_stack.count():
             self.page_stack.setCurrentIndex(index)
             # 当前页面淡入
@@ -369,7 +477,8 @@ class MainWindow(QMainWindow):
         # 找到"硬件测试"导航项索引（固定为 6）
         hw_nav_index = next(
             (i for i, item in enumerate(NAV_ITEMS) if item['name'] == '硬件测试'), 7)
-        self.nav_list.setCurrentRow(hw_nav_index)
+        _ = hw_nav_index
+        self._select_nav_page_by_name('硬件测试')
         self.test_page.set_input_file_for_trapezoid(file_path)
         self.log_panel.append_log(
             f"已导入坐标文件至梯形坐标测试: {file_path}", "INFO")
@@ -382,7 +491,8 @@ class MainWindow(QMainWindow):
             return
         preproc_idx = next(
             (i for i, item in enumerate(NAV_ITEMS) if item['name'] == '数据预处理'), 2)
-        self.nav_list.setCurrentRow(preproc_idx)
+        _ = preproc_idx
+        self._select_nav_page_by_name('数据预处理')
         self.preprocessing_page.set_module_input("角度扩圆坐标生成", file_path)
         self.log_panel.append_log(f"已发送至角度扩圆坐标生成: {file_path}", "INFO")
 
@@ -394,7 +504,8 @@ class MainWindow(QMainWindow):
             return
         svm_idx = next(
             (i for i, item in enumerate(NAV_ITEMS) if item['name'] == 'SVM训练'), 1)
-        self.nav_list.setCurrentRow(svm_idx)
+        _ = svm_idx
+        self._select_nav_page_by_name('SVM训练')
         self.svm_page.set_input_file(file_path)
         self.log_panel.append_log(f"已导入到 SVM 模型训练: {file_path}", "INFO")
 
@@ -406,7 +517,8 @@ class MainWindow(QMainWindow):
             return
         hw_nav_index = next(
             (i for i, item in enumerate(NAV_ITEMS) if item['name'] == '硬件测试'), 7)
-        self.nav_list.setCurrentRow(hw_nav_index)
+        _ = hw_nav_index
+        self._select_nav_page_by_name('硬件测试')
         self.test_page.set_input_file_for_angle_test(file_path)
         self.log_panel.append_log(f"已导入到角度测试(硬件): {file_path}", "INFO")
 

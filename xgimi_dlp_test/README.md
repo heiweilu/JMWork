@@ -2,6 +2,8 @@
 
 极米 DLP 投影仪自动化测试与数据分析系统
 
+程序标题、版本号和署名统一由 core/app_meta.py 维护。
+
 ---
 
 ## 快速开始（开发模式）
@@ -33,6 +35,10 @@ python main.py
 ```bat
 pyinstaller xgimi_dlp_test.spec --clean
 ```
+
+打包脚本会自动读取 core/app_meta.py 中的 APP_VERSION 和 APP_SIGNATURE，并同步写入窗口标题、EXE 版本资源以及 dist/xgimi_dlp_test/BUILD_INFO.txt。
+
+运行期顶部显示的版本号、作者邮箱，以及开发文档自定义内容，则由管理员控制台写入 config/admin_console.json 持久化管理。
 
 ### 输出结构
 
@@ -104,6 +110,16 @@ v1.0.0   功能齐全、稳定可交付
 | 提交给测试人员验证 | 打包，内部分发目录即可 |
 | 里程碑版本（vX.Y.0） | 打包 + Git Tag + GitHub Release |
 | 只修复 Bug（vX.Y.Z） | 可选择性打包 |
+
+### 版本号与署名的快捷维护方式
+
+推荐只修改 core/app_meta.py 这一处：
+
+- APP_NAME：应用主名称
+- APP_VERSION：版本号
+- APP_SIGNATURE：署名，例如 by heiweilu
+
+这样主窗口标题、状态栏、启动日志和打包产物中的版本信息会自动同步。
 
 ---
 

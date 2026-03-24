@@ -21,6 +21,7 @@ if APP_DIR not in sys.path:
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from PyQt6.QtGui import QFont
 
+from core.app_meta import APP_NAME, full_app_title
 from core.config_manager import ConfigManager
 from core import task_registry
 from ui.main_window import MainWindow
@@ -43,7 +44,7 @@ def main():
     sys.excepthook = global_exception_handler
 
     app = QApplication(sys.argv)
-    app.setApplicationName("DLP 自动化测试系统")
+    app.setApplicationName(APP_NAME)
     app.setFont(QFont("Microsoft YaHei", 10))
 
     # 加载配置
@@ -61,7 +62,7 @@ def main():
     window.refresh_modules()
     window.show()
 
-    print("[启动] DLP 自动化测试系统已就绪")
+    print(f"[启动] {full_app_title()} 已就绪")
 
     sys.exit(app.exec())
 

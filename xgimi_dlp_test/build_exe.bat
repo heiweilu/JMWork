@@ -7,6 +7,13 @@ echo   xgimi_dlp_test  —  PyInstaller 打包脚本
 echo ============================================================
 echo.
 
+for /f "tokens=1,2 delims=|" %%a in ('python -c "from core.app_meta import APP_VERSION, APP_SIGNATURE; print(str(APP_VERSION) + '|' + str(APP_SIGNATURE))"') do (
+    set APP_VERSION=%%a
+    set APP_SIGNATURE=%%b
+)
+echo [信息] 当前打包版本: %APP_VERSION%  %APP_SIGNATURE%
+echo.
+
 :: ---------- 切换到脚本所在目录 ----------
 cd /d "%~dp0"
 
@@ -41,6 +48,9 @@ if exist build\xgimi_dlp_test  rmdir /s /q build\xgimi_dlp_test
 if exist dist\xgimi_dlp_test   rmdir /s /q dist\xgimi_dlp_test
 if exist __pycache__ rmdir /s /q __pycache__
 
+:: ---------- 生成 Windows 版本资源 ----------
+python -c "from pathlib import Path; from core.app_meta import APP_NAME, APP_VERSION, APP_SIGNATURE; version = str(APP_VERSION).lstrip('vV'); parts = (version.split('.') + ['0', '0', '0'])[:4]; major, minor, patch, build = [int(p or 0) for p in parts]; text = f'''VSVersionInfo(\n  ffi=FixedFileInfo(\n    filevers=({major}, {minor}, {patch}, {build}),\n    prodvers=({major}, {minor}, {patch}, {build}),\n    mask=0x3f,\n    flags=0x0,\n    OS=0x40004,\n    fileType=0x1,\n    subtype=0x0,\n    date=(0, 0)\n  ),\n  kids=[\n    StringFileInfo([\n      StringTable('080404B0', [\n        StringStruct('CompanyName', str(APP_SIGNATURE)),\n        StringStruct('FileDescription', str(APP_NAME)),\n        StringStruct('FileVersion', str(APP_VERSION)),\n        StringStruct('InternalName', 'xgimi_dlp_test'),\n        StringStruct('OriginalFilename', 'xgimi_dlp_test.exe'),\n        StringStruct('ProductName', str(APP_NAME)),\n        StringStruct('ProductVersion', str(APP_VERSION))\n      ])\n    ]),\n    VarFileInfo([VarStruct('Translation', [2052, 1200])])\n  ]\n)'''; Path('build').mkdir(exist_ok=True); Path('build/version_info.txt').write_text(text, encoding='utf-8')"
+
 :: ---------- 打包 ----------
 echo [3/4] 开始打包（首次可能需要 3-8 分钟）...
 python -m PyInstaller xgimi_dlp_test.spec --clean --noconfirm
@@ -55,12 +65,15 @@ echo [4/4] 写入版本信息...
 for /f "tokens=*" %%i in ('python -c "import datetime; print(datetime.datetime.now().strftime(\"%%Y%%m%%d_%%H%%M%%S\"))"') do set BUILD_TIME=%%i
 echo BUILD_TIME=%BUILD_TIME% > dist\xgimi_dlp_test\BUILD_INFO.txt
 echo SOURCE=xgimi_dlp_test >> dist\xgimi_dlp_test\BUILD_INFO.txt
+echo APP_VERSION=%APP_VERSION% >> dist\xgimi_dlp_test\BUILD_INFO.txt
+echo APP_SIGNATURE=%APP_SIGNATURE% >> dist\xgimi_dlp_test\BUILD_INFO.txt
 
 :: ---------- 完成 ----------
 echo.
 echo ============================================================
 echo   打包完成！
 echo   可执行文件: dist\xgimi_dlp_test\xgimi_dlp_test.exe
+echo   版本      : %APP_VERSION%  %APP_SIGNATURE%
 echo   运行方式  : 双击 dist\xgimi_dlp_test\xgimi_dlp_test.exe
 echo   注意      : 必须保持 dist\xgimi_dlp_test\ 整个目录结构，
 echo               不可单独拷贝 .exe 文件！

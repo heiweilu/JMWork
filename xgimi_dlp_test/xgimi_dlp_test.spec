@@ -16,6 +16,8 @@ block_cipher = None
 
 # 项目根目录（spec 文件所在位置）
 ROOT = os.path.dirname(os.path.abspath(SPEC))
+sys.path.insert(0, ROOT)
+VERSION_FILE = os.path.join(ROOT, 'build', 'version_info.txt')
 
 # ---------- 数据文件收集 ----------
 datas = [
@@ -154,6 +156,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version=VERSION_FILE if os.path.exists(VERSION_FILE) else None,
     # icon='assets/icon.ico',   # 取消注释并提供 .ico 文件以设置图标
 )
 

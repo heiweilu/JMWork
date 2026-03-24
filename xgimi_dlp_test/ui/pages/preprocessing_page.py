@@ -6,7 +6,7 @@
 """
 
 import os
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QTabWidget, QGroupBox,
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QGroupBox,
                               QPushButton, QLabel, QHBoxLayout, QMessageBox,
                               QScrollArea, QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal
@@ -14,6 +14,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from ui.widgets.file_selector import FileSelector
 from ui.widgets.param_editor import ParamEditor
 from ui.widgets.progress_bar import ProgressWidget
+from ui.widgets.tree_workspace import TreeWorkspace
 from workers.task_worker import TaskWorker
 from core import task_registry
 
@@ -263,18 +264,22 @@ class PreprocessingPage(QWidget):
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
-
-        title = QLabel("数据预处理")
-        title.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 8px;")
-        layout.addWidget(title)
-
-        self.tab_widget = QTabWidget()
-        layout.addWidget(self.tab_widget)
+        self.workspace = TreeWorkspace(
+            "数据预处理",
+            "以树状目录管理各个预处理模块。父节点用于总览，子节点进入具体模块执行。",
+        )
+        layout.addWidget(self.workspace, 1)
 
     def refresh_modules(self):
         """刷新预处理模块列表"""
-        self.tab_widget.clear()
+        self.workspace.clear()
         self._cards.clear()
+
+        overview = QLabel("请选择左侧预处理模块。执行成功后，输出位置和导入硬件测试入口仍保留在模块页面内。")
+        overview.setWordWrap(True)
+        overview.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        overview.setStyleSheet("padding: 16px; color: #445; font-size: 13px;")
+        self.workspace.add_page('preprocessing_overview', '数据预处理', overview)
 
         modules = task_registry.get_modules('preprocessing')
         for mid, mdata in modules.items():
@@ -290,19 +295,21 @@ class PreprocessingPage(QWidget):
             )
             # 将 card 的导入信号转发给页面级信号，供 MainWindow 连接
             card.import_to_test.connect(self.import_to_test)
-            self.tab_widget.addTab(card, info['name'])
+            self.workspace.add_page(f'preprocessing:{mid}', info['name'], card, parent_key='preprocessing_overview')
             self._cards.append(card)
 
         if not modules:
             placeholder = QLabel("暂无预处理模块")
             placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.tab_widget.addTab(placeholder, "无模块")
+            self.workspace.add_page('preprocessing_empty', '无模块', placeholder, parent_key='preprocessing_overview')
+
+        self.workspace.select_page(self.workspace.first_key())
 
     def set_module_input(self, module_name: str, file_path: str):
         """导航到指定模块 Tab 并预填输入文件路径（供主窗口快捷跳转使用）"""
         for i, card in enumerate(self._cards):
             if module_name in card._module_info.get('name', ''):
-                self.tab_widget.setCurrentIndex(i)
+                self.workspace.select_page(f'preprocessing:{card._module_id}')
                 if card.file_selector:
                     card.file_selector.set_path(file_path)
                 if self._log_panel:
