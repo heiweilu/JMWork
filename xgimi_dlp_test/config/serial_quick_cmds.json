@@ -31,6 +31,10 @@
     {
       "name": "切换1080p 240hz",
       "cmd": "gmpfUnit externDisplay setsoctiming 7"
+    },
+    {
+      "name": "调用播放播放视频",
+      "cmd": "am start -a android.intent.action.MAIN -n com.xgimi.gimiplayer/com.xgimi.gimiplayer.activity.VideoPlayerActivity --es video-path \"/sdcard/3D_FSBS_test.mkv\""
     }
   ],
   "fixed_sections": {
@@ -127,6 +131,7 @@
     {
       "id": "dyn:1773910651945",
       "title": "📦 固件升级（AOSP)",
+      "parent_id": "",
       "hint": "对于国内的机器，比如雅典娜三代：\n1. 下载固件改名存放到U盘；\n2. 运行第一个指令，等待升级完成；\n3. 升级完成后进入系统后，运行第二个指令；",
       "commands": [
         {
@@ -142,6 +147,7 @@
     {
       "id": "dyn:1773910651940",
       "title": "SVM模型测试相关",
+      "parent_id": "",
       "hint": "",
       "commands": [
         {

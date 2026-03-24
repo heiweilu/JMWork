@@ -41,7 +41,8 @@ from PyQt6.QtWidgets import (
     QComboBox, QTextEdit, QLineEdit, QGroupBox, QScrollArea, QFileDialog,
     QMessageBox, QDialog, QFormLayout, QDialogButtonBox, QSizePolicy,
     QCheckBox, QSpinBox, QDoubleSpinBox, QFrame, QTabWidget, QToolButton,
-    QInputDialog, QListWidget, QListWidgetItem
+    QInputDialog, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem,
+    QAbstractItemView
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QColor, QTextCursor, QFont, QTextCharFormat
@@ -187,7 +188,7 @@ class CmdEditDialog(QDialog):
         layout.addWidget(btns)
 
     def _on_accept(self):
-        if not self.edit_name.text().strip() or not self.edit_cmd.text().strip():
+        if not self.edit_name.text().strip() or not self.edit_cmd.toPlainText().strip():
             QMessageBox.warning(self, "提示", "名称和指令不能为空")
             return
         self.accept()
@@ -2943,52 +2944,46 @@ class SerialPage(QWidget):
         outer_layout.setContentsMargins(4, 4, 4, 4)
         outer_layout.setSpacing(6)
 
-        icon_lbl = QLabel(
-            '💡 板块标题可用 Emoji 图标，常用: '
-            '📦🔧🧪📝🔍⚙️✅🔑📡🚀💾🔄'
-        )
-        icon_lbl.setWordWrap(True)
-        self._icon_hint_lbl = icon_lbl
-        outer_layout.addWidget(icon_lbl)
+        self._icon_hint_lbl = QLabel('左侧目录选择板块，右侧显示当前板块内容。')
+        self._icon_hint_lbl.setWordWrap(True)
+        outer_layout.addWidget(self._icon_hint_lbl)
 
         self._quick_panel_search = QLineEdit()
         self._quick_panel_search.setPlaceholderText('搜索板块标题或命令关键字，例如 reboot / KST / CSV')
-        self._quick_panel_search.textChanged.connect(lambda _text: self._apply_quick_filter(getattr(self, '_quick_filter', 'common')))
+        self._quick_panel_search.textChanged.connect(lambda _text: self._apply_quick_filter('tree'))
         outer_layout.addWidget(self._quick_panel_search)
 
-        self._quick_filter_buttons = {}
-        filter_row = QHBoxLayout()
-        filter_row.setContentsMargins(0, 0, 0, 0)
-        filter_row.setSpacing(6)
-        for text, category in [
-            ('常用', 'common'),
-            ('KST', 'kst'),
-            ('工具', 'tools'),
-            ('自定义', 'custom'),
-            ('全部', 'all'),
-        ]:
-            btn = QPushButton(text)
-            btn.setCheckable(True)
-            btn.setStyleSheet(
-                'QPushButton{background:#172033;color:#8fb7ff;border:1px solid #2d4f82;'
-                'border-radius:14px;padding:4px 12px;font-size:12px;font-weight:600;}'
-                'QPushButton:checked{background:#f59e0b;color:#1f2937;border-color:#d97706;}'
-                'QPushButton:hover{border-color:#93c5fd;color:#ffffff;}'
-            )
-            btn.clicked.connect(lambda checked=False, c=category: self._apply_quick_filter(c))
-            filter_row.addWidget(btn)
-            self._quick_filter_buttons[category] = btn
-        outer_layout.addLayout(filter_row)
-
-        self._quick_filter_meta = QLabel('当前分类: 全部 | 可见板块: 0')
+        self._quick_filter_meta = QLabel('匹配板块: 0')
         self._quick_filter_meta.setWordWrap(True)
         outer_layout.addWidget(self._quick_filter_meta)
 
+        tree_actions = QHBoxLayout()
+        tree_actions.setContentsMargins(0, 0, 0, 0)
+        tree_actions.setSpacing(6)
+        btn_add_root = QPushButton('新建顶层')
+        btn_add_root.clicked.connect(self._on_add_root_section)
+        btn_add_child = QPushButton('新建子板块')
+        btn_add_child.clicked.connect(self._on_add_child_section)
+        btn_rename_node = QPushButton('重命名')
+        btn_rename_node.clicked.connect(self._on_rename_tree_section)
+        btn_delete_node = QPushButton('删除')
+        btn_delete_node.clicked.connect(self._on_delete_tree_section)
+        tree_actions.addWidget(btn_add_root)
+        tree_actions.addWidget(btn_add_child)
+        tree_actions.addWidget(btn_rename_node)
+        tree_actions.addWidget(btn_delete_node)
+        tree_actions.addStretch(1)
+        outer_layout.addLayout(tree_actions)
+
         content_split = QSplitter(Qt.Orientation.Horizontal)
-        self._quick_section_nav = QListWidget()
-        self._quick_section_nav.setMinimumWidth(180)
-        self._quick_section_nav.setMaximumWidth(260)
+        self._quick_section_nav = QTreeWidget()
+        self._quick_section_nav.setHeaderHidden(True)
+        self._quick_section_nav.setMinimumWidth(220)
+        self._quick_section_nav.setMaximumWidth(300)
+        self._quick_section_nav.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self._quick_section_nav.setDefaultDropAction(Qt.DropAction.MoveAction)
         self._quick_section_nav.currentItemChanged.connect(self._focus_quick_section)
+        self._quick_section_nav.model().rowsMoved.connect(self._on_quick_tree_rows_moved)
         content_split.addWidget(self._quick_section_nav)
 
         content_wrap = QWidget()
@@ -3019,14 +3014,7 @@ class SerialPage(QWidget):
         self._quick_sections_list = []
         for persist_id, sec in built_in_defs:
             sec._persist_id = persist_id
-            if persist_id in ('firmware', 'angle_collect'):
-                sec._quick_category = 'common'
-            elif persist_id in ('kst_angle', 'kst_coord'):
-                sec._quick_category = 'kst'
-            elif persist_id == 'system_tools':
-                sec._quick_category = 'tools'
-            else:
-                sec._quick_category = 'custom'
+            sec._parent_persist_id = ''
             self._built_in_sections[persist_id] = sec
             self._quick_sections_list.append(sec)
             self._sections_layout.addWidget(sec)
@@ -3045,73 +3033,84 @@ class SerialPage(QWidget):
         btn_add.clicked.connect(self._on_add_section)
         self._btn_add_section = btn_add
         outer_layout.addWidget(btn_add)
-        self._apply_quick_filter('all')
+        self._apply_quick_filter('tree')
 
         outer_layout.addStretch()
         return panel
 
     def _apply_quick_filter(self, category: str):
-        self._quick_filter = category
+        self._quick_filter = 'tree'
         keyword = ''
         if hasattr(self, '_quick_panel_search'):
             keyword = self._quick_panel_search.text().strip().lower()
-        for key, btn in getattr(self, '_quick_filter_buttons', {}).items():
-            btn.blockSignals(True)
-            btn.setChecked(key == category)
-            btn.blockSignals(False)
-        visible_count = 0
         for sec in self._quick_sections_list:
-            sec_category = getattr(sec, '_quick_category', 'custom')
-            matches_category = bool(keyword) or category == 'all' or sec_category == category
             search_blob = [sec._title_lbl.text().lower()]
             for item in getattr(sec, '_dyn_cmds', []):
                 search_blob.append(str(item.get('name', '')).lower())
                 search_blob.append(str(item.get('cmd', '')).lower())
             if hasattr(sec, '_hint_text'):
                 search_blob.append(str(getattr(sec, '_hint_text', '')).lower())
-            matches_keyword = not keyword or keyword in ' '.join(search_blob)
-            visible = matches_category and matches_keyword
-            sec.setVisible(visible)
-            if visible:
-                visible_count += 1
+            sec.setProperty('_tree_match', (not keyword or keyword in ' '.join(search_blob)))
         if getattr(self, '_btn_add_section', None) is not None:
-            self._btn_add_section.setVisible(category in ('custom', 'all'))
-        if hasattr(self, '_quick_filter_meta'):
-            category_map = {'common': '常用', 'kst': 'KST', 'tools': '工具', 'custom': '自定义', 'all': '全部'}
-            suffix = ' | 搜索中' if keyword else ''
-            self._quick_filter_meta.setText(f"当前分类: {category_map.get(category, category)} | 可见板块: {visible_count}{suffix}")
+            self._btn_add_section.setVisible(True)
         self._refresh_quick_section_nav()
+
+    def _plain_section_title(self, title: str) -> str:
+        return re.sub(r'^[^\w\u4e00-\u9fff]+', '', title or '').strip() or title or '未命名板块'
 
     def _refresh_quick_section_nav(self):
         if not hasattr(self, '_quick_section_nav'):
             return
         self._quick_section_nav.blockSignals(True)
         self._quick_section_nav.clear()
+        visible_count = 0
+        first_leaf = None
+        children_map = {}
         for sec in self._quick_sections_list:
-            if sec.isHidden():
-                continue
-            item = QListWidgetItem(sec._title_lbl.text())
-            item.setData(Qt.ItemDataRole.UserRole, getattr(sec, '_persist_id', ''))
-            self._quick_section_nav.addItem(item)
+            parent_id = getattr(sec, '_parent_persist_id', '') or ''
+            children_map.setdefault(parent_id, []).append(sec)
+
+        def _append_children(parent_item, parent_id):
+            nonlocal visible_count, first_leaf
+            for sec in children_map.get(parent_id, []):
+                if not bool(sec.property('_tree_match')):
+                    sec.setVisible(False)
+                    continue
+                item = QTreeWidgetItem([self._plain_section_title(sec._title_lbl.text())])
+                item.setData(0, Qt.ItemDataRole.UserRole, getattr(sec, '_persist_id', ''))
+                if parent_item is None:
+                    self._quick_section_nav.addTopLevelItem(item)
+                else:
+                    parent_item.addChild(item)
+                item.setExpanded(True)
+                visible_count += 1
+                if first_leaf is None:
+                    first_leaf = item
+                _append_children(item, getattr(sec, '_persist_id', ''))
+
+        _append_children(None, '')
         self._quick_section_nav.blockSignals(False)
-        if self._quick_section_nav.count() > 0 and self._quick_section_nav.currentRow() < 0:
-            self._quick_section_nav.setCurrentRow(0)
-        elif self._quick_section_nav.count() == 0:
+        if hasattr(self, '_quick_filter_meta'):
+            suffix = ' | 搜索中' if self._quick_panel_search.text().strip() else ''
+            self._quick_filter_meta.setText(f'匹配板块: {visible_count}{suffix}')
+        if first_leaf is not None:
+            self._quick_section_nav.setCurrentItem(first_leaf)
+        else:
             for sec in self._quick_sections_list:
                 sec.setVisible(False)
+            if hasattr(self, '_quick_selected_title'):
+                self._quick_selected_title.setText('未找到匹配板块')
 
     def _focus_quick_section(self, current, _previous):
         if current is None:
             if hasattr(self, '_quick_selected_title'):
                 self._quick_selected_title.setText('请选择板块')
             return
-        section_id = current.data(Qt.ItemDataRole.UserRole)
+        section_id = current.data(0, Qt.ItemDataRole.UserRole)
         for sec in self._quick_sections_list:
-            if sec.isHidden():
-                continue
             if getattr(sec, '_persist_id', '') == section_id:
                 if hasattr(self, '_quick_selected_title'):
-                    self._quick_selected_title.setText(sec._title_lbl.text())
+                    self._quick_selected_title.setText(self._plain_section_title(sec._title_lbl.text()))
                 sec.setVisible(True)
                 if getattr(sec, '_collapsed', False):
                     sec._do_expand()
@@ -3119,6 +3118,87 @@ class SerialPage(QWidget):
                 sec.setVisible(False)
                 if not getattr(sec, '_collapsed', False):
                     sec._do_collapse()
+
+    def _current_tree_section(self):
+        item = self._quick_section_nav.currentItem() if hasattr(self, '_quick_section_nav') else None
+        if item is None:
+            return None
+        section_id = item.data(0, Qt.ItemDataRole.UserRole)
+        for sec in self._quick_sections_list:
+            if getattr(sec, '_persist_id', '') == section_id:
+                return sec
+        return None
+
+    def _on_add_root_section(self):
+        self._create_tree_section(parent_section=None)
+
+    def _on_add_child_section(self):
+        self._create_tree_section(parent_section=self._current_tree_section())
+
+    def _create_tree_section(self, parent_section=None):
+        name, ok = QInputDialog.getText(self, '新建板块', '输入板块名称:')
+        if not ok or not name.strip():
+            return
+        parent_id = getattr(parent_section, '_persist_id', '') if parent_section else ''
+        sec = self._build_dynamic_section(name.strip(), persist_id=f'dyn:{int(time.time() * 1000)}', parent_id=parent_id)
+        self._quick_sections_list.append(sec)
+        self._sections_layout.addWidget(sec)
+        sec.apply_colors(
+            hdr_bg=(_DARK if self._dark_mode else _LIGHT)['grp_bg'],
+            hdr_bdr=(_DARK if self._dark_mode else _LIGHT)['grp_bdr'],
+            body_bg=(_DARK if self._dark_mode else _LIGHT)['grp_bg'],
+            body_bdr=(_DARK if self._dark_mode else _LIGHT)['grp_bdr'],
+            title_c=(_DARK if self._dark_mode else _LIGHT)['grp_title'],
+            sep_c=(_DARK if self._dark_mode else _LIGHT)['grp_bdr'],
+            arrow_c='#58A6FF' if self._dark_mode else '#0969DA',
+        )
+        self._refresh_section_controls()
+        self._apply_quick_filter('tree')
+        self._save_all_data()
+
+    def _on_rename_tree_section(self):
+        sec = self._current_tree_section()
+        if sec is None:
+            return
+        new_name, ok = QInputDialog.getText(self, '重命名板块', '输入新名称:', text=self._plain_section_title(sec._title_lbl.text()))
+        if ok and new_name.strip():
+            sec.update_title(new_name.strip())
+            self._apply_quick_filter('tree')
+            self._save_all_data()
+
+    def _on_delete_tree_section(self):
+        sec = self._current_tree_section()
+        if sec is None:
+            return
+        if not getattr(sec, '_persist_id', '').startswith('dyn:'):
+            QMessageBox.information(self, '无法删除', '内置板块暂不支持删除，可重命名或在其下新增子板块。')
+            return
+        self._delete_dynamic_section(sec)
+
+    def _on_quick_tree_rows_moved(self, *_args):
+        self._sync_tree_structure_from_nav()
+
+    def _sync_tree_structure_from_nav(self):
+        if not hasattr(self, '_quick_section_nav'):
+            return
+        order = []
+
+        def _walk(item, parent_id=''):
+            section_id = item.data(0, Qt.ItemDataRole.UserRole)
+            for sec in self._quick_sections_list:
+                if getattr(sec, '_persist_id', '') == section_id:
+                    sec._parent_persist_id = parent_id
+                    order.append(sec)
+                    break
+            for index in range(item.childCount()):
+                _walk(item.child(index), section_id)
+
+        for index in range(self._quick_section_nav.topLevelItemCount()):
+            _walk(self._quick_section_nav.topLevelItem(index), '')
+
+        remaining = [sec for sec in self._quick_sections_list if sec not in order]
+        self._quick_sections_list = order + remaining
+        self._save_all_data()
 
     def _refresh_section_controls(self):
         n = len(self._quick_sections_list)
@@ -3154,11 +3234,27 @@ class SerialPage(QWidget):
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
-        if sec in self._quick_sections_list:
-            self._quick_sections_list.remove(sec)
-        self._sections_layout.removeWidget(sec)
-        sec.deleteLater()
+
+        target_ids = {getattr(sec, '_persist_id', '')}
+        changed = True
+        while changed:
+            changed = False
+            for item in list(self._quick_sections_list):
+                parent_id = getattr(item, '_parent_persist_id', '') or ''
+                item_id = getattr(item, '_persist_id', '')
+                if item_id and item_id not in target_ids and parent_id in target_ids:
+                    target_ids.add(item_id)
+                    changed = True
+
+        for item in list(self._quick_sections_list):
+            if getattr(item, '_persist_id', '') not in target_ids:
+                continue
+            self._quick_sections_list.remove(item)
+            self._sections_layout.removeWidget(item)
+            item.deleteLater()
+
         self._refresh_section_controls()
+        self._apply_quick_filter('tree')
         self._save_all_data()
 
     def _on_rename_section(self, sec: '_CollapsibleSection'):
@@ -3298,10 +3394,10 @@ class SerialPage(QWidget):
             self._rebuild_firmware_steps()
             self._save_all_data()
 
-    def _build_dynamic_section(self, name: str, persist_id: str = '') -> _CollapsibleSection:
+    def _build_dynamic_section(self, name: str, persist_id: str = '', parent_id: str = '') -> _CollapsibleSection:
         sec = _CollapsibleSection(name, collapsed=True)
         sec._persist_id = persist_id or f'dyn:{int(time.time() * 1000)}'
-        sec._quick_category = 'custom'
+        sec._parent_persist_id = parent_id or ''
         layout = sec.body_layout
 
         sec._hint_text = ''
@@ -3363,28 +3459,7 @@ class SerialPage(QWidget):
         return sec
 
     def _on_add_section(self):
-        name, ok = QInputDialog.getText(
-            self,
-            '新建板块',
-            "板块名称（可直接输入 Emoji，如 '🔑 Root操作'）：",
-        )
-        if not ok or not name.strip():
-            return
-        sec = self._build_dynamic_section(name.strip(), persist_id=f'dyn:{int(time.time() * 1000)}')
-        self._quick_sections_list.append(sec)
-        self._sections_layout.addWidget(sec)
-        sec.apply_colors(
-            hdr_bg=(_DARK if self._dark_mode else _LIGHT)['grp_bg'],
-            hdr_bdr=(_DARK if self._dark_mode else _LIGHT)['grp_bdr'],
-            body_bg=(_DARK if self._dark_mode else _LIGHT)['grp_bg'],
-            body_bdr=(_DARK if self._dark_mode else _LIGHT)['grp_bdr'],
-            title_c=(_DARK if self._dark_mode else _LIGHT)['grp_title'],
-            sep_c=(_DARK if self._dark_mode else _LIGHT)['grp_bdr'],
-            arrow_c='#58A6FF' if self._dark_mode else '#0969DA',
-        )
-        self._refresh_section_controls()
-        self._apply_quick_filter(getattr(self, '_quick_filter', 'common'))
-        self._save_all_data()
+        self._on_add_root_section()
 
     def _on_edit_dyn_hint(self, sec: '_CollapsibleSection'):
         text, ok = QInputDialog.getMultiLineText(
@@ -3487,6 +3562,7 @@ class SerialPage(QWidget):
                 dynamic_sections.append({
                     'id': sec._persist_id,
                     'title': sec._title_lbl.text(),
+                    'parent_id': getattr(sec, '_parent_persist_id', ''),
                     'hint': getattr(sec, '_hint_text', ''),
                     'commands': list(getattr(sec, '_dyn_cmds', [])),
                 })
@@ -3597,6 +3673,7 @@ class SerialPage(QWidget):
             sec = self._build_dynamic_section(
                 sec_data.get('title', '未命名板块'),
                 persist_id=sec_data.get('id', f'dyn:{int(time.time() * 1000)}'),
+                parent_id=sec_data.get('parent_id', ''),
             )
             sec._hint_text = sec_data.get('hint', '')
             sec._hint_label.setText(sec._hint_text)

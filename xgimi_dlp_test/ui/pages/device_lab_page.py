@@ -33,8 +33,11 @@ from PyQt6.QtWidgets import (
     QSlider,
     QSpinBox,
     QSplitter,
+    QStackedWidget,
     QTabWidget,
     QTextEdit,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -1416,64 +1419,82 @@ class DeviceLabPage(QWidget):
         overview_layout.addWidget(self.lbl_overview_output, 1)
         root_layout.addWidget(overview)
 
-        quick_bar = QFrame()
-        quick_bar_layout = QHBoxLayout(quick_bar)
-        quick_bar_layout.setContentsMargins(0, 0, 0, 0)
-        quick_bar_layout.setSpacing(8)
-        btn_show_control = QPushButton("进入设备控制")
-        btn_show_control.setObjectName("lab_secondary")
-        btn_show_vision = QPushButton("进入图像观察")
-        btn_show_vision.setObjectName("lab_secondary")
-        btn_run_script = QPushButton("执行当前剧本")
-        btn_run_script.setObjectName("lab_primary")
-        btn_open_output = QPushButton("打开输出目录")
-        btn_open_output.setObjectName("lab_secondary")
-        quick_bar_layout.addWidget(btn_show_control)
-        quick_bar_layout.addWidget(btn_show_vision)
-        quick_bar_layout.addWidget(btn_run_script)
-        quick_bar_layout.addWidget(btn_open_output)
-        quick_bar_layout.addStretch(1)
-        root_layout.addWidget(quick_bar)
+        workspace_split = QSplitter(Qt.Orientation.Horizontal)
+        workspace_split.setChildrenCollapsible(False)
+        self.workspace_nav = QTreeWidget()
+        self.workspace_nav.setHeaderHidden(True)
+        self.workspace_nav.setMinimumWidth(220)
+        self.workspace_nav.currentItemChanged.connect(self._on_workspace_nav_changed)
+        workspace_split.addWidget(self.workspace_nav)
 
-        workspace_tabs = QTabWidget()
-        workspace_tabs.setDocumentMode(True)
-        self.workspace_tabs = workspace_tabs
-        root_layout.addWidget(workspace_tabs, 1)
+        self.workspace_stack = QStackedWidget()
+        workspace_split.addWidget(self.workspace_stack)
+        workspace_split.setSizes([240, 1180])
+        root_layout.addWidget(workspace_split, 1)
 
-        control_page = QWidget()
-        control_layout = QVBoxLayout(control_page)
-        control_layout.setContentsMargins(0, 0, 0, 0)
-        control_layout.setSpacing(12)
-        control_hint = QLabel("设备控制工作区：集中处理串口连接、快捷配置和联调剧本，适合按步骤推进联调。")
-        control_hint.setWordWrap(True)
-        control_layout.addWidget(control_hint)
-        control_tabs = QTabWidget()
-        control_tabs.setDocumentMode(True)
-        control_tabs.addTab(self._build_serial_card(), "串口工作台")
-        control_tabs.addTab(self._build_quick_tabs_card(), "快捷配置")
-        control_tabs.addTab(self._build_script_card(), "联调剧本")
-        control_layout.addWidget(control_tabs, 1)
-        workspace_tabs.addTab(control_page, "设备控制")
+        self._workspace_pages = {}
+        self._add_workspace_tree_branch(
+            "设备控制",
+            self._create_workspace_overview_page("设备控制", "集中处理串口连接、快捷配置和联调剧本，适合按步骤推进联调。"),
+            [
+                ("串口工作台", self._build_serial_card()),
+                ("快捷配置", self._build_quick_tabs_card()),
+                ("联调剧本", self._build_script_card()),
+            ],
+        )
+        self._add_workspace_tree_branch(
+            "图像观察",
+            self._create_workspace_overview_page("图像观察", "集中处理相机预览、遥控模拟和运行日志，适合看现场画面与执行反馈。"),
+            [
+                ("USB 相机", self._build_camera_card()),
+                ("遥控器", self._build_remote_card()),
+                ("运行日志", self._build_log_card()),
+            ],
+        )
+        first_item = self.workspace_nav.topLevelItem(0)
+        if first_item is not None:
+            self.workspace_nav.setCurrentItem(first_item)
 
-        vision_page = QWidget()
-        vision_layout = QVBoxLayout(vision_page)
-        vision_layout.setContentsMargins(0, 0, 0, 0)
-        vision_layout.setSpacing(12)
-        vision_hint = QLabel("图像观察工作区：集中处理相机预览、遥控模拟和运行日志，适合看现场画面与执行反馈。")
-        vision_hint.setWordWrap(True)
-        vision_layout.addWidget(vision_hint)
-        vision_tabs = QTabWidget()
-        vision_tabs.setDocumentMode(True)
-        vision_tabs.addTab(self._build_camera_card(), "USB 相机")
-        vision_tabs.addTab(self._build_remote_card(), "遥控器")
-        vision_tabs.addTab(self._build_log_card(), "运行日志")
-        vision_layout.addWidget(vision_tabs, 1)
-        workspace_tabs.addTab(vision_page, "图像观察")
+    def _create_workspace_overview_page(self, title: str, description: str) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
+        card = QGroupBox(title)
+        card.setObjectName("lab_card")
+        card_layout = QVBoxLayout(card)
+        summary = QLabel(description)
+        summary.setWordWrap(True)
+        card_layout.addWidget(summary)
+        tips = QLabel("左侧树状导航可进入该工作区下的具体子面板。")
+        tips.setWordWrap(True)
+        card_layout.addWidget(tips)
+        card_layout.addStretch(1)
+        layout.addWidget(card)
+        layout.addStretch(1)
+        return page
 
-        btn_show_control.clicked.connect(lambda: self.workspace_tabs.setCurrentIndex(0))
-        btn_show_vision.clicked.connect(lambda: self.workspace_tabs.setCurrentIndex(1))
-        btn_run_script.clicked.connect(self._run_selected_script)
-        btn_open_output.clicked.connect(self._open_run_output_dir)
+    def _add_workspace_tree_branch(self, root_title: str, root_page: QWidget, children: List[Tuple[str, QWidget]]):
+        root_item = QTreeWidgetItem([root_title])
+        root_item.setData(0, Qt.ItemDataRole.UserRole, root_title)
+        self.workspace_nav.addTopLevelItem(root_item)
+        self.workspace_stack.addWidget(root_page)
+        self._workspace_pages[root_title] = root_page
+        for child_title, child_page in children:
+            child_item = QTreeWidgetItem([child_title])
+            child_item.setData(0, Qt.ItemDataRole.UserRole, child_title)
+            root_item.addChild(child_item)
+            self.workspace_stack.addWidget(child_page)
+            self._workspace_pages[child_title] = child_page
+        root_item.setExpanded(True)
+
+    def _on_workspace_nav_changed(self, current: Optional[QTreeWidgetItem], _previous: Optional[QTreeWidgetItem]):
+        if current is None:
+            return
+        page_key = current.data(0, Qt.ItemDataRole.UserRole)
+        page = self._workspace_pages.get(page_key)
+        if page is not None:
+            self.workspace_stack.setCurrentWidget(page)
 
     def _build_serial_card(self) -> QGroupBox:
         card = QGroupBox("串口工作台")
@@ -1619,51 +1640,99 @@ class DeviceLabPage(QWidget):
         project_row.addWidget(btn_del_project)
         layout.addLayout(project_row)
 
-        self.list_scripts = QListWidget()
-        self.list_scripts.currentItemChanged.connect(self._on_script_selection_changed)
-        self.list_scripts.setMinimumHeight(180)
-        layout.addWidget(self.list_scripts)
+        content_split = QSplitter(Qt.Orientation.Horizontal)
+        content_split.setChildrenCollapsible(False)
 
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 6, 0)
+        left_layout.setSpacing(8)
+        left_layout.addWidget(QLabel("剧本导航树"))
+
+        self.list_scripts = QTreeWidget()
+        self.list_scripts.setHeaderHidden(True)
+        self.list_scripts.currentItemChanged.connect(self._on_script_selection_changed)
+        self.list_scripts.setMinimumWidth(280)
+        self.list_scripts.setMinimumHeight(320)
+        left_layout.addWidget(self.list_scripts, 1)
+
+        left_layout.addWidget(QLabel("剧本说明"))
         self.lbl_script_desc = QLabel("请选择剧本")
         self.lbl_script_desc.setWordWrap(True)
         script_desc_scroll = QScrollArea()
         script_desc_scroll.setWidgetResizable(True)
         script_desc_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        script_desc_scroll.setMinimumHeight(96)
+        script_desc_scroll.setMinimumHeight(160)
         script_desc_scroll.setWidget(self.lbl_script_desc)
-        layout.addWidget(script_desc_scroll)
+        left_layout.addWidget(script_desc_scroll)
+        content_split.addWidget(left_panel)
 
-        self.list_script_steps = QListWidget()
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(6, 0, 0, 0)
+        right_layout.setSpacing(8)
+        step_workspace_split = QSplitter(Qt.Orientation.Horizontal)
+        step_workspace_split.setChildrenCollapsible(False)
+
+        step_nav_panel = QWidget()
+        step_nav_layout = QVBoxLayout(step_nav_panel)
+        step_nav_layout.setContentsMargins(0, 0, 0, 0)
+        step_nav_layout.setSpacing(8)
+        step_nav_layout.addWidget(QLabel("步骤导航树"))
+
+        self.list_script_steps = QTreeWidget()
+        self.list_script_steps.setHeaderHidden(True)
         self.list_script_steps.currentItemChanged.connect(self._on_step_selection_changed)
-        self.list_script_steps.setMinimumHeight(260)
-        layout.addWidget(self.list_script_steps)
+        self.list_script_steps.setMinimumWidth(300)
+        self.list_script_steps.setMinimumHeight(420)
+        step_nav_layout.addWidget(self.list_script_steps, 1)
+        step_workspace_split.addWidget(step_nav_panel)
 
+        detail_panel = QWidget()
+        detail_layout = QVBoxLayout(detail_panel)
+        detail_layout.setContentsMargins(0, 0, 0, 0)
+        detail_layout.setSpacing(8)
+        detail_layout.addWidget(QLabel("步骤详情"))
         self.lbl_step_detail = QLabel("请选择步骤")
         self.lbl_step_detail.setWordWrap(True)
         step_detail_scroll = QScrollArea()
         step_detail_scroll.setWidgetResizable(True)
         step_detail_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        step_detail_scroll.setMinimumHeight(190)
+        step_detail_scroll.setMinimumHeight(240)
         step_detail_scroll.setWidget(self.lbl_step_detail)
-        layout.addWidget(step_detail_scroll)
+        detail_layout.addWidget(step_detail_scroll, 1)
 
+        status_panel = QFrame()
+        status_layout = QVBoxLayout(status_panel)
+        status_layout.setContentsMargins(0, 0, 0, 0)
+        status_layout.setSpacing(6)
+        status_layout.addWidget(QLabel("运行输出"))
         self.lbl_run_output = QLabel("输出目录: 待执行")
         self.lbl_run_output.setWordWrap(True)
         run_output_scroll = QScrollArea()
         run_output_scroll.setWidgetResizable(True)
         run_output_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        run_output_scroll.setMinimumHeight(72)
+        run_output_scroll.setMinimumHeight(96)
         run_output_scroll.setWidget(self.lbl_run_output)
-        layout.addWidget(run_output_scroll)
-
+        status_layout.addWidget(run_output_scroll)
+        status_layout.addWidget(QLabel("运行状态"))
         self.lbl_run_stats = QLabel("运行状态: 空闲")
         self.lbl_run_stats.setWordWrap(True)
         run_stats_scroll = QScrollArea()
         run_stats_scroll.setWidgetResizable(True)
         run_stats_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        run_stats_scroll.setMinimumHeight(96)
+        run_stats_scroll.setMinimumHeight(120)
         run_stats_scroll.setWidget(self.lbl_run_stats)
-        layout.addWidget(run_stats_scroll)
+        status_layout.addWidget(run_stats_scroll)
+        detail_layout.addWidget(status_panel)
+        step_workspace_split.addWidget(detail_panel)
+        step_workspace_split.setSizes([340, 500])
+
+        right_layout.addWidget(step_workspace_split, 1)
+        content_split.addWidget(right_panel)
+        content_split.setSizes([360, 760])
+
+        layout.addWidget(content_split, 1)
 
         row_top = QHBoxLayout()
         row_bottom = QHBoxLayout()
@@ -1970,18 +2039,24 @@ class DeviceLabPage(QWidget):
             return
         ui_state["last_project_id"] = project.get("id", "")
         target_script_id = ui_state.get("last_script_id")
+        root_item = QTreeWidgetItem([project.get("name", "当前项目")])
+        root_item.setData(0, Qt.ItemDataRole.UserRole, "")
+        root_item.setExpanded(True)
+        self.list_scripts.addTopLevelItem(root_item)
+        first_script_item = None
         for script in project.get("scripts", []):
-            item = QListWidgetItem(script["name"])
-            item.setData(Qt.ItemDataRole.UserRole, script["id"])
-            self.list_scripts.addItem(item)
-        if self.list_scripts.count() > 0:
-            target_row = 0
+            item = QTreeWidgetItem([script["name"]])
+            item.setData(0, Qt.ItemDataRole.UserRole, script["id"])
+            root_item.addChild(item)
+            if first_script_item is None:
+                first_script_item = item
+        if first_script_item is not None:
+            target_item = first_script_item
             if target_script_id:
-                for row in range(self.list_scripts.count()):
-                    if self.list_scripts.item(row).data(Qt.ItemDataRole.UserRole) == target_script_id:
-                        target_row = row
-                        break
-            self.list_scripts.setCurrentRow(target_row)
+                matched_item = self._find_script_tree_item(target_script_id)
+                if matched_item is not None:
+                    target_item = matched_item
+            self.list_scripts.setCurrentItem(target_item)
         else:
             self.lbl_script_desc.setText("当前项目还没有联调剧本")
             self.list_script_steps.clear()
@@ -2013,18 +2088,29 @@ class DeviceLabPage(QWidget):
             ui_state["last_step_id"] = ""
             return
         target_step_id = ui_state.get("last_step_id")
+        first_step_item = None
+        groups: Dict[str, QTreeWidgetItem] = {}
         for index, step in enumerate(script.get("steps", []), start=1):
-            item = QListWidgetItem(f"{index:02d}. {self._step_summary(step)}")
-            item.setData(Qt.ItemDataRole.UserRole, step.get("id"))
-            self.list_script_steps.addItem(item)
-        if self.list_script_steps.count() > 0:
-            target_row = 0
+            group_key = self._step_group_title(step)
+            group_item = groups.get(group_key)
+            if group_item is None:
+                group_item = QTreeWidgetItem([group_key])
+                group_item.setData(0, Qt.ItemDataRole.UserRole, "")
+                self.list_script_steps.addTopLevelItem(group_item)
+                group_item.setExpanded(True)
+                groups[group_key] = group_item
+            item = QTreeWidgetItem([f"{index:02d}. {self._step_summary(step)}"])
+            item.setData(0, Qt.ItemDataRole.UserRole, step.get("id"))
+            group_item.addChild(item)
+            if first_step_item is None:
+                first_step_item = item
+        if first_step_item is not None:
+            target_item = first_step_item
             if target_step_id:
-                for row in range(self.list_script_steps.count()):
-                    if self.list_script_steps.item(row).data(Qt.ItemDataRole.UserRole) == target_step_id:
-                        target_row = row
-                        break
-            self.list_script_steps.setCurrentRow(target_row)
+                matched_item = self._find_step_tree_item(target_step_id)
+                if matched_item is not None:
+                    target_item = matched_item
+            self.list_script_steps.setCurrentItem(target_item)
         else:
             self.lbl_step_detail.setText("当前剧本还没有步骤")
             ui_state["last_step_id"] = ""
@@ -2058,7 +2144,31 @@ class DeviceLabPage(QWidget):
         script = self._current_script()
         if current is None or not script:
             return None
-        return self._find_item_by_id(script.get("steps", []), current.data(Qt.ItemDataRole.UserRole))
+        step_id = current.data(0, Qt.ItemDataRole.UserRole)
+        if not step_id:
+            return None
+        return self._find_item_by_id(script.get("steps", []), step_id)
+
+    def _step_group_title(self, step: Dict[str, Any]) -> str:
+        step_type = step.get("type", "serial")
+        if step_type in {"setting", "shortcut", "serial"}:
+            return "指令步骤"
+        if step_type in {"capture_snapshot", "append_reference", "compare_reference", "green_screen_detect"}:
+            return "图像步骤"
+        if step_type in {"set_variable"}:
+            return "变量步骤"
+        if step_type in {"wait"}:
+            return "等待步骤"
+        return "其他步骤"
+
+    def _find_step_tree_item(self, step_id: str) -> Optional[QTreeWidgetItem]:
+        for group_index in range(self.list_script_steps.topLevelItemCount()):
+            group_item = self.list_script_steps.topLevelItem(group_index)
+            for child_index in range(group_item.childCount()):
+                item = group_item.child(child_index)
+                if item.data(0, Qt.ItemDataRole.UserRole) == step_id:
+                    return item
+        return None
 
     def _step_summary(self, step: Dict[str, Any]) -> str:
         step_type = step.get("type", "serial")
@@ -3507,15 +3617,17 @@ class DeviceLabPage(QWidget):
 
     def _highlight_running_step(self, step_id: Optional[str]):
         self._running_step_id = step_id or None
-        for row in range(self.list_script_steps.count()):
-            item = self.list_script_steps.item(row)
-            if item.data(Qt.ItemDataRole.UserRole) == self._running_step_id:
-                item.setBackground(QColor('#fef3c7'))
-                item.setForeground(QColor('#92400e'))
-                self.list_script_steps.setCurrentRow(row)
-            else:
-                item.setBackground(QColor())
-                item.setForeground(QColor())
+        for group_index in range(self.list_script_steps.topLevelItemCount()):
+            group_item = self.list_script_steps.topLevelItem(group_index)
+            for child_index in range(group_item.childCount()):
+                item = group_item.child(child_index)
+                if item.data(0, Qt.ItemDataRole.UserRole) == self._running_step_id:
+                    item.setBackground(0, QColor('#fef3c7'))
+                    item.setForeground(0, QColor('#92400e'))
+                    self.list_script_steps.setCurrentItem(item)
+                else:
+                    item.setBackground(0, QColor())
+                    item.setForeground(0, QColor())
 
     def _open_run_output_dir(self):
         target_dir = self._last_run_output_dir
@@ -3705,7 +3817,19 @@ class DeviceLabPage(QWidget):
         project = self._current_project()
         if not project:
             return None
-        return self._find_item_by_id(project.get("scripts", []), current.data(Qt.ItemDataRole.UserRole))
+        script_id = current.data(0, Qt.ItemDataRole.UserRole)
+        if not script_id:
+            return None
+        return self._find_item_by_id(project.get("scripts", []), script_id)
+
+    def _find_script_tree_item(self, script_id: str) -> Optional[QTreeWidgetItem]:
+        for index in range(self.list_scripts.topLevelItemCount()):
+            root_item = self.list_scripts.topLevelItem(index)
+            for child_index in range(root_item.childCount()):
+                item = root_item.child(child_index)
+                if item.data(0, Qt.ItemDataRole.UserRole) == script_id:
+                    return item
+        return None
 
     def _add_project(self):
         name, ok = QInputDialog.getText(self, "新增项目", "项目名")
@@ -3860,11 +3984,12 @@ class DeviceLabPage(QWidget):
     def _select_script(self, script_id: Optional[str]):
         if not script_id:
             return
-        for row in range(self.list_scripts.count()):
-            item = self.list_scripts.item(row)
-            if item.data(Qt.ItemDataRole.UserRole) == script_id:
-                self.list_scripts.setCurrentRow(row)
-                break
+        item = self._find_script_tree_item(script_id)
+        if item is not None:
+            parent = item.parent()
+            if parent is not None:
+                parent.setExpanded(True)
+            self.list_scripts.setCurrentItem(item)
 
     def _move_script_step_up(self):
         self._move_script_step(-1)
@@ -3892,11 +4017,12 @@ class DeviceLabPage(QWidget):
     def _select_script_step(self, step_id: Optional[str]):
         if not step_id:
             return
-        for row in range(self.list_script_steps.count()):
-            item = self.list_script_steps.item(row)
-            if item.data(Qt.ItemDataRole.UserRole) == step_id:
-                self.list_script_steps.setCurrentRow(row)
-                break
+        item = self._find_step_tree_item(step_id)
+        if item is not None:
+            parent = item.parent()
+            if parent is not None:
+                parent.setExpanded(True)
+            self.list_script_steps.setCurrentItem(item)
 
     def _run_selected_script(self):
         script = self._current_script()
