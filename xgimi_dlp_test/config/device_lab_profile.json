@@ -24,12 +24,12 @@
     "snapshot_dir": "reports/device_lab_snapshots"
   },
   "serial": {
-    "last_port": "",
+    "last_port": "COM3",
     "baudrate": 115200,
     "newline": true,
     "newline_mode": "\\r\\n",
     "auto_su": false,
-    "tab_passthrough": false
+    "tab_passthrough": true
   },
   "quick_settings": [
     {

@@ -56,6 +56,12 @@
       "category": "未分类",
       "format": "markdown",
       "content": "## 串口调试 & 极米角度采集测试\n\n### 串口界面功能说明\n\n| 功能 | 说明 |\n| --- | --- |\n| 端口配置 | COM 口、波特率（默认115200）、数据位/校验位/停止位 |\n| 彩色终端 | 绿色=发送，白色=接收，黄色=系统提示，红色=错误 |\n| 快捷指令 | 固件升级流程、角度采集、系统工具均有一键按钮 |\n| 自定义指令 | 可添加/编辑/删除，自动保存到 config/serial_quick_cmds.json |\n| 下载日志 | 将终端内容保存为 .log 文件 |\n\n### 固件升级流程（libxgimi.so）\n\n内置 so 文件路径: assets/firmware/libxgimi.so\n\n```\nsu                                                    # 切换 root 用户\nremount                                               # 重新挂载为可读写\ncp /vendor/lib/libxgimi.so /data/                     # 备份原始 so 文件\ncp /mnt/media_rw/0182-0265/libxgimi.so /vendor/lib/  # 从 U 盘安装新 so\nsync                                                  # 刷新文件系统缓冲\nreboot                                                # 重启生效\n```\n\n⚠ 注意：U 盘 UUID 0182-0265 是固定挂载路径，不同 U 盘 UUID 不同，\n若找不到需先执行 ls /mnt/media_rw/ 确认实际挂载目录。\n\n### 角度采集测试说明\n\n使用极米杨兴角度坐标映射采集接口，遍历指定范围内的 Yaw/Pitch 角度组合，\n记录每个角度对应的投影仪四角屏幕坐标（TL/TR/BL/BR）。\n\n#### 前置条件\n\n#### 采集指令\n\n```\ngmpfUnit externDisplay kst_dev batchGetDisplayPointByAngle \\\n    \"yaw;pitch;0;-40;40;-40;40;{step};/data/vendor\"\n```\n\n| 参数位置 | 值 | 含义 |\n| --- | --- | --- |\n| axis1 | yaw | 第一扫描轴为 Yaw（水平偏航角） |\n| axis2 | pitch | 第二扫描轴为 Pitch（垂直俯仰角） |\n| fixed | 0 | Roll（滚转角）固定为 0° |\n| start1 ~ end1 | -40 ~ 40 | Yaw 扫描范围（度） |\n| start2 ~ end2 | -40 ~ 40 | Pitch 扫描范围（度） |\n| step | 0.1 / 0.5 / 1 | 步进间隔（度） |\n| output_path | /data/vendor | CSV 输出目录（设备内部） |\n\n步进对应数据量估算：\n  • step=0.1 → 约 161×161 = 25921 个点（约 30 分钟）\n  • step=0.5 → 约 33×33 = 1089 个点\n  • step=1.0 → 约 17×17 = 289 个点（快速验证）\n\n#### 输出文件格式\n\n```\n文件名: ak_scan_yaw_pitch_step{step}_{timestamp}.csv\n列:    Yaw, Pitch, Fixed_Axis, TL_X, TL_Y, TR_X, TR_Y, BL_X, BL_Y, BR_X, BR_Y\n坐标:  已×2 放大为 4K 分辨率（算法内部为 2K，自动扩展）\n```\n\n#### 数据取回\n\n```\ncp /data/vendor/ak_scan_*.csv /mnt/media_rw/0182-0265/\n```\n\n将 CSV 全部拷贝到 U 盘，然后拔 U 盘在电脑上用「分析执行」模块处理数据。\n\n### 其他常用系统指令\n\n| 功能 | 指令 |\n| --- | --- |\n| 监听 GM 调试日志 | logcat | grep GM_DISP_DBG |\n| 关闭 AVB 验证 | avb init 0;avb set-devicestate 0;avb set-verity disable;save;reset |\n| 调整休眠(24h) | settings put system screen_off_timeout 86400000 |\n| 查看 U 盘挂载 | ls /mnt/media_rw/ |"
+    },
+    {
+      "title": "分支开发相关指令",
+      "category": "未分类",
+      "format": "markdown",
+      "content": "## 一键更新仓库\n```\nrepo forall -p gmpf_device -p gmpf_control -p gmpf_algorithm -p gmpf_porting -p ../../api -p . -c \"repo start local .;git checkout .;git pull --rebase\"\n```\n\n## source配置\n```\nsource config/build/\n```"
     }
   ]
 }

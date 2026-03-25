@@ -7,7 +7,8 @@
       "analysis.precision_gap_analysis": "D:/software/heiweilu/workspace/xgimi/code/xgimi_dlp_test/reports/precision_gap_analysis/20260319/failed_points_visualization.png",
       "analysis.trapezoid_coord_vis": "D:/software/heiweilu/workspace/xgimi/code/xgimi_dlp_test/reports/trapezoid_coord_vis/20260319/trapezoid_vis_20260319_165011.png",
       "analysis.degree_01_visualization": "D:/software/heiweilu/workspace/xgimi/code/xgimi_dlp_test/reports/Data_Analysis_Result/Angle/0.1/20260318/angle_test_0.1deg_visualization_20260318_090850.png",
-      "analysis.coord_result_vis": "D:/software/heiweilu/workspace/xgimi/code/xgimi_dlp_test/reports/coord_result_vis/20260319/svm_angle_test_result_2026_03_17_15_23_47_coord_vis_20260319_165551.png"
+      "analysis.coord_result_vis": "D:/software/heiweilu/workspace/xgimi/code/xgimi_dlp_test/reports/coord_result_vis/20260319/svm_angle_test_result_2026_03_17_15_23_47_coord_vis_20260319_165551.png",
+      "analysis.angle_boundary_stats": "D:/software/heiweilu/workspace/xgimi/code/xgimi_dlp_test/reports/angle_boundary_stats/20260325/4k_img6.9.3_step1_9660_dapeng_angle_test_result_2026_03_24_20_17_30_boundary_vis.png"
     }
   }
 }

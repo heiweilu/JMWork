@@ -21,20 +21,20 @@
       "cmd": "getprop | grep model"
     },
     {
-      "name": "重启ADB",
-      "cmd": "adb kill-server;\nadb start-server"
-    },
-    {
       "name": "查看是软梯or硬梯",
-      "cmd": "ogcat |grep -i \"act\";\ngmpfUnit info |grep -i \"act\""
+      "cmd": "logcat | grep -i \"act\"\ngmpfUnit info | grep -i \"act\""
     },
     {
-      "name": "切换1080p 240hz",
-      "cmd": "gmpfUnit externDisplay setsoctiming 7"
+      "name": "切换为 1080p 240hz（先设置为默认画面，在执行）",
+      "cmd": "gmpfUnit externDisplay setsoctiming 7\ngmpfUnit externDisplay setouttiming 7"
     },
     {
       "name": "调用播放播放视频",
       "cmd": "am start -a android.intent.action.MAIN -n com.xgimi.gimiplayer/com.xgimi.gimiplayer.activity.VideoPlayerActivity --es video-path \"/sdcard/3D_FSBS_test.mkv\""
+    },
+    {
+      "name": "关风控",
+      "cmd": "stop xgimi_middle;\ncri temperature_bypass true;  \nreboot"
     }
   ],
   "fixed_sections": {
@@ -49,7 +49,7 @@
         ],
         [
           "② remount",
-          "remount",
+          "remount\nchmod 777 -R /mnt/scratch/overlay\ncd /",
           "重新挂载文件系统为可读写（允许修改 /vendor）"
         ],
         [
@@ -78,7 +78,7 @@
       "title": "🧪 角度采集测试",
       "hint": "遍历 Yaw × Pitch 二维网格，调用 batchGetDisplayPointByAngle 将每个角度对应的四角坐标写入 CSV（位于设备 /data/vendor/）。\n完成后需将 CSV 文件拷贝回 U 盘取走分析。",
       "scan_cmd_template": "gmpfUnit externDisplay kst_dev batchGetDisplayPointByAngle \"yaw;pitch;{resolution};{yaw_min};{yaw_max};{pitch_min};{pitch_max};{step};/data/vendor\"",
-      "copy_csv_cmd": "cp /data/vendor/ak_scan_*.csv /mnt/media_rw/0182-0265/"
+      "copy_csv_cmd": "cp data/vendor/ak_scan_yaw_pitch_step1_20260312_064414.csv /mnt/media_rw/0182-0265/"
     },
     "kst_angle": {
       "title": "📐 set_kst_by_angle",
@@ -136,7 +136,7 @@
       "commands": [
         {
           "name": "mboot更新指令（注意修改文件名）",
-          "cmd": "mtkupgrade usb XGIMI_HORSEPOPULAR_G0115.bin"
+          "cmd": "mtkupgrade usb XGIMI_HORSEPOPULAR_XR08C.bin"
         },
         {
           "name": "remount",
@@ -160,7 +160,7 @@
         },
         {
           "name": "删除符号链接",
-          "cmd": "rm /mnt/vendor/xgimiconfig/G0118/kstAdjust/norm_params.yaml；rm /mnt/vendor/xgimiconfig/G0118/kstAdjust/svm_model.xml"
+          "cmd": "rm /mnt/vendor/xgimiconfig/G0118/kstAdjust/norm_params.yaml\nrm /mnt/vendor/xgimiconfig/G0118/kstAdjust/svm_model.xml"
         },
         {
           "name": "拷贝新模型",
@@ -179,6 +179,44 @@
           "cmd": "logcat | grep svm"
         }
       ]
+    },
+    {
+      "id": "dyn:1774340065710",
+      "title": "系统崩溃",
+      "parent_id": "",
+      "hint": "",
+      "commands": [
+        {
+          "name": "查看系统奔溃信息",
+          "cmd": "cd /data/tombstones/ ls cat tombstone_00"
+        }
+      ]
+    },
+    {
+      "id": "dyn:1774350309133",
+      "title": "ADB",
+      "parent_id": "",
+      "hint": "",
+      "commands": []
+    },
+    {
+      "id": "dyn:1774350334465",
+      "title": "1",
+      "parent_id": "dyn:1774350309133",
+      "hint": "",
+      "commands": [
+        {
+          "name": "重启ADB",
+          "cmd": "adb kill-server; adb start-server"
+        }
+      ]
+    },
+    {
+      "id": "dyn:1774350467863",
+      "title": "2",
+      "parent_id": "dyn:1774350309133",
+      "hint": "",
+      "commands": []
     }
   ],
   "section_order": [
@@ -189,6 +227,10 @@
     "kst_coord",
     "system_tools",
     "custom_commands",
-    "dyn:1773910651940"
+    "dyn:1773910651940",
+    "dyn:1774340065710",
+    "dyn:1774350309133",
+    "dyn:1774350334465",
+    "dyn:1774350467863"
   ]
 }
