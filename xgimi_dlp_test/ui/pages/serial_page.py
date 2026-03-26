@@ -44,7 +44,7 @@ from PyQt6.QtWidgets import (
     QInputDialog, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem,
     QAbstractItemView, QApplication
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import Qt, QTimer, pyqtSlot, pyqtSignal, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QColor, QTextCursor, QFont, QTextCharFormat
 
 # ──────────────── 配置文件路径 ────────────────
@@ -152,13 +152,31 @@ _STEP_OPTIONS = ["0.1", "0.5", "1", "2", "5"]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  可拖拽排序列表
+# ══════════════════════════════════════════════════════════════════════════════
+class _ReorderableList(QListWidget):
+    """支持拖拽排序并在 drop 后发出信号的 QListWidget"""
+    orderChanged = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+
+    def dropEvent(self, event):
+        super().dropEvent(event)
+        self.orderChanged.emit()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  自定义指令编辑对话框
 # ══════════════════════════════════════════════════════════════════════════════
 class CmdEditDialog(QDialog):
-    def __init__(self, name="", cmd="", parent=None):
+    def __init__(self, name="", cmd="", desc="", parent=None):
         super().__init__(parent)
         self.setWindowTitle("编辑快捷指令")
-        self.resize(860, 320)
+        self.resize(860, 380)
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
 
@@ -166,6 +184,10 @@ class CmdEditDialog(QDialog):
         self.edit_name = QLineEdit(name)
         self.edit_name.setPlaceholderText("显示名称，如「查看进程」")
         form.addRow("名称:", self.edit_name)
+
+        self.edit_desc = QLineEdit(desc)
+        self.edit_desc.setPlaceholderText("可选，简要说明指令用途")
+        form.addRow("注释:", self.edit_desc)
 
         self.edit_cmd = QTextEdit()
         self.edit_cmd.setPlainText(cmd)
@@ -195,7 +217,9 @@ class CmdEditDialog(QDialog):
         self.accept()
 
     def get_values(self):
-        return self.edit_name.text().strip(), self.edit_cmd.toPlainText().strip()
+        return (self.edit_name.text().strip(),
+                self.edit_cmd.toPlainText().strip(),
+                self.edit_desc.text().strip())
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -361,6 +385,7 @@ class SerialPage(QWidget):
         # VT100 行缓冲（直发模式下追踪当前行内容和光标位置）
         self._vt_line: list[str] = []   # 当前行字符列表
         self._vt_cursor: int = 0        # 当前行光标位置
+        self._syntax_scheme = 'Linux'   # 语法高亮方案: Linux / CMD
         # 初始化数据加载相关属性
         self._custom_cmds = list(_DEFAULT_CUSTOM_CMDS)  # 自定义快捷指令
         self._saved_dynamic_sections = []  # 保存的动态板块数据
@@ -573,6 +598,14 @@ class SerialPage(QWidget):
         self.chk_highlight.setToolTip("根据关键字对接收内容高亮显示")
         self.chk_highlight.toggled.connect(lambda v: setattr(self, '_highlight_rx', v))
         layout.addWidget(self.chk_highlight)
+
+        # 语法方案选择
+        self.combo_syntax = QComboBox()
+        self.combo_syntax.addItems(['Linux', 'CMD'])
+        self.combo_syntax.setToolTip("终端语法高亮方案")
+        self.combo_syntax.setFixedWidth(70)
+        self.combo_syntax.currentTextChanged.connect(self._on_syntax_changed)
+        layout.addWidget(self.combo_syntax)
 
         self.chk_tab_passthrough = QCheckBox("Tab直发")
         self.chk_tab_passthrough.setChecked(True)
@@ -999,10 +1032,11 @@ class SerialPage(QWidget):
             return
 
         item = dyn_cmds[cmd_idx]
-        dlg = CmdEditDialog(name=item['name'], cmd=item['cmd'], parent=self)
+        dlg = CmdEditDialog(name=item['name'], cmd=item['cmd'],
+                            desc=item.get('desc', ''), parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
-            name, cmd = dlg.get_values()
-            dyn_cmds[cmd_idx] = {"name": name, "cmd": cmd}
+            name, cmd, desc = dlg.get_values()
+            dyn_cmds[cmd_idx] = {"name": name, "cmd": cmd, "desc": desc}
             self._save_all_data()
             self._refresh_dyn_buttons(sec)
 
@@ -2562,8 +2596,10 @@ class SerialPage(QWidget):
     }
 
     # 关键词规则列表：(颜色_dark, 颜色_light, [关键词...])
-    _KW_RULES = [
-        ('#FF6B6B', '#CF222E', [
+    # MobaXterm 风格配色方案
+    _KW_RULES_LINUX = [
+        # 错误 — MobaXterm 红
+        ('#FF5555', '#CC0000', [
             'error', 'err:', ' err ', 'fail', 'failed', 'failure',
             'fatal', 'exception', 'crash', 'panic', 'abort', 'assert',
             'traceback', 'stacktrace', 'undefined', 'invalid', 'illegal',
@@ -2572,35 +2608,78 @@ class SerialPage(QWidget):
             'segfault', 'sigsegv', 'killed', 'out of memory', 'oom',
             'timed out', 'connection refused', 'bad address',
         ]),
-        ('#F0C040', '#7D4E00', [
+        # 警告 — MobaXterm 黄
+        ('#FFFF55', '#AA5500', [
             'warn', 'warning', 'deprecated', 'caution', 'attention',
             'skip', 'timeout', 'retry', 'slow', 'skipped',
             'incomplete', 'partial', 'miss', 'not support', 'fallback',
             'deprecated', 'disabled', 'offline',
         ]),
-        ('#56D364', '#1A7F37', [
+        # 成功 — MobaXterm 绿
+        ('#55FF55', '#00AA00', [
             'success', 'succeed', 'completed', 'done', 'finish', 'ok:',
             'passed', '[ ok ]', '[  ok  ]', 'started', 'ready',
             'connected', 'enabled', 'loaded', 'initialized', 'mount',
             'install', 'update complete', 'write ok', 'read ok',
         ]),
-        ('#74B9FF', '#0550AE', [
+        # 信息 — MobaXterm 青
+        ('#55FFFF', '#0055AA', [
             'info:', 'debug:', 'verbose:', 'notice:', '>>> ', '<<< ',
             'i/', 'd/', 'v/', 'begin', 'start', 'init', 'open',
             'sending', 'receiving', 'connecting',
         ]),
-        ('#BD93F9', '#6F4297', [
+        # 特殊命令 — MobaXterm 紫
+        ('#FF55FF', '#AA00AA', [
             'gmpfunit', 'externDisplay', 'kst_dev', 'batchget',
             'ak_scan', '/data/vendor', '/mnt/media_rw',
         ]),
-        ('#FFB86C', '#C2410C', [
+        # 危险操作 — MobaXterm 橙(亮红)
+        ('#FFAA55', '#CC4400', [
             'reboot', 'poweroff', 'shutdown', 'reset', 'factory reset',
             'wipe', 'format', 'erase', 'delete', 'remove', 'rm -rf',
         ]),
+        # 路径/目录 — MobaXterm 蓝
+        ('#5555FF', '#0000AA', [
+            '/system/', '/vendor/', '/data/', '/mnt/', '/proc/', '/sys/',
+            '/dev/', '/tmp/', '/etc/', '/home/', '/usr/', '/bin/',
+        ]),
+        # shell 提示符 — MobaXterm 亮绿
+        ('#55FF55', '#00AA00', [
+            '# ', '$ ', ':/ #', ':/ $',
+        ]),
     ]
 
+    _KW_RULES_CMD = [
+        # CMD 错误
+        ('#FF5555', '#CC0000', [
+            'error', 'err:', 'fail', 'failed', 'denied', 'not found',
+            'not recognized', 'is not recognized', 'cannot find',
+            'access denied', 'invalid', 'illegal',
+        ]),
+        # CMD 警告
+        ('#FFFF55', '#AA5500', [
+            'warn', 'warning', 'skip', 'timeout', 'deprecated',
+        ]),
+        # CMD 成功
+        ('#55FF55', '#00AA00', [
+            'success', 'completed', 'done', 'ok', 'ready', 'copied',
+        ]),
+        # CMD 信息
+        ('#55FFFF', '#0055AA', [
+            'volume', 'directory', 'dir ', 'file(s)', 'bytes',
+            'c:\\', 'd:\\', 'e:\\',
+        ]),
+    ]
+
+    def _on_syntax_changed(self, scheme: str):
+        """切换语法高亮方案"""
+        self._syntax_scheme = scheme
+        if self._config_mgr:
+            self._config_mgr.set('serial.syntax_scheme', scheme)
+            self._config_mgr.save()
+
     def _detect_rx_color(self, line: str) -> str:
-        """根据行内容推断高亮颜色（高亮关闭时返回默认 RX 颜色）"""
+        """根据行内容推断高亮颜色（MobaXterm 风格，支持 Linux/CMD 方案）"""
         if not self._highlight_rx:
             return self._rx_color
         t_lc = self._LOGCAT_COLORS_DARK if self._dark_mode else self._LOGCAT_COLORS_LIGHT
@@ -2614,7 +2693,7 @@ class SerialPage(QWidget):
             return t_lc.get(m.group(1), self._rx_color)
         # ── 通用关键词匹配
         ll = line.lower()
-        kw_rules = self._KW_RULES
+        kw_rules = self._KW_RULES_CMD if self._syntax_scheme == 'CMD' else self._KW_RULES_LINUX
         for dark_c, light_c, keywords in kw_rules:
             if any(kw in ll for kw in keywords):
                 return dark_c if self._dark_mode else light_c
@@ -3133,9 +3212,9 @@ class SerialPage(QWidget):
     def _refresh_custom_buttons(self):
         # 清空旧按钮
         while self._custom_btns_layout.count():
-            item = self._custom_btns_layout.takeAt(0)
-            if item.widget():
-                item.widget().setParent(None)
+            w = self._custom_btns_layout.takeAt(0)
+            if w.widget():
+                w.widget().setParent(None)
 
         t = _DARK if self._dark_mode else _LIGHT
         _STYLE = (
@@ -3145,35 +3224,68 @@ class SerialPage(QWidget):
             f"QPushButton:hover{{background:{t['btn_hover']};"
             f"border-color:{t['btn_hover_bdr']};color:{t['combo_text']};}}"
         )
+        _ARROW_STYLE = (
+            f"QToolButton{{color:{t['grp_title']};background:transparent;"
+            f"border:none;font-size:10px;padding:0 1px;}}"
+            f"QToolButton:hover{{color:{t['combo_text']};}}"
+        )
 
+        total = len(self._custom_cmds)
         for i, item in enumerate(self._custom_cmds):
-            row = QHBoxLayout()
-            row.setContentsMargins(0, 0, 0, 0)
-            row.setSpacing(3)
+            row_layout = QHBoxLayout()
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(2)
 
-            btn = QPushButton(f"  {item['name']}")
-            btn.setToolTip(f"<code>{item['cmd']}</code>")
+            # ↑↓ 排序按钮
+            btn_up = QToolButton()
+            btn_up.setText("▲")
+            btn_up.setToolTip("上移")
+            btn_up.setStyleSheet(_ARROW_STYLE)
+            btn_up.setFixedSize(16, 16)
+            btn_up.setEnabled(i > 0)
+            btn_up.clicked.connect(lambda checked, idx=i: self._move_custom(idx, -1))
+            row_layout.addWidget(btn_up)
+
+            btn_down = QToolButton()
+            btn_down.setText("▼")
+            btn_down.setToolTip("下移")
+            btn_down.setStyleSheet(_ARROW_STYLE)
+            btn_down.setFixedSize(16, 16)
+            btn_down.setEnabled(i < total - 1)
+            btn_down.clicked.connect(lambda checked, idx=i: self._move_custom(idx, 1))
+            row_layout.addWidget(btn_down)
+
+            # 按钮（名称 + 注释）
+            desc = item.get('desc', '')
+            btn_text = f"  {item['name']}"
+            if desc:
+                btn_text += f"  ({desc})"
+            btn = QPushButton(btn_text)
+            tooltip = f"<code>{item['cmd']}</code>"
+            if desc:
+                tooltip = f"<b>{desc}</b><br/>{tooltip}"
+            btn.setToolTip(tooltip)
             btn.setStyleSheet(_STYLE)
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             btn.clicked.connect(lambda checked, c=item['cmd']: self._send_command(c))
-            row.addWidget(btn, stretch=1)
+            row_layout.addWidget(btn, stretch=1)
 
             btn_edit = QToolButton()
             btn_edit.setText("✏")
             btn_edit.setToolTip("编辑")
             btn_edit.setStyleSheet(f"color:{t['grp_title']};background:transparent;border:none;font-size:12px;")
             btn_edit.clicked.connect(lambda checked, idx=i: self._on_edit_custom(idx))
-            row.addWidget(btn_edit)
+            row_layout.addWidget(btn_edit)
 
             btn_del = QToolButton()
             btn_del.setText("✕")
             btn_del.setToolTip("删除")
             btn_del.setStyleSheet("color:#E74C3C;background:transparent;border:none;font-size:12px;")
             btn_del.clicked.connect(lambda checked, idx=i: self._on_delete_custom(idx))
-            row.addWidget(btn_del)
+            row_layout.addWidget(btn_del)
 
             container = QWidget()
-            container.setLayout(row)
+            container.setLayout(row_layout)
             self._custom_btns_layout.addWidget(container)
 
         if not self._custom_cmds:
@@ -3181,28 +3293,38 @@ class SerialPage(QWidget):
             lbl.setStyleSheet(f"color:{t['grp_title']};font-size:11px;padding:4px;")
             self._custom_btns_layout.addWidget(lbl)
 
+    def _move_custom(self, idx: int, direction: int):
+        """移动快捷指令位置，direction: -1=上移, 1=下移"""
+        new_idx = idx + direction
+        if 0 <= new_idx < len(self._custom_cmds):
+            self._custom_cmds[idx], self._custom_cmds[new_idx] = \
+                self._custom_cmds[new_idx], self._custom_cmds[idx]
+            self._save_all_data()
+            self._refresh_custom_buttons()
+
     def _on_add_custom(self):
         dlg = CmdEditDialog(parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
-            name, cmd = dlg.get_values()
-            self._custom_cmds.append({"name": name, "cmd": cmd})
+            name, cmd, desc = dlg.get_values()
+            self._custom_cmds.append({"name": name, "cmd": cmd, "desc": desc})
             self._save_all_data()
             self._refresh_custom_buttons()
 
     def _on_edit_custom(self, idx: int):
         item = self._custom_cmds[idx]
-        dlg = CmdEditDialog(name=item['name'], cmd=item['cmd'], parent=self)
+        dlg = CmdEditDialog(name=item['name'], cmd=item['cmd'],
+                            desc=item.get('desc', ''), parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
-            name, cmd = dlg.get_values()
-            self._custom_cmds[idx] = {"name": name, "cmd": cmd}
+            name, cmd, desc = dlg.get_values()
+            self._custom_cmds[idx] = {"name": name, "cmd": cmd, "desc": desc}
             self._save_all_data()
             self._refresh_custom_buttons()
 
     def _on_add_dyn_cmd(self, sec: '_CollapsibleSection'):
         dlg = CmdEditDialog(parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
-            name, cmd = dlg.get_values()
-            sec._dyn_cmds.append({"name": name, "cmd": cmd})
+            name, cmd, desc = dlg.get_values()
+            sec._dyn_cmds.append({"name": name, "cmd": cmd, "desc": desc})
             self._save_all_data()  # 保存更改
             self._refresh_dyn_buttons(sec)
 

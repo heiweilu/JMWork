@@ -751,7 +751,24 @@ def run(input_path: str, output_dir: str, params: dict,
 
         _rpt(f"  总样本数: {len(features)}")
         _rpt(f"  特征维度: {features.shape[1]}")
-        _rpt(f"  类别分布: label=0 ({np.sum(labels==0)}), label=1 ({np.sum(labels==1)})")
+        n_class0 = int(np.sum(labels == 0))
+        n_class1 = int(np.sum(labels == 1))
+        _rpt(f"  类别分布: label=0 ({n_class0}), label=1 ({n_class1})")
+
+        # 检查是否只有一个类别（SVM 至少需要两个类别才能训练和保存）
+        unique_labels = np.unique(labels)
+        if len(unique_labels) < 2:
+            only_label = int(unique_labels[0])
+            _rpt(f"\n⚠ 数据中仅包含类别 {only_label}，缺少另一类别的样本。", "WARNING")
+            _rpt("  SVM 分类器至少需要两个类别的样本才能正常训练。", "WARNING")
+            _rpt("  请检查数据预处理是否正确生成了 label=0 和 label=1 两类标签。", "WARNING")
+            _rpt("  常见原因：预处理时判定阈值不合适，导致所有样本被标记为同一类别。", "WARNING")
+            return {
+                "status": "error",
+                "message": f"训练数据仅包含类别 {only_label}（共 {len(features)} 条），"
+                           f"缺少另一类别的样本。SVM 至少需要两个类别才能训练。"
+                           f"请检查数据预处理的判定阈值。"
+            }
         _prog(2, 10)
 
         if _cancelled():

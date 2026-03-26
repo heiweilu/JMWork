@@ -8,8 +8,10 @@
 import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QGroupBox,
                               QPushButton, QLabel, QHBoxLayout, QMessageBox,
-                              QScrollArea, QFrame)
+                              QScrollArea, QFrame, QLineEdit, QTextEdit,
+                              QGridLayout)
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QFont
 
 from ui.widgets.file_selector import FileSelector
 from ui.widgets.param_editor import ParamEditor
@@ -248,6 +250,112 @@ class PreprocessingCard(QWidget):
             self._log_panel.append_log(f"异常: {error_msg}", "ERROR")
 
 
+class HexConverterWidget(QWidget):
+    """进制转换工具：输入十六进制字节序列，自动转换为其他进制"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._init_ui()
+
+    def _init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+
+        # 说明
+        desc = QLabel("输入十六进制字节序列（空格分隔），自动转换为十进制、二进制、八进制和 ASCII。\n"
+                       "示例: D1 E2 00 00  或  11 03 00 05 CF 0D")
+        desc.setWordWrap(True)
+        desc.setStyleSheet("color: #666; font-size: 12px; margin-bottom: 4px;")
+        layout.addWidget(desc)
+
+        # 输入
+        input_row = QHBoxLayout()
+        input_label = QLabel("HEX 输入:")
+        input_label.setStyleSheet("font-weight: bold; font-size: 13px;")
+        input_row.addWidget(input_label)
+        self._hex_input = QLineEdit()
+        self._hex_input.setPlaceholderText("D1 E2 00 00")
+        self._hex_input.setFont(QFont("Consolas", 12))
+        self._hex_input.setStyleSheet("padding: 6px; border: 1px solid #888; border-radius: 4px;")
+        self._hex_input.textChanged.connect(self._on_input_changed)
+        input_row.addWidget(self._hex_input, 1)
+        layout.addLayout(input_row)
+
+        # 结果表格
+        self._result_area = QTextEdit()
+        self._result_area.setReadOnly(True)
+        self._result_area.setFont(QFont("Consolas", 11))
+        self._result_area.setStyleSheet("border: 1px solid #ccc; border-radius: 4px; padding: 8px;")
+        layout.addWidget(self._result_area, 1)
+
+    def _on_input_changed(self, text: str):
+        text = text.strip()
+        if not text:
+            self._result_area.clear()
+            return
+
+        # 支持空格、逗号、0x前缀
+        tokens = text.replace(',', ' ').split()
+        byte_values = []
+        errors = []
+        for tok in tokens:
+            tok_clean = tok.lower().replace('0x', '')
+            try:
+                val = int(tok_clean, 16)
+                if not (0 <= val <= 255):
+                    errors.append(f"'{tok}' 超出单字节范围 (0~FF)")
+                    continue
+                byte_values.append(val)
+            except ValueError:
+                errors.append(f"'{tok}' 不是有效的十六进制值")
+
+        lines = []
+        if errors:
+            lines.append("⚠ 解析警告: " + "; ".join(errors))
+            lines.append("")
+
+        if not byte_values:
+            self._result_area.setPlainText('\n'.join(lines) if lines else "无有效输入")
+            return
+
+        # 逐字节转换表
+        hdr = f"{'字节':>6}  {'HEX':>4}  {'DEC':>5}  {'OCT':>5}  {'BIN':>10}  {'ASCII':>6}"
+        lines.append(hdr)
+        lines.append("─" * len(hdr))
+        for i, val in enumerate(byte_values):
+            ascii_ch = chr(val) if 32 <= val < 127 else '·'
+            lines.append(
+                f"  [{i:>2}]  0x{val:02X}  {val:>5}  {val:>5o}  {val:>08b}    {ascii_ch!r:>4}"
+            )
+
+        lines.append("")
+        lines.append("── 整体解析 ──")
+
+        # 整体十进制（大端）
+        int_be = int.from_bytes(byte_values, byteorder='big')
+        int_le = int.from_bytes(byte_values, byteorder='little')
+        lines.append(f"整数 (大端): {int_be}")
+        lines.append(f"整数 (小端): {int_le}")
+
+        # ASCII 字符串
+        ascii_str = ''.join(chr(v) if 32 <= v < 127 else '.' for v in byte_values)
+        lines.append(f"ASCII 文本:  {ascii_str}")
+
+        # 二进制整体
+        bin_str = ' '.join(f'{v:08b}' for v in byte_values)
+        lines.append(f"二进制序列:  {bin_str}")
+
+        # 十进制序列
+        dec_str = ' '.join(str(v) for v in byte_values)
+        lines.append(f"十进制序列:  {dec_str}")
+
+        # 八进制序列
+        oct_str = ' '.join(f'{v:03o}' for v in byte_values)
+        lines.append(f"八进制序列:  {oct_str}")
+
+        self._result_area.setPlainText('\n'.join(lines))
+
+
 class PreprocessingPage(QWidget):
     """数据预处理页面"""
 
@@ -280,6 +388,11 @@ class PreprocessingPage(QWidget):
         overview.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         overview.setStyleSheet("padding: 16px; color: #445; font-size: 13px;")
         self.workspace.add_page('preprocessing_overview', '数据预处理', overview)
+
+        # 内置工具：进制转换
+        hex_tool = HexConverterWidget()
+        self.workspace.add_page('preprocessing:hex_converter', '进制转换工具',
+                                hex_tool, parent_key='preprocessing_overview')
 
         modules = task_registry.get_modules('preprocessing')
         for mid, mdata in modules.items():
