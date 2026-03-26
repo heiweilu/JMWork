@@ -62,6 +62,12 @@
       "category": "未分类",
       "format": "markdown",
       "content": "## 一键更新仓库\n```\nrepo forall -p gmpf_device -p gmpf_control -p gmpf_algorithm -p gmpf_porting -p ../../api -p . -c \"repo start local .;git checkout .;git pull --rebase\"\n```\n\n## source配置\n```\nsource config/build/\n```"
+    },
+    {
+      "title": "Flash升级PRD",
+      "category": "未分类",
+      "format": "markdown",
+      "content": "飞书连接：https://xgimi.feishu.cn/docx/Liwgd5M00oe2SXxf6j1c4dpinpb"
     }
   ]
 }

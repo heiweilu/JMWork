@@ -5,28 +5,8 @@
   },
   "custom_commands": [
     {
-      "name": "调整休眠(24h)",
-      "cmd": "settings put system screen_off_timeout 86400000"
-    },
-    {
-      "name": "查看vendor目录",
+      "name": "查看vendor目录的so",
       "cmd": "ls /vendor/lib/ | grep xgimi"
-    },
-    {
-      "name": "打印tag版本",
-      "cmd": "getprop | grep apollo"
-    },
-    {
-      "name": "打印硬件版本",
-      "cmd": "getprop | grep model"
-    },
-    {
-      "name": "查看是软梯or硬梯",
-      "cmd": "logcat | grep -i \"act\"\ngmpfUnit info | grep -i \"act\""
-    },
-    {
-      "name": "切换为 1080p 240hz（先设置为默认画面，在执行）",
-      "cmd": "gmpfUnit externDisplay setsoctiming 7\ngmpfUnit externDisplay setouttiming 7"
     },
     {
       "name": "调用播放播放视频",
@@ -92,18 +72,8 @@
       "title": "🔧 系统工具",
       "commands": [
         [
-          "📜 监听 GM 调试日志",
-          "logcat | grep GM_DISP_DBG",
-          ""
-        ],
-        [
           "🔒 关闭 AVB 验证",
           "avb init 0;avb set-devicestate 0;avb set-verity disable;save;reset",
-          ""
-        ],
-        [
-          "⏱ 调整休眠时间(24h)",
-          "settings put system screen_off_timeout 86400000",
           ""
         ],
         [
@@ -181,18 +151,6 @@
       ]
     },
     {
-      "id": "dyn:1774340065710",
-      "title": "系统崩溃",
-      "parent_id": "",
-      "hint": "",
-      "commands": [
-        {
-          "name": "查看系统奔溃信息",
-          "cmd": "cd /data/tombstones/ ls cat tombstone_00"
-        }
-      ]
-    },
-    {
       "id": "dyn:1774350309133",
       "title": "ADB",
       "parent_id": "",
@@ -201,7 +159,7 @@
     },
     {
       "id": "dyn:1774350334465",
-      "title": "1",
+      "title": "常用",
       "parent_id": "dyn:1774350309133",
       "hint": "",
       "commands": [
@@ -212,11 +170,139 @@
       ]
     },
     {
-      "id": "dyn:1774350467863",
-      "title": "2",
-      "parent_id": "dyn:1774350309133",
+      "id": "dyn:1774409685107",
+      "title": "DLP/AK",
+      "parent_id": "",
+      "hint": "",
+      "commands": [
+        {
+          "name": "查看是软梯or硬梯",
+          "cmd": "logcat | grep -i \"act\"\ngmpfUnit info | grep -i \"act\""
+        }
+      ]
+    },
+    {
+      "id": "dyn:1774409696889",
+      "title": "屏幕相关",
+      "parent_id": "dyn:1774409685107",
+      "hint": "",
+      "commands": [
+        {
+          "name": "2k 60hz （都需要先设置默认画面）",
+          "cmd": "gmpfUnit externDisplay setsoctiming 6\ngmpfUnit externDisplay setouttiming 6"
+        },
+        {
+          "name": "2k 120hz",
+          "cmd": "gmpfUnit externDisplay setsoctiming 4\ngmpfUnit externDisplay setouttiming 4"
+        },
+        {
+          "name": "2k 240hz",
+          "cmd": "gmpfUnit externDisplay setsoctiming 7\ngmpfUnit externDisplay setouttiming 7"
+        },
+        {
+          "name": "查看设备分辨率/频率信息",
+          "cmd": "gmpfUnit externDisplay  disp_dev read_source_timing"
+        },
+        {
+          "name": "⏱ 调整休眠时间(24h)",
+          "cmd": "settings put system screen_off_timeout 86400000"
+        },
+        {
+          "name": "获取当前梯形坐标点",
+          "cmd": "gmpfUnit getCorrectKeystone2 0"
+        }
+      ]
+    },
+    {
+      "id": "dyn:1774409992724",
+      "title": "投影",
+      "parent_id": "dyn:1774409685107",
+      "hint": "",
+      "commands": [
+        {
+          "name": "投影方向( 0x6 0x4 )",
+          "cmd": "gmpfUnit externDisplay WriteDlpIIC '0x71' '0xe6 0x1 0x0 0x6' '4'\ngmpfUnit externDisplay WriteDlpIIC '0x51' '0xe1 0x0 0x0' '3'\n\ngmpfUnit externDisplay ReadDlpIIC '0xe2' '6'\ngmpfUnit externDisplay disp_dev disp_read \"0x91;0xe6;4\""
+        },
+        {
+          "name": "梯形下点",
+          "cmd": "gmpfUnit correctKeystone2 0 0 1 3839 0 0 2159 3839 2159"
+        }
+      ]
+    },
+    {
+      "id": "dyn:1774410167772",
+      "title": "上下电/开关灯",
+      "parent_id": "dyn:1774409685107",
+      "hint": "",
+      "commands": [
+        {
+          "name": "dlp 上电",
+          "cmd": "gmpfUnit externDisplay poweronoff 1"
+        },
+        {
+          "name": "下电",
+          "cmd": "gmpfUnit externDisplay poweronoff 0"
+        },
+        {
+          "name": "开灯",
+          "cmd": "gmpfUnit externDisplay setledon 1"
+        },
+        {
+          "name": "关灯",
+          "cmd": "gmpfUnit externDisplay setledon 0"
+        }
+      ]
+    },
+    {
+      "id": "dyn:1774410263125",
+      "title": "系统调试",
+      "parent_id": "",
       "hint": "",
       "commands": []
+    },
+    {
+      "id": "dyn:1774410270441",
+      "title": "查看系统奔溃",
+      "parent_id": "dyn:1774410263125",
+      "hint": "",
+      "commands": [
+        {
+          "name": "查看奔溃信息",
+          "cmd": "cd /data/tombstones/ ls cat tombstone_00"
+        }
+      ]
+    },
+    {
+      "id": "dyn:1774410656569",
+      "title": "调试日志",
+      "parent_id": "dyn:1774410263125",
+      "hint": "",
+      "commands": [
+        {
+          "name": "📜 监听 GM 调试日志",
+          "cmd": "logcat | grep GM_DISP_DBG"
+        },
+        {
+          "name": "打印硬件版本",
+          "cmd": "getprop | grep model"
+        },
+        {
+          "name": "打印tag版本",
+          "cmd": "getprop | grep apollo"
+        },
+        {
+          "name": "后台抓取日志",
+          "cmd": "logcat -c\nlogcat >/data/logcat.log&"
+        },
+        {
+          "name": "抓取simplepref",
+          "cmd": "simpleperf record -a --duration 10 -o /data/1.bin"
+        },
+        {
+          "name": "抓取traces   （需要把/data/misc/perfetto-traces/trace_file.perfetto-trace拷贝出来）",
+          "cmd": "setprop persist.traced.enable 1\nperfetto -o /data/misc/perfetto-traces/trace_file.perfetto-trace -t 20s sched freq idle am wm gfx view binder_driver hal dalvik camera input res memory"
+        }
+      ]
     }
   ],
   "section_order": [
@@ -228,9 +314,14 @@
     "system_tools",
     "custom_commands",
     "dyn:1773910651940",
-    "dyn:1774340065710",
     "dyn:1774350309133",
     "dyn:1774350334465",
-    "dyn:1774350467863"
+    "dyn:1774409685107",
+    "dyn:1774409696889",
+    "dyn:1774409992724",
+    "dyn:1774410167772",
+    "dyn:1774410263125",
+    "dyn:1774410270441",
+    "dyn:1774410656569"
   ]
 }

@@ -5,19 +5,56 @@
 说明如何新增/删除/修改功能模块，以及项目整体结构。
 """
 
+import re
+from html import unescape
+
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
                               QLabel, QTextBrowser, QListWidget,
                               QListWidgetItem, QSplitter, QFrame,
                               QLineEdit, QTableWidget, QTableWidgetItem,
                               QHeaderView, QStackedWidget, QAbstractItemView,
-                              QTreeWidget, QTreeWidgetItem)
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont, QColor
+                              QTreeWidget, QTreeWidgetItem, QApplication)
+from PyQt6.QtCore import Qt, QTimer, QUrl
+from PyQt6.QtGui import QFont, QColor, QDesktopServices
 
 from core.admin_console_store import normalize_doc_item
 from core.default_docs import load_default_docs
 from core.markdown_renderer import render_markdown_html
 from core.script_api_doc_loader import load_script_api_reference
+
+
+# ──────────────────────────────────────────────
+#  代码块复制链接注入
+# ──────────────────────────────────────────────
+
+def _inject_copy_links(html: str) -> tuple:
+    """在 HTML 中每个代码块前注入 <a href="copy:INDEX">📋 复制</a> 链接。
+    返回 (修改后的 html, {index: 纯文本代码})。
+    """
+    code_blocks: dict = {}
+    counter = [0]
+    _copy_btn = (
+        '<a href="copy:{idx}" style="font-size:11px;color:#1d4ed8;'
+        'text-decoration:none;padding:0 4px;">📋 复制</a>'
+    )
+
+    def _text(fragment: str) -> str:
+        """去除 HTML 标签并反转义实体，得到纯文本代码。"""
+        return unescape(re.sub(r'<[^>]+>', '', fragment))
+
+    def _replace(m: re.Match) -> str:
+        idx = counter[0]
+        counter[0] += 1
+        code_blocks[idx] = _text(m.group(0)).strip()
+        # 去掉 <pre> 内容末尾多余的 \n（markdown 渲染遗留），避免多显示一空行
+        block = re.sub(r'\n(</code>|</pre>)', r'\1', m.group(0))
+        btn = _copy_btn.format(idx=idx)
+        return btn + block
+
+    # 先匹配 codehilite div（pygments），再匹配普通 pre>code
+    modified = re.sub(r'<div class="codehilite">.*?</div>', _replace, html, flags=re.DOTALL)
+    modified = re.sub(r'<pre><code>.*?</code></pre>', _replace, modified, flags=re.DOTALL)
+    return modified, code_blocks
 
 
 # ──────────────────────────────────────────────
@@ -331,6 +368,7 @@ class DocsPage(QWidget):
         super().__init__(parent)
         self._admin_store = admin_store
         self._docs = []
+        self._doc_code_blocks: dict = {}   # index -> code text for copy links
         self._init_ui()
 
     def _load_docs(self):
@@ -454,7 +492,8 @@ class DocsPage(QWidget):
         self._right_stack = QStackedWidget()
 
         self.browser = QTextBrowser()
-        self.browser.setOpenExternalLinks(True)
+        self.browser.setOpenLinks(False)       # 所有链接均通过 anchorClicked 处理
+        self.browser.anchorClicked.connect(self._on_browser_anchor)
         self.browser.setStyleSheet("""
             QTextBrowser {
                 background: #FFFFFF;
@@ -503,8 +542,29 @@ class DocsPage(QWidget):
             index = int(key.split(':', 1)[1])
             self._right_stack.setCurrentIndex(0)
             doc = normalize_doc_item(self._docs[index])
-            self.browser.setHtml(render_markdown_html(doc.get('content', '')))
+            html = render_markdown_html(doc.get('content', ''))
+            html, self._doc_code_blocks = _inject_copy_links(html)
+            self.browser.setHtml(html)
             self.browser.verticalScrollBar().setValue(0)
+
+    def _on_browser_anchor(self, url: QUrl):
+        url_str = url.toString()
+        if url_str.startswith('copy:'):
+            try:
+                idx = int(url_str[5:])
+                code = self._doc_code_blocks.get(idx, '')
+                QApplication.clipboard().setText(code)
+                # 简单反馈：暫时修改标题栏（如有父窗口）
+                parent = self.window()
+                if parent and hasattr(parent, 'statusBar'):
+                    try:
+                        parent.statusBar().showMessage('已复制代码块内容', 2000)
+                    except Exception:
+                        pass
+            except (ValueError, KeyError):
+                pass
+        elif url_str.startswith('http://') or url_str.startswith('https://'):
+            QDesktopServices.openUrl(url)
 
 
 def _wrap_html(body: str) -> str:

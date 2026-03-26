@@ -41,7 +41,7 @@ def find_column(columns: list, candidates: list) -> Optional[str]:
 COL_YAW = ['verticalangle', 'yaw', 'vertical']
 COL_PITCH = ['horizontalangle', 'pitch', 'horizontal']
 COL_RESULT = ['result']
-COL_ERRORCODE = ['errorcode', 'error_code']
+COL_ERRORCODE = ['errorcode', 'error_code', '_ec']
 COL_DELTA = ['delta']
 COL_WRITE_COORDS = ['writecoords', 'write_coords', 'clippedcoords',
                      'tablecoords', 'originalcoords']
@@ -52,19 +52,22 @@ def detect_separator(filepath: str) -> str:
     """
     自动检测文件分隔符（逗号 or 制表符）。
 
-    策略：优先看表头行是否包含 Tab。
-    戏拟中总適合用 Tab 做隔山符的文件，表头行必然含 Tab；
-    而表头行内的逗号是列名中的内嵌正文，不计入。
+    策略：优先看第一行非注释（非 # 开头）数据行是否包含 Tab；
+    跳过 # 注释行，兼容含元信息注释的输出文件（如 diff 提取结果）。
     """
     with open(filepath, 'r', encoding='utf-8-sig', errors='replace') as f:
-        header_line = f.readline()
-        rest_lines  = ''.join(f.readline() for _ in range(4))
+        header_line = ''
+        for line in f:
+            if not line.startswith('#'):
+                header_line = line
+                break
+        rest_lines = ''.join(f.readline() for _ in range(4))
 
-    # 表头行包含 Tab → 强列 Tab 为分隔符（就算数据行逗号更多也一样）
+    # 表头行包含 Tab → 强制 Tab 为分隔符
     if '\t' in header_line:
         return '\t'
 
-    # header 无 Tab 时再统计全文
+    # header 无 Tab 时再统计后续行
     sample = header_line + rest_lines
     tab_count   = sample.count('\t')
     comma_count = sample.count(',')
@@ -105,7 +108,7 @@ def load_dataframe(filepath: str,
         _log(f"自动检测分隔符: {'Tab' if sep == chr(9) else repr(sep)}")
 
     df = pd.read_csv(filepath, sep=sep, encoding=encoding, engine='python',
-                     on_bad_lines='skip')
+                     comment='#', on_bad_lines='skip')
 
     _log(f"加载完成: {len(df)} 行 × {len(df.columns)} 列")
     return df

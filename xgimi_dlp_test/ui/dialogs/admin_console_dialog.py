@@ -3,7 +3,8 @@
 
 from typing import List, Dict
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QByteArray, QBuffer, QIODevice
+from PyQt6.QtGui import QImage
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -25,6 +26,24 @@ from PyQt6.QtWidgets import (
 
 from core.admin_console_store import normalize_doc_item
 from core.markdown_renderer import render_markdown_html
+
+
+class _MarkdownImageEditor(QTextEdit):
+    """支持从剪贴板直接粘贴图片（转为 base64 data URL）的 Markdown 编辑器。"""
+
+    def insertFromMimeData(self, source):
+        if source.hasImage():
+            img = source.imageData()
+            if isinstance(img, QImage):
+                ba = QByteArray()
+                buf = QBuffer(ba)
+                buf.open(QIODevice.OpenModeFlag.WriteOnly)
+                img.save(buf, 'PNG')
+                buf.close()
+                b64 = ba.toBase64().data().decode('ascii')
+                self.insertPlainText(f'![image](data:image/png;base64,{b64})')
+                return
+        super().insertFromMimeData(source)
 
 
 class AdminConsoleDialog(QDialog):
@@ -96,8 +115,10 @@ class AdminConsoleDialog(QDialog):
         form = QFormLayout()
         self.edit_doc_category = QLineEdit()
         self.edit_doc_title = QLineEdit()
-        self.edit_doc_content = QTextEdit()
+        self.edit_doc_content = _MarkdownImageEditor()
         self.edit_doc_content.setAcceptRichText(False)
+        self.edit_doc_content.setPlaceholderText(
+            "在此输入 Markdown 内容…\n提示：可直接 Ctrl+V 粘贴截图（自动转为 base64 图片插入）")
         self.edit_doc_content.textChanged.connect(self._update_preview)
         form.addRow('文档分类', self.edit_doc_category)
         form.addRow('文档标题', self.edit_doc_title)

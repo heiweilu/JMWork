@@ -24,6 +24,7 @@ from ui.pages.config_page import ConfigPage
 from ui.pages.history_page import HistoryPage
 from ui.pages.test_page import TestPage
 from ui.pages.docs_page import DocsPage
+from ui.pages.bug_tracking_page import MtkBugTrackingPage
 from ui.pages.device_lab_page import DeviceLabPage
 from ui.pages.serial_page import SerialPage
 from core.app_meta import APP_NAME, APP_AUTHOR_EMAIL, APP_SIGNATURE, APP_VERSION, full_app_title
@@ -44,12 +45,14 @@ NAV_ITEMS = [
     {"name": "串口调试",   "icon": "🔌", "enabled": True},
     {"name": "设备联调台", "icon": "🎛", "enabled": True},
     {"name": "硬件测试",   "icon": "🔧", "enabled": True},
+    {"name": "MTK问题跟踪", "icon": "🐛", "enabled": True},
 ]
 
 NAV_GROUPS = [
     ("数据处理", ["数据预处理", "分析执行", "SVM训练"]),
     ("系统管理", ["配置管理", "历史浏览", "开发文档"]),
     ("设备工作台", ["串口调试", "设备联调台", "硬件测试"]),
+    ("BUG追踪",   ["MTK问题跟踪"]),
 ]
 
 
@@ -282,7 +285,8 @@ class MainWindow(QMainWindow):
         )
         self.page_stack.addWidget(self.device_lab_page)
         self.page_stack.addWidget(self.test_page)
-
+        self.bug_tracking_page = MtkBugTrackingPage()
+        self.page_stack.addWidget(self.bug_tracking_page)
         # 预处理页"导入至梯形测试"信号 → 切换至硬件测试并设置文件
         self.preprocessing_page.import_to_test.connect(self._on_import_to_test)        # 分析页快捷跳转信号
         self.analysis_page.send_to_preprocessing.connect(self._on_send_to_preprocess_expand)

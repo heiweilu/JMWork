@@ -167,7 +167,8 @@ class CmdEditDialog(QDialog):
         self.edit_name.setPlaceholderText("显示名称，如「查看进程」")
         form.addRow("名称:", self.edit_name)
 
-        self.edit_cmd = QTextEdit(cmd)
+        self.edit_cmd = QTextEdit()
+        self.edit_cmd.setPlainText(cmd)
         self.edit_cmd.setAcceptRichText(False)
         self.edit_cmd.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
         self.edit_cmd.setFont(QFont("Consolas", 10))
@@ -570,7 +571,8 @@ class SerialPage(QWidget):
 
         self.chk_tab_passthrough = QCheckBox("Tab直发")
         self.chk_tab_passthrough.setChecked(False)
-        self.chk_tab_passthrough.setToolTip("启用后，Tab 会直接发送到设备，不再触发本地补全")
+        self.chk_tab_passthrough.setToolTip("启用后，所有按键直接发送到设备（含退格/方向键/Enter），不再触发本地补全")
+        self.chk_tab_passthrough.toggled.connect(self._on_tab_passthrough_toggled)
         layout.addWidget(self.chk_tab_passthrough)
 
         self.btn_toggle_quick_panel = QToolButton()
@@ -952,9 +954,13 @@ class SerialPage(QWidget):
             row = QHBoxLayout()
             row.setContentsMargins(0, 0, 0, 0)
             row.setSpacing(3)
-            
-            btn = QPushButton(f"  {item['name']}")
-            btn.setToolTip(f"<code>{item['cmd']}</code>")
+
+            # 超长名称截断显示，tooltip 保留完整内容
+            _MAX_NAME = 20
+            display_name = (item['name'] if len(item['name']) <= _MAX_NAME
+                            else item['name'][:_MAX_NAME - 1] + '…')
+            btn = QPushButton(f"  {display_name}")
+            btn.setToolTip(f"<b>{item['name']}</b><br><code>{item['cmd']}</code>")
             btn.setStyleSheet(_STYLE)
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             btn.clicked.connect(lambda checked, c=item['cmd']: self._send_command(c))
@@ -975,7 +981,10 @@ class SerialPage(QWidget):
             
             container = QWidget()
             container.setLayout(row)
+            container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             sec._dyn_btns_layout.addWidget(container)
+
+        sec._dyn_btns_layout.addStretch()
 
     def _on_edit_dyn_cmd(self, sec: '_CollapsibleSection', cmd_idx: int):
         """编辑动态板块中的命令"""
@@ -1940,13 +1949,22 @@ class SerialPage(QWidget):
         """\u62c6分 buffer 中完整的行（\n 或 \r）\u5e76输出"""
         # 统一把 \r\n 变为 \n，再把单独 \r 变为 \n
         normalized = self._rx_buffer.replace(b'\r\n', b'\n').replace(b'\r', b'\n')
+        tab_mode = self._is_tab_passthrough_enabled()
         if b'\n' in normalized:
             lines = normalized.split(b'\n')
             # 最后一块可能是不完整的行，保留在 buffer
             for line_bytes in lines[:-1]:
                 line = line_bytes.decode('utf-8', errors='replace')
                 if line:  # 跳过空行
-                    self._append_terminal(line, color=self._detect_rx_color(line))
+                    if tab_mode:
+                        clean = self._strip_rx_control(line)
+                        if clean:
+                            # 单字符通常是键盘逐字符回显，合并到当前行（不加\n）
+                            # 多字符（真正的命令输出行）才换行
+                            suffix = '' if len(clean) == 1 else '\n'
+                            self._append_terminal_inline(clean + suffix, color=self._detect_rx_color(clean))
+                    else:
+                        self._append_terminal(line, color=self._detect_rx_color(line))
                     self._log_lines.append(f"[RX] {line}")
             # 将未完成的残余写回 buffer
             remainder = lines[-1]
@@ -1960,10 +1978,17 @@ class SerialPage(QWidget):
             line = self._rx_buffer.decode('utf-8', errors='replace')
             self._rx_buffer.clear()
             if line.strip():
-                self._append_terminal(line, color=self._detect_rx_color(line))
+                if self._is_tab_passthrough_enabled():
+                    clean = self._strip_rx_control(line)
+                    if clean.strip():
+                        self._append_terminal_inline(clean, color=self._detect_rx_color(clean))
+                else:
+                    self._append_terminal(line, color=self._detect_rx_color(line))
                 self._log_lines.append(f"[RX] {line}")
 
     def _on_send(self):
+        if self._is_tab_passthrough_enabled():
+            return  # 直发模式下键盘已实时直发，不走普通发送路径
         # 不移除内容，支持发送空白行
         cmd = self.input_line.text()
         self._send_command(cmd)
@@ -2123,6 +2148,37 @@ class SerialPage(QWidget):
                         self._terminal_cancel_input()
                     return True
 
+                if self._is_tab_passthrough_enabled():
+                    arrow_map = {
+                        Qt.Key.Key_Up: b'\x1b[A',
+                        Qt.Key.Key_Down: b'\x1b[B',
+                        Qt.Key.Key_Left: b'\x1b[D',
+                        Qt.Key.Key_Right: b'\x1b[C',
+                        Qt.Key.Key_Home: b'\x1b[H',
+                        Qt.Key.Key_End: b'\x1b[F',
+                    }
+                    if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                        self._send_live_newline()
+                        return True
+                    if key == Qt.Key.Key_Backspace:
+                        self._send_live_backspace()
+                        return True
+                    if key == Qt.Key.Key_Tab:
+                        self._send_tab_character()
+                        return True
+                    if key == Qt.Key.Key_Escape:
+                        self._send_live_escape_sequence(b'\x1b')
+                        return True
+                    if key in arrow_map:
+                        self._send_live_escape_sequence(arrow_map[key])
+                        return True
+                    char = event.text()
+                    if char and (char.isprintable() or char == ' ') and modifiers in (
+                            Qt.KeyboardModifier.NoModifier,
+                            Qt.KeyboardModifier.ShiftModifier):
+                        self._send_live_text(char)
+                        return True
+
                 # ── 内联输入模式：已有活跃输入 ──────────────────────────────
                 if self._terminal_input_mode:
                     if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
@@ -2236,6 +2292,37 @@ class SerialPage(QWidget):
                                 self._sys_msg(f'发送失败: {e}', error=True)
                         else:
                             self._sys_msg('⚠ 串口未连接', error=True)
+                        return True
+
+                if self._is_tab_passthrough_enabled():
+                    arrow_map = {
+                        Qt.Key.Key_Up: b'\x1b[A',
+                        Qt.Key.Key_Down: b'\x1b[B',
+                        Qt.Key.Key_Left: b'\x1b[D',
+                        Qt.Key.Key_Right: b'\x1b[C',
+                        Qt.Key.Key_Home: b'\x1b[H',
+                        Qt.Key.Key_End: b'\x1b[F',
+                    }
+                    if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                        self._send_live_newline()
+                        return True
+                    if key == Qt.Key.Key_Backspace:
+                        self._send_live_backspace()
+                        return True
+                    if key == Qt.Key.Key_Tab:
+                        self._send_tab_character()
+                        return True
+                    if key == Qt.Key.Key_Escape:
+                        self._send_live_escape_sequence(b'\x1b')
+                        return True
+                    if key in arrow_map:
+                        self._send_live_escape_sequence(arrow_map[key])
+                        return True
+                    char = event.text()
+                    if char and (char.isprintable() or char == ' ') and modifiers in (
+                            Qt.KeyboardModifier.NoModifier,
+                            Qt.KeyboardModifier.ShiftModifier):
+                        self._send_live_text(char)
                         return True
 
                 if key == Qt.Key.Key_Tab:
@@ -2593,6 +2680,27 @@ class SerialPage(QWidget):
             f"background: {t['scroll_bg']};"
         )
 
+    # Tab直发模式：ANSI CSI 序列匹配正则（一次性编译）
+    _ANSI_ESCAPE_RE = re.compile(r'\x1b(?:\[[0-9;?]*[A-Za-z]|[()][A-Z0-1]|\x1b)')
+
+    def _strip_rx_control(self, text: str) -> str:
+        """Tab直发 RX 预处理：去除 BEL、ANSI 转义序列、退格控制符（\x08）。"""
+        text = self._ANSI_ESCAPE_RE.sub('', text)
+        text = text.replace('\x07', '')   # BEL
+        text = text.replace('\x08', '')   # backspace 控制符（由本地逻辑处理）
+        return text
+
+    def _append_terminal_inline(self, text: str, color: str = '#C9D1D9'):
+        """在终端末尾追加文本（不加时间戳和前缀换行），Tab直发模式专用。"""
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor(color))
+        cursor = self.terminal.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.insertText(text, fmt)
+        if self._auto_scroll:
+            self.terminal.setTextCursor(cursor)
+            self.terminal.ensureCursorVisible()
+
     def _append_terminal(self, text: str, color: str = '#C9D1D9'):
         ts = datetime.datetime.now().strftime('%H:%M:%S.%f')[:12]
         new_line = f"[{ts}] {text}\n"
@@ -2884,8 +2992,85 @@ class SerialPage(QWidget):
             self._save_all_data()
             self._refresh_custom_buttons()
 
+    def _on_tab_passthrough_toggled(self, enabled: bool):
+        if enabled:
+            self.input_line.clear()
+            self.input_line.setReadOnly(True)
+            self.input_line.setPlaceholderText("Tab直发模式：键盘直通串口 | 退格/方向键/Enter均直发")
+            if getattr(self, '_terminal_input_mode', False):
+                self._terminal_cancel_input()
+        else:
+            self.input_line.setReadOnly(False)
+            self.input_line.setPlaceholderText("输入指令，按 Enter 发送 | ↑↓ 历史 | Tab 补全...")
+
     def _is_tab_passthrough_enabled(self) -> bool:
         return hasattr(self, 'chk_tab_passthrough') and self.chk_tab_passthrough.isChecked()
+
+    def _write_serial_bytes(self, payload: bytes) -> bool:
+        if not (self._serial and self._serial.is_open):
+            return False
+        try:
+            self._serial.write(payload)
+            return True
+        except Exception as e:
+            self._sys_msg(f'发送失败: {e}', error=True)
+            return False
+
+    def _flush_tab_passthrough_pending_input(self):
+        if not (self._serial and self._serial.is_open):
+            self._sys_msg('⚠ 串口未连接，无法发送 Tab', error=True)
+            return False
+
+        if getattr(self, '_terminal_input_mode', False) and self._terminal_input_buf:
+            pending = self._terminal_input_buf
+            if not self._write_serial_bytes(pending.encode('utf-8')):
+                return False
+            self._log_lines.append(f'[TX-LIVE] {pending}')
+            self._terminal_cancel_input()
+            self._tab_candidates = []
+            self._tab_idx = -1
+            return True
+
+        if hasattr(self, 'input_line'):
+            pending = self.input_line.text()
+            if pending:
+                if not self._write_serial_bytes(pending.encode('utf-8')):
+                    return False
+                self._log_lines.append(f'[TX-LIVE] {pending}')
+                self.input_line.clear()
+                self._tab_candidates = []
+                self._tab_idx = -1
+        return True
+
+    def _send_live_text(self, text: str) -> bool:
+        if not text:
+            return True
+        return self._write_serial_bytes(text.encode('utf-8'))
+
+    def _send_live_backspace(self) -> bool:
+        ok = self._write_serial_bytes(b'\x7f')
+        if ok:
+            # 本地立即删除终端 inline 区域的最后一个字符（设备回显 \b \b 会被 _strip_rx_control 过滤）
+            cursor = self.terminal.textCursor()
+            cursor.movePosition(QTextCursor.MoveOperation.End)
+            cursor.deletePreviousChar()
+            self.terminal.setTextCursor(cursor)
+        return ok
+
+    def _send_live_escape_sequence(self, sequence: bytes) -> bool:
+        return self._write_serial_bytes(sequence)
+
+    def _send_live_newline(self) -> bool:
+        nl_map = {"\\r\\n": b'\r\n', "\\n": b'\n', "\\r": b'\r', "无": b''}
+        nl = nl_map.get(self.combo_newline.currentText(), b'\r\n')
+        if not self._write_serial_bytes(nl):
+            return False
+        # Tab直发模式：先关闭内联行（写入\n），再用普通时间戳行标记发送了回车
+        if self._is_tab_passthrough_enabled():
+            self._append_terminal_inline('\n')
+        self._append_terminal("▶ ␍", color=self._tx_color)
+        self._log_lines.append('[TX]')
+        return True
 
     def _send_tab_character(self):
         if self._serial and self._serial.is_open:
@@ -3111,10 +3296,12 @@ class SerialPage(QWidget):
             if getattr(sec, '_persist_id', '') == section_id:
                 if hasattr(self, '_quick_selected_title'):
                     self._quick_selected_title.setText(self._plain_section_title(sec._title_lbl.text()))
+                sec._header.setVisible(False)  # 树形导航模式无需折叠/展开 header
                 sec.setVisible(True)
                 if getattr(sec, '_collapsed', False):
                     sec._do_expand()
             else:
+                sec._header.setVisible(True)
                 sec.setVisible(False)
                 if not getattr(sec, '_collapsed', False):
                     sec._do_collapse()
