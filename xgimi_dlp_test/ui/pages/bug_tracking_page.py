@@ -260,10 +260,12 @@ def _row_color(notes: str) -> QColor | None:
 # ─────────────────── 表格单元格（可点击链接）────────────────────────────────
 
 class _LinkItem(QTableWidgetItem):
-    """存储 URL 的单元格，双击可直接编辑 URL；右键菜单可在浏览器中打开。"""
+    """存储 URL 的单元格，双击在浏览器中打开；需通过编辑按钮才能编辑。"""
     def __init__(self, url: str):
         super().__init__(url or '')
         self.setData(Qt.ItemDataRole.ToolTipRole, url or '（空）')
+        # 默认不可编辑，防止双击进入编辑模式
+        self.setFlags(self.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
     @property
     def url(self) -> str:
@@ -343,6 +345,16 @@ class MtkBugTrackingPage(QWidget):
             "QPushButton:hover{background:#FFCDD2;}")
         btn_del.clicked.connect(self._on_delete_rows)
 
+        self._btn_edit = QPushButton("✏️ 编辑")
+        self._btn_edit.setFixedWidth(70)
+        self._btn_edit.setCheckable(True)
+        self._btn_edit.setStyleSheet(
+            "QPushButton{border:1px solid #64B5F6;border-radius:4px;"
+            "padding:3px 6px;color:#1565C0;background:#E3F2FD;}"
+            "QPushButton:hover{background:#BBDEFB;}"
+            "QPushButton:checked{background:#1565C0;color:white;}")
+        self._btn_edit.toggled.connect(self._on_toggle_edit)
+
         bar.addWidget(lbl_search)
         bar.addWidget(self._search, stretch=1)
         bar.addWidget(lbl_plat)
@@ -352,19 +364,22 @@ class MtkBugTrackingPage(QWidget):
         bar.addWidget(self._count_lbl)
         bar.addWidget(btn_add)
         bar.addWidget(btn_del)
+        bar.addWidget(self._btn_edit)
         root.addLayout(bar)
 
         # ── 表格 ──
         self._table = QTableWidget(0, len(self.COLUMNS))
         self._table.setHorizontalHeaderLabels(self.COLUMNS)
         hh = self._table.horizontalHeader()
-        hh.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # 平台
-        hh.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)            # 描述
-        hh.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # MTK链接
-        hh.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # 飞书链接
-        hh.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # 机型
-        hh.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)  # 负责人
-        hh.setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)            # 备注
+        hh.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)  # 所有列均可拖拽调整宽度
+        hh.setStretchLastSection(True)  # 最后一列自动拉伸填满
+        # 设置初始合理列宽
+        hh.resizeSection(0, 70)    # 平台
+        hh.resizeSection(1, 280)   # 描述
+        hh.resizeSection(2, 160)   # MTK链接
+        hh.resizeSection(3, 160)   # 飞书链接
+        hh.resizeSection(4, 90)    # 机型
+        hh.resizeSection(5, 70)    # 负责人
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked)
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -390,6 +405,7 @@ class MtkBugTrackingPage(QWidget):
         """)
         self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._table.customContextMenuRequested.connect(self._on_context_menu)
+        self._table.cellDoubleClicked.connect(self._on_cell_double_clicked)
         self._table.itemChanged.connect(self._on_item_changed)
         root.addWidget(self._table)
 
@@ -471,6 +487,29 @@ class MtkBugTrackingPage(QWidget):
             and (not query or any(query in str(f).lower() for f in row))
         ]
         self._populate(filtered)
+
+    def _on_toggle_edit(self, checked: bool):
+        """切换编辑模式：开启时链接单元格可编辑，关闭时恢复为不可编辑。"""
+        for r in range(self._table.rowCount()):
+            for c in (2, 3):  # MTK链接、飞书链接列
+                item = self._table.item(r, c)
+                if isinstance(item, _LinkItem):
+                    flags = item.flags()
+                    if checked:
+                        item.setFlags(flags | Qt.ItemFlag.ItemIsEditable)
+                    else:
+                        item.setFlags(flags & ~Qt.ItemFlag.ItemIsEditable)
+
+    def _on_cell_double_clicked(self, row: int, col: int):
+        """双击链接列时在浏览器中打开 URL（非编辑模式下）。"""
+        if col not in (2, 3):
+            return
+        item = self._table.item(row, col)
+        if not item:
+            return
+        url = item.text().strip()
+        if url.startswith('http'):
+            QDesktopServices.openUrl(QUrl(url))
 
     def _on_context_menu(self, pos):
         """右键菜单：在浏览器中打开 MTK / 飞书 链接。"""

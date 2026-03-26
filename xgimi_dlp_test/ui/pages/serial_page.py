@@ -42,7 +42,7 @@ from PyQt6.QtWidgets import (
     QMessageBox, QDialog, QFormLayout, QDialogButtonBox, QSizePolicy,
     QCheckBox, QSpinBox, QDoubleSpinBox, QFrame, QTabWidget, QToolButton,
     QInputDialog, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem,
-    QAbstractItemView
+    QAbstractItemView, QApplication
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QColor, QTextCursor, QFont, QTextCharFormat
@@ -358,6 +358,9 @@ class SerialPage(QWidget):
         self._rx_buffer = bytearray()
         self._auto_scroll = True
         self._log_lines = []            # 纯文本日志缓存
+        # VT100 行缓冲（直发模式下追踪当前行内容和光标位置）
+        self._vt_line: list[str] = []   # 当前行字符列表
+        self._vt_cursor: int = 0        # 当前行光标位置
         # 初始化数据加载相关属性
         self._custom_cmds = list(_DEFAULT_CUSTOM_CMDS)  # 自定义快捷指令
         self._saved_dynamic_sections = []  # 保存的动态板块数据
@@ -467,7 +470,9 @@ class SerialPage(QWidget):
         self._search_bar = self._build_search_bar()
         term_layout.addWidget(self._search_bar)
         term_layout.addWidget(self._build_terminal(), stretch=1)
-        term_layout.addWidget(self._build_input_bar())
+        self._input_bar = self._build_input_bar()
+        self._input_bar.setVisible(False)  # 默认直发模式，隐藏底部指令栏
+        term_layout.addWidget(self._input_bar)
 
         # 右：快捷指令区
         self._right_scroll = QScrollArea()
@@ -570,7 +575,8 @@ class SerialPage(QWidget):
         layout.addWidget(self.chk_highlight)
 
         self.chk_tab_passthrough = QCheckBox("Tab直发")
-        self.chk_tab_passthrough.setChecked(False)
+        self.chk_tab_passthrough.setChecked(True)
+        self.chk_tab_passthrough.setVisible(False)  # 默认启用直发，不需要显示
         self.chk_tab_passthrough.setToolTip("启用后，所有按键直接发送到设备（含退格/方向键/Enter），不再触发本地补全")
         self.chk_tab_passthrough.toggled.connect(self._on_tab_passthrough_toggled)
         layout.addWidget(self.chk_tab_passthrough)
@@ -625,11 +631,9 @@ class SerialPage(QWidget):
         self.terminal.setFont(QFont("Consolas", 10))
         self.terminal.setMinimumHeight(300)
         self.terminal.installEventFilter(self)   # 键盘输入路由 + Ctrl+F
-        # 显示光标，让用户知道可以在此直接输入
-        self.terminal.setTextInteractionFlags(
-            self.terminal.textInteractionFlags()
-            | Qt.TextInteractionFlag.TextEditable
-        )
+        # 设置光标样式，让用户知道可以在此直接输入
+        self.terminal.setCursorWidth(2)
+        self.terminal.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         # 用于内嵌输入模式的内部状态
         self._terminal_input_mode = False   # 是否处于终端内输入模式
         self._terminal_input_anchor = -1    # 输入区起始位置
@@ -1946,27 +1950,28 @@ class SerialPage(QWidget):
         self._process_rx_buffer()
 
     def _process_rx_buffer(self):
-        """\u62c6分 buffer 中完整的行（\n 或 \r）\u5e76输出"""
-        # 统一把 \r\n 变为 \n，再把单独 \r 变为 \n
-        normalized = self._rx_buffer.replace(b'\r\n', b'\n').replace(b'\r', b'\n')
+        """拆分 buffer 中完整的行并输出"""
         tab_mode = self._is_tab_passthrough_enabled()
+
+        # ── 直发模式：交给 VT100 行处理器 ─────────────────────────────
+        if tab_mode:
+            data = bytes(self._rx_buffer)
+            self._rx_buffer.clear()
+            if data:
+                self._process_vt_data(data)
+            return
+
+        # ── 普通模式：按行拆分 ─────────────────────────────────────────
+        normalized = self._rx_buffer.replace(b'\r\n', b'\n').replace(b'\r', b'\n')
         if b'\n' in normalized:
             lines = normalized.split(b'\n')
-            # 最后一块可能是不完整的行，保留在 buffer
             for line_bytes in lines[:-1]:
                 line = line_bytes.decode('utf-8', errors='replace')
-                if line:  # 跳过空行
-                    if tab_mode:
-                        clean = self._strip_rx_control(line)
-                        if clean:
-                            # 单字符通常是键盘逐字符回显，合并到当前行（不加\n）
-                            # 多字符（真正的命令输出行）才换行
-                            suffix = '' if len(clean) == 1 else '\n'
-                            self._append_terminal_inline(clean + suffix, color=self._detect_rx_color(clean))
-                    else:
-                        self._append_terminal(line, color=self._detect_rx_color(line))
+                if line:
+                    clean = self._strip_rx_control(line)
+                    if clean:
+                        self._append_terminal(clean, color=self._detect_rx_color(clean))
                     self._log_lines.append(f"[RX] {line}")
-            # 将未完成的残余写回 buffer
             remainder = lines[-1]
             self._rx_buffer = bytearray(remainder)
         else:
@@ -1975,16 +1980,19 @@ class SerialPage(QWidget):
     def _flush_rx_buffer(self):
         """定期将 buffer 中没有换行字符的内容刷入终端（如 shell 提示符）"""
         if self._rx_buffer:
-            line = self._rx_buffer.decode('utf-8', errors='replace')
-            self._rx_buffer.clear()
-            if line.strip():
-                if self._is_tab_passthrough_enabled():
+            if self._is_tab_passthrough_enabled():
+                # VT 模式下交给 VT 处理器
+                data = bytes(self._rx_buffer)
+                self._rx_buffer.clear()
+                self._process_vt_data(data)
+            else:
+                line = self._rx_buffer.decode('utf-8', errors='replace')
+                self._rx_buffer.clear()
+                if line.strip():
                     clean = self._strip_rx_control(line)
                     if clean.strip():
-                        self._append_terminal_inline(clean, color=self._detect_rx_color(clean))
-                else:
-                    self._append_terminal(line, color=self._detect_rx_color(line))
-                self._log_lines.append(f"[RX] {line}")
+                        self._append_terminal(clean, color=self._detect_rx_color(clean))
+                    self._log_lines.append(f"[RX] {line}")
 
     def _on_send(self):
         if self._is_tab_passthrough_enabled():
@@ -2125,7 +2133,11 @@ class SerialPage(QWidget):
         from PyQt6.QtCore import QEvent
         if event.type() == QEvent.Type.KeyPress:
             key = event.key()
-            modifiers = event.modifiers()
+            # 去掉 NumLock/GroupSwitch 等干扰标志，确保 Ctrl 组合键在任何键盘
+            # 状态下都能正确匹配
+            _STRIP = (Qt.KeyboardModifier.KeypadModifier
+                      | Qt.KeyboardModifier.GroupSwitchModifier)
+            modifiers = event.modifiers() & ~_STRIP
 
             # ── 搜索栏 Esc 关闭 ──────────────────────────────────────────
             if hasattr(self, 'search_edit') and obj is self.search_edit:
@@ -2139,14 +2151,67 @@ class SerialPage(QWidget):
                     self._toggle_search()
                     return True
 
-                # Ctrl+C：有选中 → 复制；内联输入中 → 取消；否则静默
+                # Ctrl+C：有选中 → 复制到剪贴板；内联输入中 → 取消；否则发送控制字符
                 if (modifiers == Qt.KeyboardModifier.ControlModifier
                         and key == Qt.Key.Key_C):
                     if self.terminal.textCursor().hasSelection():
-                        return False   # 让 Qt 处理复制
+                        self.terminal.copy()     # 显式复制，避免 ReadOnly 吞掉快捷键
+                        return True
                     if self._terminal_input_mode:
                         self._terminal_cancel_input()
+                    # 发送 Ctrl+C 控制字符
+                    if self._serial and self._serial.is_open:
+                        try:
+                            self._serial.write(b'\x03')
+                            self._append_terminal('  [Ctrl+C  (中断)]', color=self._sys_color)
+                            # 重置 VT 行缓冲（Ctrl+C 会中断当前行）
+                            self._vt_line = []
+                            self._vt_cursor = 0
+                        except Exception:
+                            pass
                     return True
+
+                # Ctrl+V：粘贴 → 将剪贴板文本逐字符发送到串口
+                if (modifiers == Qt.KeyboardModifier.ControlModifier
+                        and key == Qt.Key.Key_V):
+                    clipboard = QApplication.clipboard()
+                    text = clipboard.text() if clipboard else ''
+                    if text and self._serial and self._serial.is_open:
+                        try:
+                            self._serial.write(text.encode('utf-8', errors='replace'))
+                        except Exception as e:
+                            self._sys_msg(f'粘贴发送失败: {e}', error=True)
+                    return True
+
+                # Ctrl+字母 → 直接发送控制字符（与原 input_line 中的逻辑一致）
+                if modifiers == Qt.KeyboardModifier.ControlModifier:
+                    _CTRL_MAP = {
+                        Qt.Key.Key_Z:          ('\x1a', 'Ctrl+Z  (挂起)'),
+                        Qt.Key.Key_D:          ('\x04', 'Ctrl+D  (EOF)'),
+                        Qt.Key.Key_L:          ('\x0c', 'Ctrl+L  (清屏)'),
+                        Qt.Key.Key_Backslash:  ('\x1c', 'Ctrl+\\  (SIGQUIT)'),
+                        Qt.Key.Key_X:          ('\x18', 'Ctrl+X'),
+                        Qt.Key.Key_W:          ('\x17', 'Ctrl+W  (删除前一个词)'),
+                        Qt.Key.Key_A:          ('\x01', 'Ctrl+A  (行首)'),
+                        Qt.Key.Key_E:          ('\x05', 'Ctrl+E  (行尾)'),
+                        Qt.Key.Key_K:          ('\x0b', 'Ctrl+K  (剔除到行尾)'),
+                        Qt.Key.Key_U:          ('\x15', 'Ctrl+U  (剔除到行首)'),
+                        Qt.Key.Key_R:          ('\x12', 'Ctrl+R  (反向搜索)'),
+                        Qt.Key.Key_P:          ('\x10', 'Ctrl+P  (上一条)'),
+                        Qt.Key.Key_N:          ('\x0e', 'Ctrl+N  (下一条)'),
+                    }
+                    if key in _CTRL_MAP:
+                        char, label = _CTRL_MAP[key]
+                        if self._serial and self._serial.is_open:
+                            try:
+                                self._serial.write(char.encode('latin-1'))
+                                self._append_terminal(f'  [{label}]', color=self._sys_color)
+                                self._log_lines.append(f'[CTRL] {label}')
+                            except Exception as e:
+                                self._sys_msg(f'发送失败: {e}', error=True)
+                        else:
+                            self._sys_msg('⚠ 串口未连接', error=True)
+                        return True
 
                 if self._is_tab_passthrough_enabled():
                     arrow_map = {
@@ -2166,8 +2231,14 @@ class SerialPage(QWidget):
                     if key == Qt.Key.Key_Tab:
                         self._send_tab_character()
                         return True
+                    if key == Qt.Key.Key_Delete:
+                        self._send_live_escape_sequence(b'\x1b[3~')
+                        return True
                     if key == Qt.Key.Key_Escape:
                         self._send_live_escape_sequence(b'\x1b')
+                        return True
+                    if key == Qt.Key.Key_Space:
+                        self._send_live_text(' ')
                         return True
                     if key in arrow_map:
                         self._send_live_escape_sequence(arrow_map[key])
@@ -2314,6 +2385,9 @@ class SerialPage(QWidget):
                         return True
                     if key == Qt.Key.Key_Escape:
                         self._send_live_escape_sequence(b'\x1b')
+                        return True
+                    if key == Qt.Key.Key_Space:
+                        self._send_live_text(' ')
                         return True
                     if key in arrow_map:
                         self._send_live_escape_sequence(arrow_map[key])
@@ -2681,13 +2755,15 @@ class SerialPage(QWidget):
         )
 
     # Tab直发模式：ANSI CSI 序列匹配正则（一次性编译）
-    _ANSI_ESCAPE_RE = re.compile(r'\x1b(?:\[[0-9;?]*[A-Za-z]|[()][A-Z0-1]|\x1b)')
+    _ANSI_ESCAPE_RE = re.compile(r'\x1b(?:\[[0-9;?]*[A-Za-z]|\][^\x07]*(?:\x07|\x1b\\)|[()][A-Z0-1]|\x1b)')
 
     def _strip_rx_control(self, text: str) -> str:
         """Tab直发 RX 预处理：去除 BEL、ANSI 转义序列、退格控制符（\x08）。"""
         text = self._ANSI_ESCAPE_RE.sub('', text)
         text = text.replace('\x07', '')   # BEL
         text = text.replace('\x08', '')   # backspace 控制符（由本地逻辑处理）
+        # 移除其余不可见控制字符（保留 \t \n）
+        text = re.sub(r'[\x00-\x06\x0e-\x1f\x7f]', '', text)
         return text
 
     def _append_terminal_inline(self, text: str, color: str = '#C9D1D9'):
@@ -2700,6 +2776,155 @@ class SerialPage(QWidget):
         if self._auto_scroll:
             self.terminal.setTextCursor(cursor)
             self.terminal.ensureCursorVisible()
+
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor(color))
+        cursor = self.terminal.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.insertText(text, fmt)
+        if self._auto_scroll:
+            self.terminal.setTextCursor(cursor)
+            self.terminal.ensureCursorVisible()
+
+    # ──────────────────────────────────────────────────────────────────────
+    #  VT100 行级终端处理（直发模式专用）
+    # ──────────────────────────────────────────────────────────────────────
+    def _vt_replace_current_line(self, text: str, color: str = '#C9D1D9'):
+        """替换终端最后一个文本块（段落）的内容，用于 VT 行刷新。"""
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor(color))
+        cursor = self.terminal.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock,
+                            QTextCursor.MoveMode.KeepAnchor)
+        cursor.insertText(text, fmt)
+        if self._auto_scroll:
+            self.terminal.setTextCursor(cursor)
+            self.terminal.ensureCursorVisible()
+
+    def _vt_flush_line(self):
+        """输出当前 VT 行并换行，重置行缓冲。"""
+        line_text = ''.join(self._vt_line)
+        if line_text:
+            color = self._detect_rx_color(line_text)
+            self._vt_replace_current_line(line_text, color)
+            self._log_lines.append(f'[RX] {line_text}')
+        # 追加换行，开始新的文本块
+        cursor = self.terminal.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.insertText('\n')
+        if self._auto_scroll:
+            self.terminal.setTextCursor(cursor)
+            self.terminal.ensureCursorVisible()
+        self._vt_line = []
+        self._vt_cursor = 0
+
+    def _process_vt_data(self, data: bytes):
+        """处理收到的原始字节，维护 VT 行缓冲。
+
+        支持基础 VT100 序列：
+          \\r        回车（光标移至行首）
+          \\n        换行（输出当前行，开始新行）
+          \\x08      退格（光标左移一格）
+          \\x1b[nD   光标左移 n 格
+          \\x1b[nC   光标右移 n 格
+          \\x1b[K    擦除至行尾
+          \\x1b[2K   擦除整行
+          \\x1b[nP   删除 n 个字符
+          其他 ANSI/控制字符  → 忽略
+        """
+        text = data.decode('utf-8', errors='replace')
+        i = 0
+        length = len(text)
+        while i < length:
+            ch = text[i]
+
+            if ch == '\n':
+                self._vt_flush_line()
+                i += 1
+                continue
+
+            if ch == '\r':
+                self._vt_cursor = 0
+                i += 1
+                continue
+
+            if ch == '\x08':
+                self._vt_cursor = max(0, self._vt_cursor - 1)
+                i += 1
+                continue
+
+            if ch == '\x1b':
+                # 解析 CSI 序列 \x1b[ ... <letter>
+                if i + 1 < length and text[i + 1] == '[':
+                    j = i + 2
+                    while j < length and text[j] in '0123456789;?':
+                        j += 1
+                    if j >= length:
+                        # 不完整的转义序列，放回 buffer 等下一包
+                        self._rx_buffer.extend(text[i:].encode('utf-8', errors='replace'))
+                        break
+                    params_str = text[i + 2:j]
+                    cmd = text[j]
+                    i = j + 1
+
+                    param = int(params_str) if params_str.isdigit() else 1
+
+                    if cmd == 'D':       # 光标左移
+                        self._vt_cursor = max(0, self._vt_cursor - param)
+                    elif cmd == 'C':     # 光标右移
+                        self._vt_cursor = min(len(self._vt_line), self._vt_cursor + param)
+                    elif cmd == 'K':     # 擦除行
+                        p = int(params_str) if params_str.isdigit() else 0
+                        if p == 0:
+                            self._vt_line = self._vt_line[:self._vt_cursor]
+                        elif p == 1:
+                            self._vt_line[:self._vt_cursor] = [' '] * self._vt_cursor
+                        elif p == 2:
+                            self._vt_line = []
+                            self._vt_cursor = 0
+                    elif cmd == 'P':     # 删除字符
+                        del self._vt_line[self._vt_cursor:self._vt_cursor + param]
+                    elif cmd == 'G':     # 光标移到列 n
+                        col = max(1, int(params_str) if params_str.isdigit() else 1)
+                        self._vt_cursor = min(len(self._vt_line), col - 1)
+                    # 其他 CSI 序列忽略
+                    continue
+                # OSC 或其他转义序列 → 跳过
+                j = i + 1
+                if j < length and text[j] == ']':
+                    while j < length and text[j] not in ('\x07', '\x1b'):
+                        j += 1
+                    i = j + (2 if j < length and text[j] == '\x1b' else 1)
+                elif j < length:
+                    while j < length and not text[j].isalpha():
+                        j += 1
+                    i = j + 1 if j < length else j
+                else:
+                    # 不完整 ESC
+                    self._rx_buffer.extend(b'\x1b')
+                    break
+                continue
+
+            # 跳过其他控制字符（保留可打印字符和空格）
+            if ch != '\t' and (ord(ch) < 32 or ord(ch) == 0x7f):
+                i += 1
+                continue
+
+            # 普通可打印字符 / Tab → 写入行缓冲
+            if self._vt_cursor >= len(self._vt_line):
+                self._vt_line.extend([' '] * (self._vt_cursor - len(self._vt_line)))
+                self._vt_line.append(ch)
+            else:
+                self._vt_line[self._vt_cursor] = ch
+            self._vt_cursor += 1
+            i += 1
+
+        # 批量处理完成后刷新当前行显示
+        if self._vt_line:
+            line_text = ''.join(self._vt_line)
+            self._vt_replace_current_line(line_text,
+                                          self._detect_rx_color(line_text))
 
     def _append_terminal(self, text: str, color: str = '#C9D1D9'):
         ts = datetime.datetime.now().strftime('%H:%M:%S.%f')[:12]
@@ -3004,7 +3229,7 @@ class SerialPage(QWidget):
             self.input_line.setPlaceholderText("输入指令，按 Enter 发送 | ↑↓ 历史 | Tab 补全...")
 
     def _is_tab_passthrough_enabled(self) -> bool:
-        return hasattr(self, 'chk_tab_passthrough') and self.chk_tab_passthrough.isChecked()
+        return True
 
     def _write_serial_bytes(self, payload: bytes) -> bool:
         if not (self._serial and self._serial.is_open):
@@ -3048,14 +3273,7 @@ class SerialPage(QWidget):
         return self._write_serial_bytes(text.encode('utf-8'))
 
     def _send_live_backspace(self) -> bool:
-        ok = self._write_serial_bytes(b'\x7f')
-        if ok:
-            # 本地立即删除终端 inline 区域的最后一个字符（设备回显 \b \b 会被 _strip_rx_control 过滤）
-            cursor = self.terminal.textCursor()
-            cursor.movePosition(QTextCursor.MoveOperation.End)
-            cursor.deletePreviousChar()
-            self.terminal.setTextCursor(cursor)
-        return ok
+        return self._write_serial_bytes(b'\x7f')
 
     def _send_live_escape_sequence(self, sequence: bytes) -> bool:
         return self._write_serial_bytes(sequence)
@@ -3065,11 +3283,11 @@ class SerialPage(QWidget):
         nl = nl_map.get(self.combo_newline.currentText(), b'\r\n')
         if not self._write_serial_bytes(nl):
             return False
-        # Tab直发模式：先关闭内联行（写入\n），再用普通时间戳行标记发送了回车
-        if self._is_tab_passthrough_enabled():
-            self._append_terminal_inline('\n')
-        self._append_terminal("▶ ␍", color=self._tx_color)
-        self._log_lines.append('[TX]')
+        # VT 模式：不做本地显示，设备回显会由 VT 处理器处理
+        # 回车后重置 VT 行缓冲（新命令行）
+        self._vt_line = []
+        self._vt_cursor = 0
+        self._log_lines.append('[TX] ↵')
         return True
 
     def _send_tab_character(self):

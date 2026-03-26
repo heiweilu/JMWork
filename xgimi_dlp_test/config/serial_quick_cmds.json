@@ -125,28 +125,32 @@
           "cmd": "su;remount"
         },
         {
-          "name": "查看原模型",
-          "cmd": "ls -lh /mnt/vendor/xgimiconfig/G0118/kstAdjust/"
+          "name": "查看原模型（需要修改硬件版本号）",
+          "cmd": "ls -lh /mnt/vendor/xgimiconfig/G0115/kstAdjust/"
         },
         {
           "name": "删除符号链接",
-          "cmd": "rm /mnt/vendor/xgimiconfig/G0118/kstAdjust/norm_params.yaml\nrm /mnt/vendor/xgimiconfig/G0118/kstAdjust/svm_model.xml"
+          "cmd": "rm /mnt/vendor/xgimiconfig/G0115/kstAdjust/norm_params.yaml\nrm /mnt/vendor/xgimiconfig/G0115/kstAdjust/svm_model.xml"
         },
         {
           "name": "拷贝新模型",
-          "cmd": "cp /mnt/media_rw/0182-0265/norm_params.yaml /mnt/vendor/xgimiconfig/G0118/kstAdjust/；cp /mnt/media_rw/0182-0265/svm_model.xml /mnt/vendor/xgimiconfig/G0118/kstAdjust/"
+          "cmd": "cp /mnt/media_rw/0182-0265/norm_params.yaml /mnt/vendor/xgimiconfig/G0115/kstAdjust/\ncp /mnt/media_rw/0182-0265/svm_model.xml /mnt/vendor/xgimiconfig/G0115/kstAdjust/"
         },
         {
           "name": "查看新模型",
-          "cmd": "ls -lh /mnt/vendor/xgimiconfig/G0118/kstAdjust/"
+          "cmd": "ls -lh /mnt/vendor/xgimiconfig/G0115/kstAdjust/"
         },
         {
           "name": "下点（需要修改坐标）",
-          "cmd": "gmpfUnit correctKeystone2"
+          "cmd": "gmpfUnit correctKeystone2 0 1470 342 3389 288 0 2159 3839 2159\ngmpfUnit correctKeystone2 0 735 171 1694 144 0 1079 1919 1079"
         },
         {
-          "name": "logcat | grep svm",
-          "cmd": "logcat | grep svm"
+          "name": "logcat | grep svm&     0拦截成功 | 1拦截失败",
+          "cmd": "logcat | grep svm&"
+        },
+        {
+          "name": "获取当前梯形坐标点",
+          "cmd": "gmpfUnit getCorrectKeystone2 0"
         }
       ]
     },
@@ -188,7 +192,7 @@
       "hint": "",
       "commands": [
         {
-          "name": "2k 60hz （都需要先设置默认画面）",
+          "name": "设置 2k 60hz （都需要先设置默认画面）",
           "cmd": "gmpfUnit externDisplay setsoctiming 6\ngmpfUnit externDisplay setouttiming 6"
         },
         {
@@ -210,15 +214,7 @@
         {
           "name": "获取当前梯形坐标点",
           "cmd": "gmpfUnit getCorrectKeystone2 0"
-        }
-      ]
-    },
-    {
-      "id": "dyn:1774409992724",
-      "title": "投影",
-      "parent_id": "dyn:1774409685107",
-      "hint": "",
-      "commands": [
+        },
         {
           "name": "投影方向( 0x6 0x4 )",
           "cmd": "gmpfUnit externDisplay WriteDlpIIC '0x71' '0xe6 0x1 0x0 0x6' '4'\ngmpfUnit externDisplay WriteDlpIIC '0x51' '0xe1 0x0 0x0' '3'\n\ngmpfUnit externDisplay ReadDlpIIC '0xe2' '6'\ngmpfUnit externDisplay disp_dev disp_read \"0x91;0xe6;4\""
@@ -318,7 +314,6 @@
     "dyn:1774350334465",
     "dyn:1774409685107",
     "dyn:1774409696889",
-    "dyn:1774409992724",
     "dyn:1774410167772",
     "dyn:1774410263125",
     "dyn:1774410270441",

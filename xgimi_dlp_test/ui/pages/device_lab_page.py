@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 from PyQt6.QtCore import QEvent, QPoint, QTimer, Qt, QUrl, pyqtSignal
-from PyQt6.QtGui import QColor, QDesktopServices, QImage, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QBrush, QColor, QDesktopServices, QImage, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -45,6 +45,48 @@ from PyQt6.QtWidgets import (
 from core.device_lab_store import DeviceLabStore
 from core.image_compare import compare_with_reference_set, detect_green_screen
 from workers.serial_worker import SerialReaderThread
+
+
+def _load_serial_quick_cmds() -> list:
+    """从 serial_quick_cmds.json 加载所有快捷指令，返回 [(显示名, 命令)] 列表。"""
+    import json
+    from pathlib import Path
+    cfg_path = Path(__file__).parent.parent.parent / 'config' / 'serial_quick_cmds.json'
+    result = []
+    try:
+        if not cfg_path.exists():
+            return result
+        with cfg_path.open('r', encoding='utf-8') as f:
+            data = json.load(f)
+        # 自定义指令
+        for item in data.get('custom_commands', []):
+            name = item.get('name', '')
+            cmd = item.get('cmd', '')
+            if name and cmd:
+                result.append((f"[自定义] {name}", cmd))
+        # 固定板块
+        for sec_key, sec in data.get('fixed_sections', {}).items():
+            sec_title = sec.get('title', sec_key)
+            for cmd_item in sec.get('commands', []):
+                if isinstance(cmd_item, list) and len(cmd_item) >= 2:
+                    result.append((f"[{sec_title}] {cmd_item[0]}", cmd_item[1]))
+                elif isinstance(cmd_item, dict):
+                    n = cmd_item.get('name', '')
+                    c = cmd_item.get('cmd', '')
+                    if n and c:
+                        result.append((f"[{sec_title}] {n}", c))
+        # 动态板块
+        for sec in data.get('dynamic_sections', []):
+            sec_title = sec.get('title', '')
+            for cmd_item in sec.get('commands', []):
+                if isinstance(cmd_item, dict):
+                    n = cmd_item.get('name', '')
+                    c = cmd_item.get('cmd', '')
+                    if n and c:
+                        result.append((f"[{sec_title}] {n}", c))
+    except Exception:
+        pass
+    return result
 
 
 _PAGE_QSS = """
@@ -797,6 +839,21 @@ class ScriptStepDialog(QDialog):
         self.edit_command = QLineEdit(values.get("command", ""))
         self.edit_command.setPlaceholderText("例如 input keyevent 23")
 
+        # 快捷指令选择器（从串口测试的快捷指令配置中加载）
+        self._serial_quick_cmds = _load_serial_quick_cmds()
+        serial_cmd_row = QHBoxLayout()
+        serial_cmd_row.setSpacing(4)
+        serial_cmd_row.addWidget(self.edit_command, 1)
+        self.combo_serial_quick = QComboBox()
+        self.combo_serial_quick.setFixedWidth(260)
+        self.combo_serial_quick.addItem("选择快捷指令…")
+        for display_name, _ in self._serial_quick_cmds:
+            self.combo_serial_quick.addItem(display_name)
+        self.combo_serial_quick.currentIndexChanged.connect(self._on_serial_quick_selected)
+        serial_cmd_row.addWidget(self.combo_serial_quick)
+        self._serial_cmd_widget = QWidget()
+        self._serial_cmd_widget.setLayout(serial_cmd_row)
+
         self.edit_condition = QLineEdit(values.get("condition", ""))
         self.edit_condition.setPlaceholderText("例如 boot_ok == True and retry_count < 2")
 
@@ -942,7 +999,7 @@ class ScriptStepDialog(QDialog):
         form.addRow("执行条件", self.edit_condition)
         form.addRow("快捷配置", self.combo_setting)
         form.addRow("快捷指令", self.combo_shortcut)
-        form.addRow("串口指令", self.edit_command)
+        form.addRow("串口指令", self._serial_cmd_widget)
         form.addRow("变量名", self.edit_variable_name)
         form.addRow("变量值", self.edit_variable_value)
         form.addRow("等待时长", self.spin_wait)
@@ -1014,6 +1071,16 @@ class ScriptStepDialog(QDialog):
         if self._green_preview_path:
             self._load_green_preview_image(self._green_preview_path)
 
+    def _on_serial_quick_selected(self, index: int):
+        """从快捷指令下拉框选中后填入串口指令输入框。"""
+        if index <= 0:
+            return
+        cmd_index = index - 1  # 减去"选择快捷指令…"占位项
+        if 0 <= cmd_index < len(self._serial_quick_cmds):
+            _, cmd = self._serial_quick_cmds[cmd_index]
+            self.edit_command.setText(cmd.replace('\n', '; '))
+        self.combo_serial_quick.setCurrentIndex(0)
+
     def _sync_type_widgets(self):
         current_type = self.combo_type.currentData()
         show_setting = current_type == "setting"
@@ -1029,7 +1096,7 @@ class ScriptStepDialog(QDialog):
 
         _set_form_row_visible(self._form, self.combo_setting, show_setting)
         _set_form_row_visible(self._form, self.combo_shortcut, show_shortcut)
-        _set_form_row_visible(self._form, self.edit_command, show_command)
+        _set_form_row_visible(self._form, self._serial_cmd_widget, show_command)
         _set_form_row_visible(self._form, self.spin_wait, show_wait)
         _set_form_row_visible(self._form, self.edit_variable_name, show_variable)
         _set_form_row_visible(self._form, self.edit_variable_value, show_variable)
@@ -1410,13 +1477,16 @@ class DeviceLabPage(QWidget):
         overview_layout.setSpacing(10)
         self.lbl_overview_scope = QLabel("项目/剧本: 未选择")
         self.lbl_overview_scope.setObjectName("status_chip")
+        self.lbl_overview_scope.setWordWrap(True)
         self.lbl_overview_run = QLabel("运行: 空闲")
         self.lbl_overview_run.setObjectName("status_chip")
+        self.lbl_overview_run.setWordWrap(True)
         self.lbl_overview_output = QLabel("输出: 待执行")
         self.lbl_overview_output.setObjectName("status_chip")
-        overview_layout.addWidget(self.lbl_overview_scope)
-        overview_layout.addWidget(self.lbl_overview_run)
-        overview_layout.addWidget(self.lbl_overview_output, 1)
+        self.lbl_overview_output.setWordWrap(True)
+        overview_layout.addWidget(self.lbl_overview_scope, 1)
+        overview_layout.addWidget(self.lbl_overview_run, 1)
+        overview_layout.addWidget(self.lbl_overview_output, 2)
         root_layout.addWidget(overview)
 
         workspace_split = QSplitter(Qt.Orientation.Horizontal)
@@ -1688,8 +1758,8 @@ class DeviceLabPage(QWidget):
         step_nav_layout.addWidget(self.list_script_steps, 1)
         step_workspace_split.addWidget(step_nav_panel)
 
-        detail_panel = QWidget()
-        detail_layout = QVBoxLayout(detail_panel)
+        detail_inner = QWidget()
+        detail_layout = QVBoxLayout(detail_inner)
         detail_layout.setContentsMargins(0, 0, 0, 0)
         detail_layout.setSpacing(8)
         detail_layout.addWidget(QLabel("步骤详情"))
@@ -1725,7 +1795,12 @@ class DeviceLabPage(QWidget):
         run_stats_scroll.setWidget(self.lbl_run_stats)
         status_layout.addWidget(run_stats_scroll)
         detail_layout.addWidget(status_panel)
-        step_workspace_split.addWidget(detail_panel)
+
+        detail_panel_scroll = QScrollArea()
+        detail_panel_scroll.setWidgetResizable(True)
+        detail_panel_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        detail_panel_scroll.setWidget(detail_inner)
+        step_workspace_split.addWidget(detail_panel_scroll)
         step_workspace_split.setSizes([340, 500])
 
         right_layout.addWidget(step_workspace_split, 1)
@@ -3626,8 +3701,8 @@ class DeviceLabPage(QWidget):
                     item.setForeground(0, QColor('#92400e'))
                     self.list_script_steps.setCurrentItem(item)
                 else:
-                    item.setBackground(0, QColor())
-                    item.setForeground(0, QColor())
+                    item.setBackground(0, QBrush())
+                    item.setForeground(0, QBrush())
 
     def _open_run_output_dir(self):
         target_dir = self._last_run_output_dir
@@ -3660,11 +3735,17 @@ class DeviceLabPage(QWidget):
         script = self._current_script()
         project_name = project.get('name', '未选择项目') if project else '未选择项目'
         script_name = script.get('name', '未选择剧本') if script else '未选择剧本'
-        self.lbl_overview_scope.setText(f"项目/剧本: {project_name} / {script_name}")
+        scope_text = f"项目/剧本: {project_name} / {script_name}"
+        self.lbl_overview_scope.setText(scope_text)
+        self.lbl_overview_scope.setToolTip(scope_text)
         run_text = self.lbl_run_stats.text().replace('运行状态: ', '') if hasattr(self, 'lbl_run_stats') else '空闲'
-        self.lbl_overview_run.setText(f"运行: {run_text}")
+        run_full = f"运行: {run_text}"
+        self.lbl_overview_run.setText(run_full)
+        self.lbl_overview_run.setToolTip(run_full)
         output_text = self.lbl_run_output.text().replace('输出目录: ', '') if hasattr(self, 'lbl_run_output') else '待执行'
-        self.lbl_overview_output.setText(f"输出: {output_text}")
+        output_full = f"输出: {output_text}"
+        self.lbl_overview_output.setText(output_full)
+        self.lbl_overview_output.setToolTip(output_full)
 
     def _open_camera(self, index: int):
         logger = getattr(cv2, "utils", None)
