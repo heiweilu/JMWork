@@ -64,6 +64,7 @@ dist/
 | `No module named 'unittest'` | spec 的 excludes 误排除了标准库 | 已修复，spec 中只保留 `tkinter/wx/gi` 的排除 |
 | 缺少某个模块 | 动态导入未被静态分析识别 | 在 spec 文件的 `hidden_imports` 中手动添加 |
 | 启动闪退 | 未安装 libusb / CH340 驱动 | 参考"硬件驱动"章节 |
+| `null bytes` / cv2 导入失败 | D: 盘 TSD 存储驱动损坏 .py 文件 | hooks/ 目录下的 hook-cv2.py + rthook_cv2.py 已自动处理 |
 
 ### 硬件驱动（EXE 运行环境需要）
 
@@ -252,12 +253,32 @@ Compress-Archive -Path dist\xgimi_dlp_test -DestinationPath xgimi_dlp_test_v0.1.
 | 版本 | 时间 | 说明 |
 |---|---|---|
 | v0.1.0 | 2026-03 | 首个可用版本，内部测试 |
+| v0.1.1 | — | Bug 修复与 UI 微调 |
+| v0.1.2 | — | 串口终端增强（ANSI 过滤、键盘优化） |
+| v0.1.3 | — | VT100 终端模拟器、快捷指令排序与描述 |
+| v0.1.4 | — | MobaXterm 配色、语法高亮方案切换（Linux/CMD） |
+| v0.1.5 | — | 十六进制转换工具、SVM 单类保护 |
+| v0.1.6 | — | BUG 跟踪表编辑、设备实验室快捷指令选择器 |
+| v0.1.7 | — | 打包清单同步、hidden_imports 补全、TSD 存储驱动兼容 |
 | v0.2.0 | 计划 | 新增历史对比分析 |
 | v1.0.0 | 计划 | 正式交付版本 |
 
 ---
 
 ## 工程结构概览
+
+### 主要功能亮点（v0.1.7）
+
+| 功能 | 说明 |
+|---|---|
+| 串口终端 VT100 模拟 | 支持光标移动、退格、CSI 序列等标准终端行为 |
+| MobaXterm 配色方案 | Linux / CMD 两套语法高亮，可一键切换 |
+| 快捷指令面板 | 支持拖拽排序、自定义描述、分类管理 |
+| 十六进制转换工具 | 实时 HEX↔DEC/BIN/OCT/ASCII 互转 |
+| BUG 跟踪表 | 可编辑表格，双击链接直接打开浏览器 |
+| 设备实验室 | 串口调试 + 摄像头 + 脚本编排一体化 |
+| SVM 模型训练 | 自动数据集划分，单类数据保护 |
+| 图像比对 | OpenCV SVM 特征分析与结果可视化 |
 
 ```
 xgimi_dlp_test/
@@ -278,8 +299,8 @@ xgimi_dlp_test/
 │   ├── styles.py            # 全局 QSS 浅色科技主题
 │   ├── animations.py        # 动画系统
 │   ├── main_window.py       # 主窗口
-│   ├── pages/               # 7 个功能页面
-│   └── widgets/             # 可复用控件
+│   ├── pages/               # 9 个功能页面
+│   └── widgets/             # 可复用控件（含 TreeWorkspace）
 ├── reports/                 # 测试报告输出
 └── logs/                    # 运行日志
 ```

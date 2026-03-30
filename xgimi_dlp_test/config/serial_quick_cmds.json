@@ -125,24 +125,28 @@
           "cmd": "su;remount"
         },
         {
-          "name": "查看原模型（需要修改硬件版本号）",
-          "cmd": "ls -lh /mnt/vendor/xgimiconfig/G0115/kstAdjust/"
+          "name": "查看原模型（国内）",
+          "cmd": "ls -lh /mnt/vendor/xgimiconfig/H0065/kstAdjust/",
+          "desc": ""
         },
         {
-          "name": "删除符号链接",
-          "cmd": "rm /mnt/vendor/xgimiconfig/G0115/kstAdjust/norm_params.yaml\nrm /mnt/vendor/xgimiconfig/G0115/kstAdjust/svm_model.xml"
+          "name": "删除符号链接（国内）",
+          "cmd": "rm /mnt/vendor/xgimiconfig/G0115/kstAdjust/norm_params.yaml\nrm /mnt/vendor/xgimiconfig/G0115/kstAdjust/svm_model.xml",
+          "desc": ""
         },
         {
-          "name": "拷贝新模型",
-          "cmd": "cp /mnt/media_rw/0182-0265/norm_params.yaml /mnt/vendor/xgimiconfig/G0115/kstAdjust/\ncp /mnt/media_rw/0182-0265/svm_model.xml /mnt/vendor/xgimiconfig/G0115/kstAdjust/"
+          "name": "拷贝新模型（国内）",
+          "cmd": "cp /mnt/media_rw/0182-0265/norm_params.yaml /mnt/vendor/xgimiconfig/H0065/kstAdjust/\ncp /mnt/media_rw/0182-0265/svm_model.xml /mnt/vendor/xgimiconfig/H0065/kstAdjust/",
+          "desc": ""
         },
         {
-          "name": "查看新模型",
-          "cmd": "ls -lh /mnt/vendor/xgimiconfig/G0115/kstAdjust/"
+          "name": "查看新模型（国内）",
+          "cmd": "ls -lh /mnt/vendor/xgimiconfig/G0115/kstAdjust/",
+          "desc": ""
         },
         {
           "name": "下点（需要修改坐标）",
-          "cmd": "gmpfUnit correctKeystone2 0 1684 0 3728 604 748 1980 3838 2158",
+          "cmd": "gmpfUnit correctKeystone2 0 1622 0 3756 134 340 1834 3590 2158",
           "desc": ""
         },
         {
@@ -152,6 +156,21 @@
         {
           "name": "获取当前梯形坐标点",
           "cmd": "gmpfUnit getCorrectKeystone2 0"
+        },
+        {
+          "name": "查看原模型(国外)",
+          "cmd": "ls -l /vendor/tvconfig/xgimi/xgimiconfig/H0065/kstAdjust/",
+          "desc": "国外"
+        },
+        {
+          "name": "删除符号链接(国外)",
+          "cmd": "rm /vendor/tvconfig/xgimi/xgimiconfig/H0065/kstAdjust/norm_params.yaml\nrm /vendor/tvconfig/xgimi/xgimiconfig/H0065/kstAdjust/svm_model.xml",
+          "desc": ""
+        },
+        {
+          "name": "拷贝新模型（国外）",
+          "cmd": "cp /mnt/media_rw/0182-0265/norm_params.yaml /vendor/tvconfig/xgimi/xgimiconfig/H0065/kstAdjust\ncp /mnt/media_rw/0182-0265/svm_model.xml /vendor/tvconfig/xgimi/xgimiconfig/H0065/kstAdjust",
+          "desc": ""
         }
       ]
     },
@@ -222,7 +241,7 @@
         },
         {
           "name": "梯形下点",
-          "cmd": "gmpfUnit correctKeystone2 0 0 1 3839 0 0 2159 3839 2159\ngmpfUnit correctKeystone2 0 1100 1 3839 0 0 2159 3839 2159",
+          "cmd": "gmpfUnit correctKeystone2 0 0 1 3839 0 0 2159 3839 2159",
           "desc": ""
         }
       ]
