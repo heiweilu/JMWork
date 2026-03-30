@@ -299,6 +299,11 @@
         {
           "name": "抓取traces   （需要把/data/misc/perfetto-traces/trace_file.perfetto-trace拷贝出来）",
           "cmd": "setprop persist.traced.enable 1\nperfetto -o /data/misc/perfetto-traces/trace_file.perfetto-trace -t 20s sched freq idle am wm gfx view binder_driver hal dalvik camera input res memory"
+        },
+        {
+          "name": "监听指定信息",
+          "cmd": "logcat | grep -E \"SetInputRect|heiweilu\"",
+          "desc": ""
         }
       ]
     }
