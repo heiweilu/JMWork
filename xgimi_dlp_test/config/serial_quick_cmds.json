@@ -146,17 +146,18 @@
         },
         {
           "name": "下点（需要修改坐标）",
-          "cmd": "gmpfUnit correctKeystone2 0 1622 0 3756 134 340 1834 3590 2158",
+          "cmd": "gmpfUnit correctKeystone2 0 1622 0 3756 134 340 1834 3590 2158\ngmpfUnit correctKeystone2 0 1642 0 3744 152 382 1796 3558 2158",
           "desc": ""
         },
         {
-          "name": "logcat | grep svm&     0拦截成功 | 1拦截失败",
+          "name": "logcat | grep svm&    1通过|0不通过",
           "cmd": "logcat -c; logcat | grep -iE \"svm\" &",
-          "desc": ""
+          "desc": "如果svm给1，但是光机拦截（调整了画面，返回后变回全屏），则svm拦截失败"
         },
         {
           "name": "获取当前梯形坐标点",
-          "cmd": "gmpfUnit getCorrectKeystone2 0"
+          "cmd": "gmpfUnit getCorrectKeystone2 0",
+          "desc": "检查是否下点成功，没有成功，那么svm拦截成功"
         },
         {
           "name": "查看原模型(国外)",
@@ -323,6 +324,11 @@
         {
           "name": "监听指定信息",
           "cmd": "logcat | grep -E \"SetInputRect|heiweilu\"",
+          "desc": ""
+        },
+        {
+          "name": "问题现场打标记",
+          "cmd": "log -p v -t \"issue\" \"problemHere\"",
           "desc": ""
         }
       ]
