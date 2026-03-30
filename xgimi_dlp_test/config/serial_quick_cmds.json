@@ -151,7 +151,8 @@
         },
         {
           "name": "logcat | grep svm&     0拦截成功 | 1拦截失败",
-          "cmd": "logcat | grep svm&"
+          "cmd": "logcat -c; logcat | grep -iE \"svm\" &",
+          "desc": ""
         },
         {
           "name": "获取当前梯形坐标点",
