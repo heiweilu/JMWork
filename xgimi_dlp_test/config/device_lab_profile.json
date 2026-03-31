@@ -24,7 +24,7 @@
     "snapshot_dir": "reports/device_lab_snapshots"
   },
   "serial": {
-    "last_port": "COM4",
+    "last_port": "COM3",
     "baudrate": 115200,
     "newline": true,
     "newline_mode": "\\r\\n",
@@ -530,6 +530,30 @@
       "green_check_frames": 3,
       "green_check_interval_ms": 250,
       "id": "shortcut-80be86ec"
+    },
+    {
+      "name": "长按设置键",
+      "description": "先把长按脚本longpress.sh拷贝到系统，脚本内容\n```\n#!/system/bin/sh\n# 修正版：长按设置键（键码127）\nsendevent /dev/input/event5 1 127 1   # 按下设置键\necho \"长按持续中...\"        # 规避sleep解析异常\nsleep 2               # 长按2秒（建议延长至2秒以上）\nsendevent /dev/input/event5 1 127 0   # 松开设置键\nsendevent /dev/input/event5 0 0 0     # 同步事件\n```\n\n拷贝到系统\n```\ncp mnt/media_rw/0182-0265/longpress.sh /data/local/tmp/; \nchmod 755 /data/local/tmp/longpress.sh;\n```",
+      "commands": [
+        "sh /data/local/tmp/longpress.sh"
+      ],
+      "action_type": "serial_bundle",
+      "capture_count": 1,
+      "capture_interval_ms": 1000,
+      "reference_category": "default",
+      "reference_dir": "",
+      "reference_pool_size": 5,
+      "save_diff_heatmap": true,
+      "roi_text": "",
+      "green_preview_image": "",
+      "green_ratio_threshold": 0.35,
+      "green_area_threshold": 0.18,
+      "green_margin": 35,
+      "green_saturation_threshold": 70,
+      "green_value_threshold": 60,
+      "green_check_frames": 3,
+      "green_check_interval_ms": 250,
+      "id": "shortcut-21a861d8"
     }
   ],
   "remote": {
@@ -688,7 +712,7 @@
     ]
   },
   "ui_state": {
-    "last_project_id": "",
+    "last_project_id": "project-athena-9681",
     "last_script_id": "",
     "last_step_id": ""
   },

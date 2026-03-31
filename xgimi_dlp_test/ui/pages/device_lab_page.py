@@ -438,7 +438,11 @@ class CommandItemDialog(QDialog):
         self._form = form
 
         self.edit_name = QLineEdit(values.get("name", ""))
-        self.edit_desc = QLineEdit(values.get("description", ""))
+        self.edit_desc = QTextEdit(values.get("description", ""))
+        self.edit_desc.setMinimumHeight(80)
+        self.edit_desc.setMaximumHeight(160)
+        self.edit_desc.setPlaceholderText("可填写前置条件、测试步骤、注意事项等说明")
+        self.edit_desc.setStyleSheet("font-family:'Microsoft YaHei','Segoe UI'; font-size:13px;")
         self.combo_action_type = QComboBox()
         self.combo_action_type.addItem("串口指令集", "serial_bundle")
         if allow_camera_actions:
@@ -705,8 +709,8 @@ class CommandItemDialog(QDialog):
         action_type = self.combo_action_type.currentData()
         return {
             "name": self.edit_name.text().strip(),
-            "description": self.edit_desc.text().strip(),
-            "commands": [line.strip() for line in self.edit_commands.toPlainText().splitlines() if line.strip()] if action_type == "serial_bundle" else [],
+            "description": self.edit_desc.toPlainText().strip(),
+            "commands": [line for line in self.edit_commands.toPlainText().strip().splitlines()] if action_type == "serial_bundle" else [],
             "action_type": action_type,
             "capture_count": int(self.spin_capture_count.value()),
             "capture_interval_ms": int(self.spin_capture_interval.value()),
