@@ -102,11 +102,12 @@
       "id": "dyn:1773910651945",
       "title": "📦 固件升级（AOSP)",
       "parent_id": "",
-      "hint": "对于国内的机器，比如雅典娜三代：\n1. 下载固件改名存放到U盘；\n2. 运行第一个指令，等待升级完成；\n3. 升级完成后进入系统后，运行第二个指令；",
+      "hint": "对于国内的机器，比如雅典娜三代：\n1. 下载固件改名存放到U盘；\n2. 运行第一个指令，等待升级完成；\n3. 重启，关avb.\n4. 进入系统后，运行第二个指令；",
       "commands": [
         {
           "name": "mboot更新指令（注意修改文件名）",
-          "cmd": "mtkupgrade usb XGIMI_HORSEPOPULAR_XR08C.bin"
+          "cmd": "mtkupgrade usb XGIMI_GOATELEGANT_XP05A.bin",
+          "desc": ""
         },
         {
           "name": "remount",
@@ -152,7 +153,7 @@
         {
           "name": "logcat | grep svm&    1通过|0不通过",
           "cmd": "logcat -c; logcat | grep -iE \"svm\" &",
-          "desc": "如果svm给1，但是光机拦截（调整了画面，返回后变回全屏），则svm拦截失败"
+          "desc": "如果svm给1（不拦截），但是光机拦截（调整了画面，返回后变回全屏），则svm拦截失败. svm=0（拦截），切回页面不全屏，拦截成功。"
         },
         {
           "name": "获取当前梯形坐标点",
@@ -329,6 +330,16 @@
         {
           "name": "问题现场打标记",
           "cmd": "log -p v -t \"issue\" \"problemHere\"",
+          "desc": ""
+        },
+        {
+          "name": "查看dlp芯片",
+          "cmd": "logcat -c;logcat | grep -iE \"8424\"&",
+          "desc": "logcat -c;logcat | grep -iE \"8445\"&    logcat -c;logcat | grep -iE \"3436\"&"
+        },
+        {
+          "name": "lua",
+          "cmd": "gmpfUnit /vendor/etc/disp/Disp.lua",
           "desc": ""
         }
       ]
