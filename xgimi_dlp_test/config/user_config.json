@@ -10,5 +10,8 @@
       "analysis.coord_result_vis": "D:/software/heiweilu/workspace/xgimi/code/xgimi_dlp_test/reports/coord_result_vis/20260319/svm_angle_test_result_2026_03_17_15_23_47_coord_vis_20260319_165551.png",
       "analysis.angle_boundary_stats": "D:/software/heiweilu/workspace/xgimi/code/xgimi_dlp_test/reports/angle_boundary_stats/20260325/4k_img6.9.3_step1_9660_dapeng_angle_test_result_2026_03_24_20_17_30_boundary_vis.png"
     }
+  },
+  "serial": {
+    "dark_mode": false
   }
 }

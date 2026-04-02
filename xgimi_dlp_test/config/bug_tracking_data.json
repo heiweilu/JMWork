@@ -6,16 +6,7 @@
     "https://project.feishu.cn/6bxxuo/issue/detail/6665000706",
     "海外雅典娜",
     "王建",
-    "可以关闭"
-  ],
-  [
-    "9679R+",
-    "切换3D损失清晰度",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143167363",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6492320139",
-    "海外雅典娜",
-    "王建",
-    "可以关闭"
+    "我们已经关闭，但是MTK没有给措施"
   ],
   [
     "9679R+",
@@ -24,7 +15,7 @@
     "https://project.feishu.cn/6bxxuo/issue/detail/6469928925",
     "海外雅典娜",
     "王建",
-    "MTK回复：留意后续由 Wenyuan release 给我们的Google build 版本是否有OK"
+    "等待/复测"
   ],
   [
     "9679R+",
@@ -33,7 +24,7 @@
     "https://project.feishu.cn/6bxxuo/issue/detail/6409667215",
     "海外雅典娜",
     "王建",
-    "继续跟踪"
+    "等待/复测"
   ],
   [
     "9679R+",
@@ -42,52 +33,7 @@
     "https://project.feishu.cn/6bxxuo/issue/detail/6409829261",
     "海外雅典娜",
     "王建",
-    "MTK回复：待另外一道3D问题修复后再来解决此问题"
-  ],
-  [
-    "9679R+",
-    "本地视频播放中，进行3D模式切换；出现投影卡死，无光无图情况-248",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143053244",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6409588789",
-    "海外雅典娜",
-    "王建",
-    "未复现了，暂停跟踪"
-  ],
-  [
-    "9679R+",
-    "偶现花屏问题",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143168418",
-    "",
-    "海外雅典娜",
-    "王建",
-    "待复现，暂停跟踪"
-  ],
-  [
-    "9679R+",
-    "盒子帧率为50hz，播放24/30/50fps的3D片源并切换3D模式，画面抖动",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143172043",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6509649179",
-    "海外雅典娜",
-    "方振",
-    "此CR先挂起，后续DTV04802305处理完毕后，重新复测此CR，如果仍有问题则继续处理。"
-  ],
-  [
-    "9679R+",
-    "PS4上蓝光3D画面有明显抖动",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143162118",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6478297665",
-    "海外雅典娜",
-    "方振",
-    "MTK回复：对该现象都没有改善效果"
-  ],
-  [
-    "9660R+",
-    "屏保界面触发实时AK后底部闪烁",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143232278",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6776594490",
-    "海外大鹏",
-    "李梦江",
-    "等待我们复测"
+    "待复现"
   ],
   [
     "9660R+",
@@ -100,57 +46,12 @@
   ],
   [
     "9660R+",
-    "游戏极速模式下，未作AK，遥控器移动系统设置菜单会出现setting花屏，home键回到桌面，桌面会出现撕裂花屏",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143222994",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6747099101",
-    "海外猛禽",
-    "李梦江",
-    "最新提供的措施有效，未复现出问题，release的话，会在t-xgimi-apollo-mp-2103-refu-fy24h2v4-1783提供。"
-  ],
-  [
-    "9660R+",
     "开启梯形之后1080P和4K的机器延时不一样",
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143219220",
     "",
     "海外猛禽",
     "陈旭东",
-    "02-27 需要我们录制视频🎈🎈🎈"
-  ],
-  [
-    "9660R+",
-    "梯形坐标设置为0之后，梯形还在运行",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143218326",
-    "",
-    "海外猛禽",
-    "陈旭东",
-    "3-02 这周等待release合入tag后，复测"
-  ],
-  [
-    "9660R+",
-    "4K机型实时AK过程中，hwcomposer.merak出现崩溃",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143232113",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6773402960",
-    "海外大鹏",
-    "陈旭东",
-    "3-05 验证了几十次，未复现，已反馈"
-  ],
-  [
-    "9660R+",
-    "梯形坐标设置为0之后，梯形还在运行（国内）",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143218326",
-    "",
-    "",
-    "陈旭东",
-    "继续跟踪"
-  ],
-  [
-    "9660R+",
-    "有梯形形变情况下，延时不达标",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143241494",
-    "",
-    "",
-    "陈旭东",
-    "继续跟踪"
+    "待确定"
   ],
   [
     "9660R+",
@@ -159,16 +60,7 @@
     "",
     "海外大鹏",
     "陈旭东",
-    "继续跟踪"
-  ],
-  [
-    "9681",
-    "本地播放视频开启至臻120，画面噪点明显",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143199693",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6458866600",
-    "国内雅典娜",
-    "方振",
-    "我们最新回复于2-11"
+    "待确定"
   ],
   [
     "9681",
@@ -176,33 +68,6 @@
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143221941",
     "https://project.feishu.cn/6bxxuo/issue/detail/6755751766",
     "国内雅典娜",
-    "陈旭东",
-    "继续跟踪"
-  ],
-  [
-    "9681",
-    "开关防射眼之后弹幕抖动",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143214120",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6702015503",
-    "国内雅典娜",
-    "陈旭东",
-    "继续跟踪"
-  ],
-  [
-    "9681",
-    "需要播放3D的时候，需要soc的3D sync信号给到后端",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143225483",
-    "",
-    "",
-    "陈旭东",
-    "年后跟踪"
-  ],
-  [
-    "9681",
-    "当前需求支持动态切换到4k120的timing，如果配置panel路径呢",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143229977",
-    "",
-    "",
     "陈旭东",
     "继续跟踪"
   ],
@@ -217,21 +82,12 @@
   ],
   [
     "9681",
-    "软梯开启VRR进入游戏会闪全屏花",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143169726",
-    "",
-    "",
-    "陈旭东",
-    "继续跟踪"
-  ],
-  [
-    "9681",
     "实时ak只有半屏",
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143141868",
     "",
     "",
     "陈旭东",
-    "继续跟踪"
+    "待确认"
   ],
   [
     "9681",
@@ -240,7 +96,7 @@
     "",
     "",
     "陈旭东",
-    "继续跟踪"
+    "待确认"
   ],
   [
     "9681",
@@ -249,7 +105,7 @@
     "",
     "",
     "陈旭东",
-    "继续跟踪"
+    "待确认"
   ],
   [
     "9681",
@@ -258,7 +114,7 @@
     "",
     "",
     "陈旭东",
-    "继续跟踪"
+    "待确认"
   ],
   [
     "9681",
@@ -267,7 +123,7 @@
     "",
     "",
     "陈旭东",
-    "继续跟踪"
+    "待确认"
   ],
   [
     "9681",
@@ -276,7 +132,7 @@
     "",
     "",
     "陈旭东",
-    "继续跟踪"
+    "待确认"
   ],
   [
     "9681",
@@ -285,7 +141,7 @@
     "",
     "",
     "陈旭东",
-    "继续跟踪"
+    "待确认"
   ],
   [
     "9681",
@@ -298,39 +154,12 @@
   ],
   [
     "9660",
-    "右下角往上调节后，会有garbage",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143227798",
-    "",
-    "国内猛禽",
-    "陈旭东",
-    "继续跟踪"
-  ],
-  [
-    "9660",
     "当前软梯框架实时ak怀疑会漏边",
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143203291",
     "",
     "国内猛禽",
     "陈旭东",
     "继续跟踪"
-  ],
-  [
-    "9660",
-    "软梯120的支持",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143211186",
-    "",
-    "国内猛禽",
-    "陈旭东",
-    "Resolved"
-  ],
-  [
-    "9660",
-    "tag106合入后STR 花屏",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143226825",
-    "",
-    "",
-    "陈旭东",
-    "Resolved"
   ],
   [
     "9660",
@@ -352,48 +181,12 @@
   ],
   [
     "9660",
-    "偶现STR之后，GOP2花屏（猛禽）",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143253188",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6859105905",
-    "国内猛禽",
-    "陈旭东",
-    "继续跟踪"
-  ],
-  [
-    "9660",
     "连接PC切换到HDR桌面字体抖动变严重（大鹏）",
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143258869",
     "",
     "国内大鹏",
     "李清龙",
-    ""
-  ],
-  [
-    "9660",
-    "偶现STR之后，GOP2花屏（大鹏）",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143262134",
-    "",
-    "国内大鹏",
-    "陈旭东",
-    ""
-  ],
-  [
-    "9660",
-    "有AK数据下播放MEMC片源，画面抖动",
-    "",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6921455665",
-    "国内猛禽",
-    "",
-    ""
-  ],
-  [
-    "9660",
-    "播放HDR视频，setting展示不完全",
-    "",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6921553004",
-    "国内猛禽",
-    "",
-    ""
+    "继续跟踪"
   ],
   [
     "9660",
@@ -402,6 +195,6 @@
     "https://project.feishu.cn/6bxxuo/issue/detail/6921455665",
     "国内猛禽",
     "李梦江",
-    ""
+    "继续跟踪"
   ]
 ]

@@ -15,6 +15,11 @@
     {
       "name": "关风控",
       "cmd": "stop xgimi_middle;\ncri temperature_bypass true;  \nreboot"
+    },
+    {
+      "name": "备份so",
+      "cmd": "cp /vendor/lib/libxgimi.so /data/;\ncp /vendor/lib/libporting.so /data/;  \ncp /vendor/lib/libwebdebug.so /data/;",
+      "desc": ""
     }
   ],
   "fixed_sections": {
@@ -340,6 +345,11 @@
         {
           "name": "lua",
           "cmd": "gmpfUnit /vendor/etc/disp/Disp.lua",
+          "desc": ""
+        },
+        {
+          "name": "cmd_help",
+          "cmd": "gmpfUnit dlpDebug cmd_help;\nlogcat | grep -iE \"GM_DISP_DBG\"",
           "desc": ""
         }
       ]
