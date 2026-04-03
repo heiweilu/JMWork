@@ -33,17 +33,21 @@ MODULE_INFO = {
         "  • A-PASS / B-FAIL：A成功但B失败\n"
         "  • B-PASS / A-FAIL：B成功但A失败\n"
         "可选输出全量差异点或仅边界区域（|Yaw|或|Pitch| ≥ 阈值）的差异点。\n"
-        "输出 TXT 含完整坐标，可直接用于手动下点或硬件验证。"
+        "输出 TXT 含完整坐标，可直接用于手动下点或硬件验证。\n"
+        "差异点可视化散点图（猫头鹰风格，白色背景）：\n"
+        "  • 红色 ▲ = A通/B失  蓝色 ▼ = B通/A失\n"
+        "  • 橙色 ◆ = 仅A有  紫色 ◆ = 仅B有"
     ),
     "input_type": "two_files",
     "input_description": "文件A：角度测试结果 TXT/CSV（作为参考基准）",
     "input_file_formats": "测试结果文件 (*.txt *.csv);;All (*)",
-    "output_type": "txt",
+    "output_type": "txt+png",
     "params": [
         {
             "key": "file_b",
             "label": "文件B路径（对比版本）",
             "type": "string",
+            "subtype": "file",
             "default": "",
             "tooltip": "第二份角度测试结果文件路径，与输入框的文件A做结果对比"
         },
@@ -126,6 +130,145 @@ def _fmt_row(row_a, row_b, tag: str) -> str:
     ec_b = _get(row_b, 'ec');          d_b  = _get(row_b, 'delta')
 
     return '\t'.join([yaw, pitch, tag, r_a, ec_a, d_a, wc_a, r_b, ec_b, d_b, wc_b])
+
+
+def _draw_diff_scatter(output_diffs, diffs, df_a, df_b,
+                       input_path, file_b, scope, boundary_thr,
+                       output_dir, out_name, log_cb):
+    """猫头鹰风格差异点散点图（差异类型用颜色+形状区分）。"""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from matplotlib.gridspec import GridSpec
+        from collections import defaultdict
+
+        _cjk = ["Microsoft YaHei", "SimHei", "WenQuanYi Micro Hei", "Noto Sans CJK SC"]
+        for fn in _cjk:
+            try:
+                from matplotlib.font_manager import findfont, FontProperties
+                fp = findfont(FontProperties(family=fn))
+                if fp and "DejaVu" not in fp:
+                    plt.rcParams["font.family"] = fn
+                    break
+            except Exception:
+                pass
+        plt.rcParams["axes.unicode_minus"] = False
+
+        # 差异类型 → 样式（颜色 + 形状）
+        _TAG_STY = {
+            'A_PASS/B_FAIL': {'c': '#e74c3c', 'marker': '^', 's': 90,
+                              'label': 'A成功 / B失败  ▲'},
+            'A_FAIL/B_PASS': {'c': '#3498db', 'marker': 'v', 's': 90,
+                              'label': 'A失败 / B成功  ▽'},
+            'A_ONLY':        {'c': '#f39c12', 'marker': 'D', 's': 60,
+                              'label': '仅A有此角度  ◆'},
+            'B_ONLY':        {'c': '#9b59b6', 'marker': 'D', 's': 60,
+                              'label': '仅B有此角度  ◆'},
+        }
+        _DEFAULT_STY = {'c': '#7f8c8d', 'marker': 'x', 's': 40, 'label': '其他差异'}
+
+        # 按 tag 分组
+        tag_groups = defaultdict(lambda: {'yaw': [], 'pitch': []})
+        for d in output_diffs:
+            grp = tag_groups[d['tag']]
+            grp['yaw'].append(d['yaw'])
+            grp['pitch'].append(d['pitch'])
+
+        all_yaw   = [d['yaw']   for d in diffs]
+        all_pitch = [d['pitch'] for d in diffs]
+        base_a    = os.path.basename(input_path)
+        base_b    = os.path.basename(file_b)
+        a_pass    = (df_a['result'] == 'PASS').sum()
+        b_pass    = (df_b['result'] == 'PASS').sum()
+
+        fig = plt.figure(figsize=(20, 16))
+        gs  = GridSpec(2, 1, height_ratios=[12, 1], hspace=0.06)
+        ax  = fig.add_subplot(gs[0])
+        ax_info = fig.add_subplot(gs[1])
+        ax_info.axis('off')
+
+        # 背景：所有差异点（浅灰）
+        if all_yaw:
+            ax.scatter(all_yaw, all_pitch, c='#dddddd', s=6, alpha=0.3, zorder=1)
+
+        # 按 tag 绘制各分类（颜色+形状区分 A/B 两组数据)
+        for tag, stl in _TAG_STY.items():
+            grp = tag_groups.get(tag, {'yaw': [], 'pitch': []})
+            if not grp['yaw']:
+                continue
+            ax.scatter(grp['yaw'], grp['pitch'],
+                       c=stl['c'], marker=stl['marker'], s=stl['s'], alpha=0.85,
+                       label=f"{stl['label']}  {len(grp['yaw'])} 个",
+                       edgecolors='white', linewidths=0.4, zorder=4)
+
+        # 其他未知 tag
+        for tag in [t for t in tag_groups if t not in _TAG_STY]:
+            grp = tag_groups[tag]
+            if grp['yaw']:
+                ax.scatter(grp['yaw'], grp['pitch'],
+                           c=_DEFAULT_STY['c'], marker=_DEFAULT_STY['marker'],
+                           s=_DEFAULT_STY['s'], alpha=0.7,
+                           label=f"{tag}  {len(grp['yaw'])} 个", zorder=3)
+
+        ax.axhline(0, color='#aaaaaa', lw=0.8, ls='--', alpha=0.6)
+        ax.axvline(0, color='#aaaaaa', lw=0.8, ls='--', alpha=0.6)
+        ax.grid(True, ls='--', alpha=0.2)
+        ax.tick_params(which='both', top=True, right=True, labeltop=True, labelright=True)
+
+        # 边界阈值线
+        if scope == '仅边界区域' and boundary_thr > 0:
+            for v in [-boundary_thr, boundary_thr]:
+                ax.axhline(v, color='#e74c3c', lw=0.8, ls=':', alpha=0.7)
+                ax.axvline(v, color='#e74c3c', lw=0.8, ls=':', alpha=0.7)
+            ax.annotate(f"边界阈值: ±{boundary_thr}°",
+                        xy=(0.02, 0.05), xycoords='axes fraction',
+                        color='#888888', fontsize=9)
+
+        # Pitch 轴反转（上投为负，轴朝上）
+        if all_pitch:
+            ax.set_ylim(max(all_pitch) + 3, min(all_pitch) - 3)
+
+        # 四象限标注
+        xlim, ylim = ax.get_xlim(), ax.get_ylim()
+        quad_kw = dict(fontsize=9, color='#999999', ha='center', va='center', alpha=0.6,
+                       bbox=dict(boxstyle='round,pad=0.3', fc='white', alpha=0.5, ec='none'))
+        ax.text(xlim[0] * 0.55, ylim[1] * 0.55, '上投+左投\n(Pitch<0,Yaw<0)', **quad_kw)
+        ax.text(xlim[1] * 0.55, ylim[1] * 0.55, '上投+右投\n(Pitch<0,Yaw>0)', **quad_kw)
+        ax.text(xlim[0] * 0.55, ylim[0] * 0.55, '下投+左投\n(Pitch>0,Yaw<0)', **quad_kw)
+        ax.text(xlim[1] * 0.55, ylim[0] * 0.55, '下投+右投\n(Pitch>0,Yaw>0)', **quad_kw)
+
+        ax.set_xlabel('Yaw / HorizontalAngle    负(-) ← 左投  |  右投 → 正(+)', fontsize=12)
+        ax.set_ylabel('Pitch / VerticalAngle    上投(-) ↑  |  ↓ 下投(+)', fontsize=12)
+        ax.set_title(
+            f"双版本角度差异点分布  （提取范围: {scope}）\n"
+            f"A: {base_a}    PASS {a_pass}/{len(df_a)}\n"
+            f"B: {base_b}    PASS {b_pass}/{len(df_b)}",
+            fontsize=12, pad=12)
+        ax.legend(loc='upper right', framealpha=0.95, shadow=True, fontsize=10)
+
+        # 底部信息栏
+        a_pf = len(tag_groups.get('A_PASS/B_FAIL', {}).get('yaw', []))
+        a_fp = len(tag_groups.get('A_FAIL/B_PASS', {}).get('yaw', []))
+        a_o  = len(tag_groups.get('A_ONLY',        {}).get('yaw', []))
+        b_o  = len(tag_groups.get('B_ONLY',        {}).get('yaw', []))
+        info = (f"总差异点: {len(output_diffs)}   |   "
+                f"A成功B失败(▲红): {a_pf}   |   "
+                f"A失败B成功(▽蓝): {a_fp}   |   "
+                f"仅A有(◆橙): {a_o}   |   仅B有(◆紫): {b_o}")
+        ax_info.text(0.5, 0.5, info, transform=ax_info.transAxes,
+                     fontsize=9.5, ha='center', va='center',
+                     bbox=dict(boxstyle='round,pad=0.4', facecolor='#fffde7',
+                               edgecolor='#f9a825', alpha=0.92))
+
+        plt.tight_layout()
+        fig_path = os.path.join(output_dir, f"{out_name}_vis.png")
+        plt.savefig(fig_path, dpi=150, bbox_inches='tight')
+        log_cb(f"可视化 PNG: {fig_path}")
+        return fig_path, fig
+    except Exception as e:
+        log_cb(f"可视化失败（已跳过）: {e}", "WARNING")
+        return "", None
 
 
 def run(input_path: str, output_dir: str, params: dict,
@@ -280,13 +423,21 @@ def run(input_path: str, output_dir: str, params: dict,
         _log(f"A成功/B失败: {a_pass_b_fail}  A失败/B成功: {a_fail_b_pass}", "INFO")
         _log(f"输出: {out_path}", "SUCCESS")
 
+        # 可视化（猫头鹰风格，差异类型用颜色+形状区分）
+        fig_path, saved_fig = _draw_diff_scatter(
+            output_diffs, diffs, df_a, df_b,
+            input_path, file_b, scope, boundary_thr,
+            output_dir, out_name, _log)
+
         return {
-            "status": "success",
-            "output_path": out_path,
-            "figure": None,
+            "status":       "success",
+            "output_path":  out_path,
+            "output_files": [fig_path] if fig_path else [],
+            "figure":       saved_fig,
             "message": (
                 f"差异点 {len(output_diffs)} 个 "
                 f"(A↑B↓={a_pass_b_fail}  A↓B↑={a_fail_b_pass})"
+                + (f"  PNG: {os.path.basename(fig_path)}" if fig_path else "")
             ),
         }
 

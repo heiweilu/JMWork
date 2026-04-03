@@ -31,10 +31,12 @@ MODULE_INFO = {
         "     （FAIL 边界点 = 至少有一个四邻域方向为 PASS 的 FAIL 点）\n"
         "  ② 对每个边界点计算四角(TL/TR/BL/BR)的 Write→Read 欧氏偏差，\n"
         "     优先从 ErrorCode 名称解析问题角点，几何偏差最大兜底。\n"
+        "支持双文件对比模式：可同时输入两份运行数据，\n"
+        "  实心标记为文件A、空心标记为文件B，叠加绘制在同一幅图中做对比分析。\n"
         "输出：\n"
         "  • 结构化 TXT（TSV，供角度扩圆坐标生成使用）\n"
         "  • 人可读 TXT 报告（含逐点坐标 + 偏差数据）\n"
-        "  • 可视化 PNG（问题角点分布散点图）"
+        "  • 可视化 PNG（问题角点分布散点图，白色背景）"
     ),
     "input_type": "csv_or_txt",
     "input_description": "原始角度测试结果文件（含 Yaw/Pitch/Result/WriteCoords/ReadCoords 列）",
@@ -49,6 +51,13 @@ MODULE_INFO = {
          "tooltip": "超过此阈值的角点偏差在报告中会额外标记 [!]"},
         {"key": "output_name",
          "label": "输出文件前缀（留空自动生成）",
+         "type": "string", "default": ""},
+        {"key": "file_b",
+         "label": "文件B路径（可选，留空单文件模式）",
+         "type": "string", "subtype": "file", "default": "",
+         "tooltip": "第二份角度测试结果文件，与文件A的边界点绘制在同一幅图中做对比分析"},
+        {"key": "file_b_label",
+         "label": "文件B图例标签（留空自动取文件名）",
          "type": "string", "default": ""},
     ],
 }
@@ -204,9 +213,11 @@ def run(input_path, output_dir, params,
     def _stopped():
         return stop_event is not None and stop_event.is_set()
 
-    ec_txt_path   = (params.get("errorcode_txt") or "").strip()
+    ec_txt_path    = (params.get("errorcode_txt") or "").strip()
     dist_threshold = float(params.get("dist_threshold", 50.0) or 50.0)
-    output_prefix = (params.get("output_name") or "").strip()
+    output_prefix  = (params.get("output_name") or "").strip()
+    file_b         = (params.get("file_b") or "").strip().strip("\"'")
+    file_b_label   = (params.get("file_b_label") or "").strip()
 
     _log(f"输入文件: {input_path}"); _prog(3)
 
@@ -287,6 +298,46 @@ def run(input_path, output_dir, params,
     bdf["MaxDist"] = bdf[["Dist_TL","Dist_TR","Dist_BL","Dist_BR"]].max(axis=1)
     _log(f"问题角点分布: { {c:prob_list.count(c) for c in CORNERS+['EQUAL']} }"); _prog(55)
 
+    # ── 5b. 处理文件B（可选，双文件对比模式）─────────────────────
+    bdf_b = None
+    _file_b_display = ""
+    if file_b and os.path.isfile(file_b):
+        try:
+            _log(f"加载文件B: {os.path.basename(file_b)}")
+            df_b = load_angle_test_result(file_b, log_callback=log_callback)
+            if {"Yaw", "Pitch", "Result"}.issubset(set(df_b.columns)):
+                sy_b = _detect_step(df_b["Yaw"])
+                sp_b = _detect_step(df_b["Pitch"])
+                bdf_b = _extract_fail_boundary(df_b, sy_b, sp_b)
+                _log(f"文件B FAIL边界点: {len(bdf_b)}")
+                bdf_b = _expand("WriteCoords", "Write", bdf_b)
+                bdf_b = _expand("ReadCoords",  "Read",  bdf_b)
+                if "ErrorCode" in bdf_b.columns and ec_map:
+                    bdf_b["ErrorCodeName"] = bdf_b["ErrorCode"].apply(
+                        lambda c: ec_map.get(int(c), ("", ""))[0]
+                        if str(c).lstrip("-").isdigit() else "")
+                else:
+                    bdf_b["ErrorCodeName"] = ""
+                _dr_b, _gl_b, _pl_b = [], [], []
+                for _, row in bdf_b.iterrows():
+                    dists = _corner_dists(row)
+                    _dr_b.append(dists)
+                    gw = _geom_worst(dists)
+                    _gl_b.append(gw)
+                    ecc = _ec_corner(str(row.get("ErrorCodeName", "")))
+                    _pl_b.append(ecc if ecc else gw)
+                for cn in CORNERS:
+                    bdf_b[f"Dist_{cn}"] = [d[cn] for d in _dr_b]
+                bdf_b["GeomWorstCorner"] = _gl_b
+                bdf_b["ProblemCorner"]   = _pl_b
+                bdf_b["MaxDist"] = bdf_b[["Dist_TL","Dist_TR","Dist_BL","Dist_BR"]].max(axis=1)
+                _file_b_display = file_b_label or os.path.basename(file_b)
+                _log(f"文件B问题角点: { {c:_pl_b.count(c) for c in CORNERS+['EQUAL']} }")
+            else:
+                _log("文件B缺少 Yaw/Pitch/Result 列，跳过双文件对比", "WARNING")
+        except Exception as _eb:
+            _log(f"处理文件B失败（已跳过）: {_eb}", "WARNING")
+
     os.makedirs(output_dir, exist_ok=True)
     base = output_prefix or os.path.splitext(os.path.basename(input_path))[0]
 
@@ -327,31 +378,95 @@ def run(input_path, output_dir, params,
 
         yc = "Yaw"   if "Yaw"   in bdf.columns else bdf.columns[0]
         pc = "Pitch" if "Pitch" in bdf.columns else bdf.columns[1]
+        _dual = bdf_b is not None
 
-        fig, ax = plt.subplots(figsize=(10,8))
-        fig.patch.set_facecolor("#1a1a2e"); ax.set_facecolor("#16213e")
-        ax.scatter(bdf[pc], bdf[yc], c="#555555", s=12, alpha=0.3, zorder=1)
+        fig, ax = plt.subplots(figsize=(12 if _dual else 10, 9 if _dual else 8))
+        fig.patch.set_facecolor("white"); ax.set_facecolor("white")
+
+        # 文件A 背景（所有边界点，浅灰底）—— X=Yaw, Y=Pitch（猫头鹰方向）
+        ax.scatter(bdf[yc], bdf[pc], c="#cccccc", s=12, alpha=0.4, zorder=1)
+        # 文件B 背景（浅灰底）
+        if _dual:
+            ax.scatter(bdf_b[yc], bdf_b[pc], c="#bbbbbb", s=8, alpha=0.3, zorder=1)
+
+        # 文件A：实心标记
         for corner in CORNERS + ["EQUAL"]:
             mask = bdf["ProblemCorner"] == corner
             if not mask.any(): continue
-            sub = bdf[mask]
-            ax.scatter(sub[pc], sub[yc], c=_CORNER_COLORS[corner],
+            sub  = bdf[mask]
+            lbl  = (_CORNER_LABELS[corner] + " [A]") if _dual else _CORNER_LABELS[corner]
+            ax.scatter(sub[yc], sub[pc], c=_CORNER_COLORS[corner],
                        marker=_CORNER_MARKERS[corner], s=60, alpha=0.85, zorder=3,
-                       label=_CORNER_LABELS[corner])
-        ax.set_xlabel("Pitch (°)", color="white", fontsize=11)
-        ax.set_ylabel("Yaw (°)",   color="white", fontsize=11)
-        ax.set_title("FAIL 边界点问题角点分布", color="white", fontsize=13, pad=12)
-        ax.tick_params(colors="white")
-        for sp2 in ax.spines.values(): sp2.set_edgecolor("#444466")
-        leg = ax.legend(title="问题角点", facecolor="#2a2a4e",
-                        labelcolor="white", title_fontsize=9, fontsize=9)
-        leg.get_title().set_color("white")
+                       label=lbl)
+
+        # 文件B：空心标记（相同角点颜色，区分来源）
+        if _dual:
+            for corner in CORNERS + ["EQUAL"]:
+                mask = bdf_b["ProblemCorner"] == corner
+                if not mask.any(): continue
+                sub = bdf_b[mask]
+                ax.scatter(sub[yc], sub[pc],
+                           facecolors='none', edgecolors=_CORNER_COLORS[corner],
+                           marker=_CORNER_MARKERS[corner], s=120,
+                           linewidths=1.8, alpha=0.9, zorder=4,
+                           label=f"{_CORNER_LABELS[corner]} [B]")
+
+        # 辅助线（猫头鹰风格）
+        ax.axhline(0, color='#aaaaaa', lw=0.8, ls='--', alpha=0.6)
+        ax.axvline(0, color='#aaaaaa', lw=0.8, ls='--', alpha=0.6)
+
+        # Pitch 轴倒置（上投为负朝上，下投为正朝下）
+        all_pc_vals = list(bdf[pc])
+        if _dual:
+            all_pc_vals += list(bdf_b[pc])
+        if all_pc_vals:
+            ax.set_ylim(max(all_pc_vals) + 3, min(all_pc_vals) - 3)
+
+        all_yc_vals = list(bdf[yc])
+        if _dual:
+            all_yc_vals += list(bdf_b[yc])
+        if all_yc_vals:
+            ax.set_xlim(min(all_yc_vals) - 3, max(all_yc_vals) + 3)
+
+        # 四象限标注
+        xlim, ylim = ax.get_xlim(), ax.get_ylim()
+        quad_kw = dict(fontsize=8, color='#999999', ha='center', va='center', alpha=0.65,
+                       bbox=dict(boxstyle='round,pad=0.3', fc='white', alpha=0.5, ec='none'))
+        mx, my = (xlim[0]+xlim[1])/2, (ylim[0]+ylim[1])/2
+        ax.text(xlim[0]+(mx-xlim[0])*0.5, ylim[1]+(my-ylim[1])*0.5,
+                '上投+左投\n(Pitch<0,Yaw<0)', **quad_kw)
+        ax.text(xlim[1]-(xlim[1]-mx)*0.5, ylim[1]+(my-ylim[1])*0.5,
+                '上投+右投\n(Pitch<0,Yaw>0)', **quad_kw)
+        ax.text(xlim[0]+(mx-xlim[0])*0.5, ylim[0]+(my-ylim[0])*0.5,
+                '下投+左投\n(Pitch>0,Yaw<0)', **quad_kw)
+        ax.text(xlim[1]-(xlim[1]-mx)*0.5, ylim[0]+(my-ylim[0])*0.5,
+                '下投+右投\n(Pitch>0,Yaw>0)', **quad_kw)
+
+        ax.set_xlabel("Yaw / HorizontalAngle    负(-) ← 左投  |  右投 → 正(+)",
+                      color="black", fontsize=11)
+        ax.set_ylabel("Pitch / VerticalAngle    上投(-) ↑  |  ↓ 下投(+)",
+                      color="black", fontsize=11)
+        if _dual:
+            _la = os.path.basename(input_path)
+            ax.set_title(
+                f"FAIL 边界点问题角点分布（双文件对比）\n"
+                f"■ 实心[A]: {_la}  ({len(bdf)} 点)\n"
+                f"○ 空心[B]: {_file_b_display}  ({len(bdf_b)} 点)",
+                color="black", fontsize=11, pad=12)
+        else:
+            ax.set_title("FAIL 边界点问题角点分布", color="black", fontsize=13, pad=12)
+        ax.tick_params(colors="black")
+        for sp2 in ax.spines.values(): sp2.set_edgecolor("#cccccc")
+        leg = ax.legend(title="问题角点" + (" (实心=A 空心=B)" if _dual else ""),
+                        facecolor="white", labelcolor="black",
+                        title_fontsize=9, fontsize=9,
+                        ncol=2 if _dual else 1)
+        leg.get_title().set_color("black")
         ax.annotate(f"阈值: {dist_threshold:.0f} px", xy=(0.02,0.02),
-                    xycoords="axes fraction", color="#aaaacc", fontsize=8)
+                    xycoords="axes fraction", color="#666666", fontsize=8)
         plt.tight_layout()
         fig_path = os.path.join(output_dir, f"{base}_boundary_vis.png")
-        plt.savefig(fig_path, dpi=150, bbox_inches="tight",
-                    facecolor=fig.get_facecolor())
+        plt.savefig(fig_path, dpi=150, bbox_inches="tight", facecolor="white")
         saved_fig = fig
         _log(f"可视化 PNG: {fig_path}")
     except Exception as e:
@@ -429,7 +544,9 @@ def run(input_path, output_dir, params,
         "report_text":  report_text,       # UI 显示在"分析报告"Tab
         "extra": {"data_path": tsv_path},
         "message": (
-            f"边界点 {len(bdf)} 个；"
+            f"边界点 A:{len(bdf)}"
+            + (f" B:{len(bdf_b)}" if bdf_b is not None else "")
+            + " 个；"
             f"TSV={os.path.basename(tsv_path)}；"
             f"PNG={os.path.basename(fig_path) if fig_path else '无'}；"
             f"报告见「分析报告」Tab"

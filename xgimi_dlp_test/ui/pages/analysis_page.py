@@ -95,9 +95,10 @@ class AnalysisPage(QWidget):
         param_group.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
+        param_group.setMinimumHeight(220)
         param_scroll = QScrollArea()
         param_scroll.setWidgetResizable(True)
-        param_scroll.setMinimumHeight(80)
+        param_scroll.setMinimumHeight(180)
         param_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.param_editor = ParamEditor()
         param_scroll.setWidget(self.param_editor)

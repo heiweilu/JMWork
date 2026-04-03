@@ -260,6 +260,7 @@ Compress-Archive -Path dist\xgimi_dlp_test -DestinationPath xgimi_dlp_test_v0.1.
 | v0.1.5 | — | 十六进制转换工具、SVM 单类保护 |
 | v0.1.6 | — | BUG 跟踪表编辑、设备实验室快捷指令选择器 |
 | v0.1.7 | — | 打包清单同步、hidden_imports 补全、TSD 存储驱动兼容 |
+| v0.1.8 | — | 双版本差异点可视化、角度边界统计双文件对比、参数区布局优化 |
 | v0.2.0 | 计划 | 新增历史对比分析 |
 | v1.0.0 | 计划 | 正式交付版本 |
 
@@ -279,6 +280,8 @@ Compress-Archive -Path dist\xgimi_dlp_test -DestinationPath xgimi_dlp_test_v0.1.
 | 设备实验室 | 串口调试 + 摄像头 + 脚本编排一体化 |
 | SVM 模型训练 | 自动数据集划分，单类数据保护 |
 | 图像比对 | OpenCV SVM 特征分析与结果可视化 |
+| 双版本差异点提取 | 比较两份角度测试结果，输出差异点可视化散点图（猫头鹰风格），区分 A-通/B-失、B-通/A-失、独有等类型 |
+| 角度边界统计双文件对比 | 支持同时输入两份边界数据，实心/空心标记区分来源，可视化叠加多文件问题角点分布 |
 
 ```
 xgimi_dlp_test/
