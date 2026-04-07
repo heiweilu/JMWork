@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                               QComboBox, QLabel, QPushButton, QGroupBox,
-                              QMessageBox, QFileDialog, QScrollArea,
+                              QMessageBox, QFileDialog, QScrollArea, QFormLayout,
                               QSizePolicy, QTextBrowser, QTextEdit, QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap
@@ -78,8 +78,6 @@ class AnalysisPage(QWidget):
             "border-radius: 12px; padding: 8px; }"
         )
         type_layout.addWidget(self.txt_description)
-        left_layout.addWidget(type_group)
-
         # 输入文件选择
         file_group = QGroupBox("输入数据")
         file_layout = QVBoxLayout(file_group)
@@ -88,24 +86,42 @@ class AnalysisPage(QWidget):
             description="请选择对应格式的数据文件"
         )
         file_layout.addWidget(self.file_selector)
-        left_layout.addWidget(file_group)
 
-        # 参数配置（可展开填充剩余空间）
+        # 参数配置
         param_group = QGroupBox("参数配置")
         param_group.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
-        param_group.setMinimumHeight(220)
         param_scroll = QScrollArea()
         param_scroll.setWidgetResizable(True)
-        param_scroll.setMinimumHeight(180)
+        param_scroll.setMinimumHeight(160)
         param_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.param_editor = ParamEditor()
         param_scroll.setWidget(self.param_editor)
         param_layout = QVBoxLayout(param_group)
         param_layout.setContentsMargins(8, 4, 8, 8)
         param_layout.addWidget(param_scroll)
-        left_layout.addWidget(param_group, 1)  # stretch=1，填充剩余空间
+
+        # 将 类型/文件/参数 三组放入可纵向滚动区域——按钮区始终可见
+        _top_content = QWidget()
+        _top_layout = QVBoxLayout(_top_content)
+        _top_layout.setContentsMargins(0, 0, 2, 0)
+        _top_layout.setSpacing(10)
+        _top_layout.addWidget(type_group)
+        _top_layout.addWidget(file_group)
+        _top_layout.addWidget(param_group, 1)
+        _top_layout.addStretch()
+
+        _top_scroll = QScrollArea()
+        _top_scroll.setWidgetResizable(True)
+        _top_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        _top_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        _top_scroll.setStyleSheet(
+            "QScrollArea { border: none; background: transparent; }"
+            "QScrollArea > QWidget > QWidget { background: transparent; }"
+        )
+        _top_scroll.setWidget(_top_content)
+        left_layout.addWidget(_top_scroll, 1)  # stretch=1，填充剩余空间
 
         # 执行按钮
         btn_layout = QHBoxLayout()
@@ -241,9 +257,14 @@ class AnalysisPage(QWidget):
         overview.setStyleSheet('padding: 16px; color: #445; font-size: 13px;')
         self.workspace.add_page('analysis_overview', page_title, overview)
         self.workspace.add_page('analysis_execute', '执行控制', left_panel, parent_key='analysis_overview')
-        self.workspace.add_page('analysis_reference', '参考结果', self.ref_scroll, parent_key='analysis_overview')
-        self.workspace.add_page('analysis_plot', '分析结果', self.plot_widget, parent_key='analysis_overview')
+        if self._category != 'svm':
+            self.workspace.add_page('analysis_reference', '参考结果', self.ref_scroll, parent_key='analysis_overview')
+            self.workspace.add_page('analysis_plot', '分析结果', self.plot_widget, parent_key='analysis_overview')
         self.workspace.add_page('analysis_report', '分析报告', report_tab, parent_key='analysis_overview')
+        # SVM 专属：模型验证作为独立顶层节点
+        if self._category == 'svm':
+            validate_panel = self._create_svm_validate_panel()
+            self.workspace.add_page('svm_validate', 'SVM验证', validate_panel)
         self.workspace.select_page('analysis_execute')
 
         # 模块ID列表（与 combo 索引对应）
@@ -807,3 +828,143 @@ class AnalysisPage(QWidget):
                 self._log_panel.append_log(f"报告已导出: {filepath}", "SUCCESS")
         except Exception as e:
             QMessageBox.critical(self, "导出失败", f"无法写入文件:\n{e}")
+
+    # ─────────────────────────────────────────────────────────────
+    # SVM 专属：模型验证面板
+    # ─────────────────────────────────────────────────────────────
+
+    def _create_svm_validate_panel(self) -> QWidget:
+        """创建 SVM 模型验证专用面板（仅 SVM 类别显示在树状栏中）。"""
+        from ui.widgets.param_editor import _PathWidget
+
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        layout.setSpacing(10)
+        layout.setContentsMargins(8, 8, 8, 8)
+
+        # ── 路径表单 ──
+        form_group = QGroupBox("模型与数据路径")
+        form_layout = QFormLayout(form_group)
+        form_layout.setSpacing(10)
+        form_layout.setContentsMargins(8, 6, 8, 8)
+
+        self._val_model_path = _PathWidget(is_dir=False)
+        self._val_model_path._edit.setPlaceholderText('svm_model.xml（留空自动查找）')
+        form_layout.addRow("模型文件:", self._val_model_path)
+
+        self._val_norm_path = _PathWidget(is_dir=False)
+        self._val_norm_path._edit.setPlaceholderText('norm_params.yaml（与模型同目录可留空）')
+        form_layout.addRow("归一化参数:", self._val_norm_path)
+
+        self._val_data_path = _PathWidget(is_dir=False)
+        self._val_data_path._edit.setPlaceholderText('验证/训练数据文件（*.txt *.csv）')
+        form_layout.addRow("验证数据:", self._val_data_path)
+
+        layout.addWidget(form_group)
+
+        # ── 按钮行 ──
+        btn_row = QHBoxLayout()
+        self._val_btn_run = QPushButton("  执行验证  ")
+        self._val_btn_run.setObjectName("btn_primary")
+        self._val_btn_run.clicked.connect(self._on_validate_run)
+        btn_row.addWidget(self._val_btn_run)
+
+        self._val_btn_cancel = QPushButton("取消")
+        self._val_btn_cancel.setObjectName("btn_danger")
+        self._val_btn_cancel.setEnabled(False)
+        self._val_btn_cancel.clicked.connect(self._on_validate_cancel)
+        btn_row.addWidget(self._val_btn_cancel)
+
+        self._val_btn_open = QPushButton("📂 打开结果目录")
+        self._val_btn_open.setEnabled(False)
+        self._val_btn_open.clicked.connect(self._on_validate_open_dir)
+        btn_row.addWidget(self._val_btn_open)
+
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+        # ── 进度 ──
+        self._val_progress = ProgressWidget()
+        layout.addWidget(self._val_progress)
+
+        # ── 结果文本 ──
+        self._val_report = QTextEdit()
+        self._val_report.setReadOnly(True)
+        self._val_report.setFontFamily("Consolas")
+        self._val_report.setFontPointSize(10)
+        self._val_report.setStyleSheet(
+            "QTextEdit{background:#1E1E2E; color:#CDD6F4; border-radius:8px; padding:10px;}"
+        )
+        self._val_report.setPlaceholderText(
+            "（执行验证后，整体准确率、各类别准确率和混淆矩阵将显示在此处）"
+        )
+        layout.addWidget(self._val_report, 1)
+
+        self._val_worker = None
+        self._val_output_dir = ""
+        return panel
+
+    def _on_validate_run(self):
+        """触发 SVM 模型验证。"""
+        from modules.analysis import svm_model_validate as mv
+
+        model_xml = self._val_model_path.text().strip()
+        norm_yaml  = self._val_norm_path.text().strip()
+        data_path  = self._val_data_path.text().strip()
+
+        if not data_path or not os.path.isfile(data_path):
+            QMessageBox.warning(self, "缺少输入", "请选择验证数据文件。")
+            return
+
+        # 输出目录：与模型同目录，优先；否则与数据同目录
+        if model_xml and os.path.isfile(model_xml):
+            output_dir = os.path.join(os.path.dirname(model_xml), "svm_validate_output")
+        else:
+            output_dir = os.path.join(os.path.dirname(os.path.abspath(data_path)), "svm_validate_output")
+        self._val_output_dir = output_dir
+
+        params = {"model_xml": model_xml, "norm_yaml": norm_yaml}
+        self._val_report.clear()
+        self._val_btn_run.setEnabled(False)
+        self._val_btn_cancel.setEnabled(True)
+        self._val_btn_open.setEnabled(False)
+
+        self._val_worker = TaskWorker(mv.run, data_path, output_dir, params)
+        self._val_worker.log_message.connect(
+            lambda msg, lvl: self._val_report.append(f"[{lvl}] {msg}")
+        )
+        self._val_worker.finished_signal.connect(self._on_validate_done)
+        self._val_worker.error.connect(
+            lambda e: self._val_report.append(f"[ERROR] {e}")
+        )
+        self._val_worker.progress.connect(self._val_progress.update_progress)
+        self._val_worker.start()
+
+    def _on_validate_done(self, result: dict):
+        """验证任务完成。"""
+        self._val_btn_run.setEnabled(True)
+        self._val_btn_cancel.setEnabled(False)
+        if result.get("status") == "success":
+            report_text = result.get("report_text", "")
+            if report_text:
+                self._val_report.clear()
+                self._val_report.setPlainText(report_text)
+            self._val_btn_open.setEnabled(True)
+            msg = result.get("message", "验证完成")
+            self._val_report.append(f"\n✓ {msg}")
+        else:
+            msg = result.get("message", "验证失败")
+            self._val_report.append(f"\n✗ {msg}")
+
+    def _on_validate_cancel(self):
+        """取消验证任务。"""
+        if self._val_worker and self._val_worker.isRunning():
+            self._val_worker.cancel()
+        self._val_btn_cancel.setEnabled(False)
+        self._val_btn_run.setEnabled(True)
+
+    def _on_validate_open_dir(self):
+        """打开验证结果目录。"""
+        if self._val_output_dir and os.path.isdir(self._val_output_dir):
+            import subprocess
+            subprocess.Popen(f'explorer "{self._val_output_dir}"')

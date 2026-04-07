@@ -72,6 +72,24 @@ class _PathWidget(QWidget):
             self._edit.setText(urls[0].toLocalFile().replace('\\', '/'))
 
 
+class _NoScrollSpinBox(QSpinBox):
+    """禁止鼠标滚轮改值的 SpinBox（避免在滚动参数面板时意外修改参数）。"""
+    def wheelEvent(self, event):  # noqa: N802
+        event.ignore()
+
+
+class _NoScrollDoubleSpinBox(QDoubleSpinBox):
+    """禁止鼠标滚轮改值的 DoubleSpinBox。"""
+    def wheelEvent(self, event):  # noqa: N802
+        event.ignore()
+
+
+class _NoScrollComboBox(QComboBox):
+    """禁止鼠标滚轮切换选项的 ComboBox。"""
+    def wheelEvent(self, event):  # noqa: N802
+        event.ignore()
+
+
 class ParamEditor(QWidget):
     """
     动态参数编辑面板。
@@ -207,13 +225,13 @@ class ParamEditor(QWidget):
         default = param.get('default', '')
 
         if ptype == 'int':
-            w = QSpinBox()
+            w = _NoScrollSpinBox()
             w.setRange(param.get('min', -999999), param.get('max', 999999))
             w.setValue(int(default) if default != '' else 0)
             return w
 
         if ptype == 'float':
-            w = QDoubleSpinBox()
+            w = _NoScrollDoubleSpinBox()
             w.setRange(param.get('min', -999999.0), param.get('max', 999999.0))
             w.setDecimals(param.get('decimals', 2))
             w.setValue(float(default) if default != '' else 0.0)
@@ -225,7 +243,7 @@ class ParamEditor(QWidget):
             return w
 
         if ptype in ('choice', 'combo'):
-            w = QComboBox()
+            w = _NoScrollComboBox()
             choices = param.get('options', param.get('choices', []))
             values  = param.get('values', choices)
             options_str = [str(c) for c in choices]
@@ -244,9 +262,9 @@ class ParamEditor(QWidget):
             container = QWidget()
             layout = QHBoxLayout(container)
             layout.setContentsMargins(0, 0, 0, 0)
-            w1 = QDoubleSpinBox()
+            w1 = _NoScrollDoubleSpinBox()
             w1.setRange(-999, 999)
-            w2 = QDoubleSpinBox()
+            w2 = _NoScrollDoubleSpinBox()
             w2.setRange(-999, 999)
             if isinstance(default, (list, tuple)) and len(default) == 2:
                 w1.setValue(float(default[0]))
