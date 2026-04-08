@@ -4,8 +4,9 @@ SVM 训练集差异坐标过滤器
 
 读取「双版本角度测试差异点」文件（angle_diff_extract 输出），
 提取其中的坐标数据，与 SVM 训练集（train.txt）做交集/差集处理：
-  • 已包含在训练集中的坐标：如果 label=1 则改为 0
-  • 未包含的坐标：导出到单独文件，等待手动硬件验证
+  • 输出 test_list.txt：全部差异坐标（已在训练集 + 未在训练集），供硬件实际测试
+  • 输出 train_filtered.txt：原训练集剔除已匹配坐标后的新训练集（不修改原文件）
+  • 输出 result.png：Yaw/Pitch 空间可视化（绿=已在训练集 红=未在训练集）
 
 支持 train.txt 两种格式：
   - 逗号分隔：`x1,x2,...,x8 label`
@@ -21,12 +22,9 @@ MODULE_INFO = {
     "description": (
         "读取「双版本角度差异提取」结果文件，提取 A_WriteCoords / B_WriteCoords，\n"
         "与 SVM 训练集（train.txt）做交集/差集对比：\n"
-        "  • 已在训练集中：如 label=1 则改为 0，label=0 或错误码保持不变\n"
-        "  • 不在训练集中：导出单独 TXT 文件，供手动硬件验证\n"
-        "输出：\n"
-        "  • modified_train.txt（修改后的训练集）\n"
-        "  • not_in_train.txt（未匹配坐标列表）\n"
-        "  • result.png（Yaw/Pitch 空间可视化，绿=已含 红=待测）"
+        "  • test_list.txt：全部差异坐标（已匹配+未匹配），含 InTrain/TrainLabel 列，供硬件测试\n"
+        "  • train_filtered.txt：原训练集剔除已匹配坐标后的新训练集（不修改原文件）\n"
+        "  • result.png：Yaw/Pitch 空间可视化（绿=已含 红=待测）"
     ),
     "input_type": "txt",
     "input_description": "双版本角度差异提取结果文件（angle_diff_extract 输出 diff_all_*.txt）",
@@ -83,23 +81,6 @@ def _parse_train_line(raw: str):
                 pass
 
     return None, None, raw
-
-
-def _replace_label(raw: str, old_label: str, new_label: str) -> str:
-    """
-    把 raw 行结尾的 old_label 替换为 new_label，尽量保留原始格式。
-    """
-    stripped = raw.rstrip('\n\r')
-    suffix = raw[len(stripped):]     # 保留原始换行符
-    # 从末尾找到 old_label 并替换
-    idx = stripped.rfind(old_label)
-    if idx == -1:
-        return raw
-    # 验证是否是最后一个 token
-    tail = stripped[idx:]
-    if tail.strip() != old_label:
-        return raw
-    return stripped[:idx] + new_label + suffix
 
 
 # ─────────────────────────── 主入口 ──────────────────────────────────────────
@@ -206,65 +187,61 @@ def run(input_path, output_dir, params,
     matched   = a_unique & set(b_coord_idx.keys())
     unmatched = a_unique - set(b_coord_idx.keys())
 
-    changed_1to0 = set()
-    already_0    = set()
-    other_label  = set()
-    for c in matched:
-        lbl = b_coord_idx[c][1]
-        if lbl == '1':
-            changed_1to0.add(c)
-        elif lbl == '0':
-            already_0.add(c)
-        else:
-            other_label.add(c)
-
     _log(f"  已在训练集中: {len(matched)} 个")
-    _log(f"    label=1 → 将改为 0: {len(changed_1to0)} 个")
-    _log(f"    label=0 (无需修改): {len(already_0)} 个")
-    _log(f"    其他标签(错误码,保持不变): {len(other_label)} 个")
     _log(f"  不在训练集中 (需手动测试): {len(unmatched)} 个")
     _prog(55)
     if _stopped():
         return {"status": "error", "output_path": "", "figure": None, "message": "已停止"}
 
-    # ── 4a. 生成 modified_train.txt ──
-    modified_lines = list(b_lines_raw)
-    for c in changed_1to0:
-        idx, _ = b_coord_idx[c]
-        modified_lines[idx] = _replace_label(b_lines_raw[idx], '1', '0')
+    def _collect_records(coord_set):
+        """从 a_rows 中收集 coord_set 对应的记录（去重按 coord）。"""
+        seen = set()
+        records = []
+        for yaw, pitch, tag, nums, src, wc_str in a_rows:
+            if nums in coord_set and nums not in seen:
+                seen.add(nums)
+                train_label = b_coord_idx.get(nums, (None, '-'))[1]
+                records.append((yaw, pitch, tag, src, wc_str, train_label))
+        records.sort(key=lambda r: (r[0], r[1]))
+        return records
 
-    mod_path = os.path.join(output_dir, f"{base}_modified_train.txt")
-    with open(mod_path, 'w', encoding="utf-8") as f:
-        f.writelines(modified_lines)
-    _log(f"  已保存 modified_train.txt: {mod_path}")
-    _prog(68)
+    in_records  = _collect_records(matched)
+    not_records = _collect_records(unmatched)
 
-    # ── 4b. 生成 not_in_train.txt ──
-    not_in_path = os.path.join(output_dir, f"{base}_not_in_train.txt")
-    # 用 a_rows 找到所有 unmatched 坐标对应的行记录（带 Yaw/Pitch/Tag）
-    seen_for_not = set()
-    not_records = []
-    for yaw, pitch, tag, nums, src, wc_str in a_rows:
-        if nums in unmatched and nums not in seen_for_not:
-            seen_for_not.add(nums)
-            not_records.append((yaw, pitch, tag, src, wc_str))
-    # 按 (yaw, pitch) 排序
-    not_records.sort(key=lambda r: (r[0], r[1]))
-
-    header_not = (
-        "# 不在训练集中的差异坐标（需手动硬件验证 label）\n"
+    # ── 4a. 生成 test_list.txt（全部差异坐标合并，供硬件测试） ──
+    all_test_records = sorted(in_records + not_records, key=lambda r: (r[0], r[1]))
+    test_path = os.path.join(output_dir, f"{base}_test_list.txt")
+    header_test = (
+        "# 差异坐标列表（已在训练集 + 未在训练集，供硬件测试）\n"
         f"# 来源差异文件: {os.path.basename(input_path)}\n"
         f"# 训练集: {os.path.basename(train_file)}\n"
         f"# 生成时间: {ts}\n"
-        f"# 总计: {len(not_records)} 个坐标\n"
+        f"# 总计: {len(all_test_records)} 个坐标"
+        f"（已在训练集: {len(in_records)}  未在训练集: {len(not_records)}）\n"
+        "# InTrain 列: yes=已在训练集  no=未在训练集\n"
         "# ---\n"
-        "Yaw\tPitch\tTag\tSource\tWriteCoords\n"
+        "Yaw\tPitch\tTag\tSource\tWriteCoords\tInTrain\tTrainLabel\n"
     )
-    with open(not_in_path, 'w', encoding="utf-8") as f:
-        f.write(header_not)
-        for yaw, pitch, tag, src, wc_str in not_records:
-            f.write(f"{yaw}\t{pitch}\t{tag}\t{src}\t{wc_str}\n")
-    _log(f"  已保存 not_in_train.txt: {not_in_path}")
+    with open(test_path, 'w', encoding="utf-8") as f:
+        f.write(header_test)
+        for yaw, pitch, tag, src, wc_str, lbl in in_records:
+            f.write(f"{yaw}\t{pitch}\t{tag}\t{src}\t{wc_str}\tyes\t{lbl}\n")
+        for yaw, pitch, tag, src, wc_str, _ in not_records:
+            f.write(f"{yaw}\t{pitch}\t{tag}\t{src}\t{wc_str}\tno\t-\n")
+    _log(f"  已保存 test_list.txt: {test_path}")
+    _prog(65)
+
+    # ── 4b. 生成 train_filtered.txt（原训练集剔除已匹配坐标） ──
+    filtered_lines = [
+        raw for raw in b_lines_raw
+        if _parse_train_line(raw)[0] not in matched
+    ]
+    filtered_path = os.path.join(output_dir, f"{base}_train_filtered.txt")
+    with open(filtered_path, 'w', encoding="utf-8") as f:
+        f.writelines(filtered_lines)
+    removed_count = len(b_lines_raw) - len(filtered_lines)
+    _log(f"  已保存 train_filtered.txt: {filtered_path}")
+    _log(f"    原训练集 {len(b_lines_raw)} 行 → 剔除 {removed_count} 行 → 剩余 {len(filtered_lines)} 行")
     _prog(80)
     if _stopped():
         return {"status": "error", "output_path": "", "figure": None, "message": "已停止"}
@@ -302,10 +279,8 @@ def run(input_path, output_dir, params,
                     out.append((meta[0], meta[1]))
             return out
 
-        yp_changed  = _get_yp(changed_1to0)   # 改了 label
-        yp_already  = _get_yp(already_0)       # 本来就是 0
-        yp_other    = _get_yp(other_label)     # 错误码
-        yp_unmatched= _get_yp(unmatched)       # 不在训练集
+        yp_matched   = _get_yp(matched)
+        yp_unmatched = _get_yp(unmatched)
 
         def _sc(pts, **kw):
             if pts:
@@ -315,21 +290,15 @@ def run(input_path, output_dir, params,
 
         _sc(yp_unmatched, c="#e74c3c", s=55, alpha=0.85, zorder=4,
             label=f"不在训练集 (待手动测试)  {len(yp_unmatched)} 个")
-        _sc(yp_changed, c="#27ae60", s=55, alpha=0.85, zorder=3,
-            label=f"已在B，label 1→0  {len(yp_changed)} 个")
-        _sc(yp_already, c="#3498db", s=40, alpha=0.7, zorder=2,
-            label=f"已在B，label=0 (未改)  {len(yp_already)} 个")
-        _sc(yp_other, c="#e67e22", marker="^", s=45, alpha=0.7, zorder=2,
-            label=f"已在B，label=错误码 (未改)  {len(yp_other)} 个")
+        _sc(yp_matched, c="#27ae60", s=45, alpha=0.8, zorder=3,
+            label=f"已在训练集 (供手动验证)  {len(yp_matched)} 个")
 
         ax.axhline(0, color='#aaaaaa', lw=0.8, ls='--', alpha=0.6)
         ax.axvline(0, color='#aaaaaa', lw=0.8, ls='--', alpha=0.6)
 
         # Pitch 轴倒置（猫头鹰方向）
-        all_y = [p[1] for pts in [yp_changed, yp_already, yp_other, yp_unmatched]
-                 for p in pts]
-        all_x = [p[0] for pts in [yp_changed, yp_already, yp_other, yp_unmatched]
-                 for p in pts]
+        all_y = [p[1] for pts in [yp_matched, yp_unmatched] for p in pts]
+        all_x = [p[0] for pts in [yp_matched, yp_unmatched] for p in pts]
         if all_y:
             ax.set_ylim(max(all_y) + 3, min(all_y) - 3)
         if all_x:
@@ -365,7 +334,7 @@ def run(input_path, output_dir, params,
         leg.get_title().set_color("black")
 
         ax.annotate(
-            f"差异坐标: {len(a_unique)}\n已在B: {len(matched)} (改0: {len(changed_1to0)})\n不在B: {len(unmatched)}",
+            f"差异坐标: {len(a_unique)}\n已在训练集: {len(matched)}\n不在训练集: {len(unmatched)}",
             xy=(0.02, 0.02), xycoords="axes fraction",
             color="#444444", fontsize=8,
             bbox=dict(boxstyle="round,pad=0.4", fc="white", alpha=0.7, ec="#cccccc")
@@ -385,10 +354,9 @@ def run(input_path, output_dir, params,
     msg = (
         f"处理完成。差异坐标 {len(a_unique)} 个：\n"
         f"  • 已在训练集中: {len(matched)} 个\n"
-        f"    - label 1→0: {len(changed_1to0)} 个\n"
-        f"    - 已为 0 (未改): {len(already_0)} 个\n"
-        f"    - 错误码标签 (未改): {len(other_label)} 个\n"
-        f"  • 不在训练集，需手动测试: {len(unmatched)} 个\n"
+        f"  • 未在训练集中: {len(unmatched)} 个\n"
+        f"  • test_list.txt: 全部 {len(all_test_records)} 个坐标（供硬件测试）\n"
+        f"  • train_filtered.txt: 原训练集剔除 {removed_count} 条后剩余 {len(filtered_lines)} 行\n"
         f"输出目录: {output_dir}"
     )
     _log(msg)
@@ -398,6 +366,6 @@ def run(input_path, output_dir, params,
         "status": "success",
         "output_path": output_dir,
         "figure": saved_fig,
-        "output_files": [mod_path, not_in_path] + ([fig_path] if fig_path else []),
+        "output_files": [test_path, filtered_path] + ([fig_path] if fig_path else []),
         "message": msg
     }

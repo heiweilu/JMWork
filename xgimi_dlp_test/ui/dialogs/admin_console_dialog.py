@@ -119,7 +119,6 @@ class AdminConsoleDialog(QDialog):
         self.edit_doc_content.setAcceptRichText(False)
         self.edit_doc_content.setPlaceholderText(
             "在此输入 Markdown 内容…\n提示：可直接 Ctrl+V 粘贴截图（自动转为 base64 图片插入）")
-        self.edit_doc_content.textChanged.connect(self._update_preview)
         form.addRow('文档分类', self.edit_doc_category)
         form.addRow('文档标题', self.edit_doc_title)
         form.addRow('文档内容', self.edit_doc_content)
@@ -128,9 +127,22 @@ class AdminConsoleDialog(QDialog):
         preview_wrap = QWidget()
         preview_layout = QVBoxLayout(preview_wrap)
         preview_layout.setContentsMargins(0, 0, 0, 0)
-        preview_layout.setSpacing(8)
-        preview_layout.addWidget(QLabel('Markdown 预览'))
+        preview_layout.setSpacing(4)
+        # 预览头部条：标题 + 切换按鈕
+        _pv_header = QHBoxLayout()
+        _pv_header.addWidget(QLabel('Markdown 预览'))
+        self._btn_toggle_preview = QPushButton('预览 ▼')
+        self._btn_toggle_preview.setFixedHeight(24)
+        self._btn_toggle_preview.setCheckable(True)
+        self._btn_toggle_preview.setChecked(False)
+        self._btn_toggle_preview.setStyleSheet(
+            'QPushButton{font-size:11px;padding:2px 10px;border-radius:4px;}')
+        self._btn_toggle_preview.clicked.connect(self._on_toggle_preview)
+        _pv_header.addWidget(self._btn_toggle_preview)
+        _pv_header.addStretch()
+        preview_layout.addLayout(_pv_header)
         self.preview = QTextBrowser()
+        self.preview.setVisible(False)   # 默认隐藏
         preview_layout.addWidget(self.preview, 1)
         right.addWidget(editor_wrap)
         right.addWidget(preview_wrap)
@@ -234,7 +246,18 @@ class AdminConsoleDialog(QDialog):
         self._refresh_doc_list()
         self.list_docs.setCurrentItem(self._find_item_by_index(new_row))
 
+    def _on_toggle_preview(self, checked: bool):
+        """切换 Markdown 预览区的可见性。"""
+        self._btn_toggle_preview.setText('预览 ▲' if checked else '预览 ▼')
+        self.preview.setVisible(checked)
+        if checked:
+            # 展开时立即渲染一次
+            self._update_preview()
+
     def _update_preview(self):
+        """渲染 Markdown 预览（仅在预览可见时执行）。"""
+        if not self.preview.isVisible():
+            return
         self.preview.setHtml(render_markdown_html(self.edit_doc_content.toPlainText()))
 
     def _import_doc(self):

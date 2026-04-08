@@ -152,13 +152,13 @@
         },
         {
           "name": "下点（需要修改坐标）",
-          "cmd": "gmpfUnit correctKeystone2 0 1622 0 3756 134 340 1834 3590 2158\ngmpfUnit correctKeystone2 0 1642 0 3744 152 382 1796 3558 2158",
-          "desc": ""
+          "cmd": "gmpfUnit correctKeystone2 0 414 0 3472 524 0 1574 3838 1966",
+          "desc": "投影仪打开手动AK页面，使用此命令下点"
         },
         {
           "name": "logcat | grep svm&    1通过|0不通过",
           "cmd": "logcat -c; logcat | grep -iE \"svm\" &",
-          "desc": "如果svm给1（不拦截），但是光机拦截（调整了画面，返回后变回全屏），则svm拦截失败. svm=0（拦截），切回页面不全屏，拦截成功。"
+          "desc": "如果svm给1（不拦截），但是光机拦截（手动AK页面调整了画面，返回后变回全屏），则svm拦截失败. svm=0（拦截），切回页面不全屏，拦截成功。"
         },
         {
           "name": "获取当前梯形坐标点",
