@@ -1,7 +1,7 @@
 {
   "version": 2,
   "theme": {
-    "dark_mode": false
+    "dark_mode": true
   },
   "custom_commands": [
     {

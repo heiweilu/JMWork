@@ -266,6 +266,11 @@ class _TerminalTextEdit(QTextEdit):
         Qt.Key.Key_Home, Qt.Key.Key_End, Qt.Key.Key_PageUp, Qt.Key.Key_PageDown,
     })
 
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # 在 viewport 上安装自己的事件过滤，用于 Ctrl+滚轮缩放
+        self.viewport().installEventFilter(self)
+
     def keyPressEvent(self, event):
         """方向键/翻页键放行；可打印字符/退格/删除在当前位置操作；
         → 键不允许进入幽灵段落；Enter 在非末尾时回滚到终端末尾（不插入空行）。
@@ -303,6 +308,35 @@ class _TerminalTextEdit(QTextEdit):
             super().keyPressEvent(event)
         else:
             event.accept()   # 消化事件，不插入文字
+
+    def wheelEvent(self, event):
+        """Ctrl+滚轮：通过 viewport 事件过滤器拦截，此处仅处理普通滚动。"""
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            # 让 viewport eventFilter 处理，这里直接执行缩放作为后备
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self.zoomIn(1)
+            else:
+                self.zoomOut(1)
+            event.accept()
+            return
+        super().wheelEvent(event)
+
+    def eventFilter(self, obj, event):
+        """自带 viewport 事件过滤：拦截 Ctrl+滚轮实现字体缩放。"""
+        from PyQt6.QtCore import QEvent
+        if obj is self.viewport() and event.type() == QEvent.Type.Wheel:
+            ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+            print(f"[DEBUG] viewport Wheel: modifiers={event.modifiers()}, ctrl={ctrl}, delta={event.angleDelta().y()}")
+            if ctrl:
+                delta = event.angleDelta().y()
+                if delta > 0:
+                    self.zoomIn(1)
+                else:
+                    self.zoomOut(1)
+                event.accept()
+                return True  # 消费事件，阻止 Qt 自带 Ctrl+Wheel 行为
+        return super().eventFilter(obj, event)
 
     def insertFromMimeData(self, source):
         """禁止右键粘贴或拖拽直接修改终端内容（Ctrl+V 由 eventFilter 转发至串口）。"""
@@ -479,7 +513,7 @@ class SerialPage(QWidget):
         # 初始化时加载所有数据
         self._load_all_data()
         # 主题状态
-        self._dark_mode = bool(self._serial_state.get('theme', {}).get('dark_mode', False))
+        self._dark_mode = bool(self._serial_state.get('theme', {}).get('dark_mode', True))
         self._sys_err_color = _DARK['sys_err']
         self._port_bar_labels = []   # 端口栏标签引用（主题更新用）
         # 命令历史与 Tab 补全
@@ -747,9 +781,10 @@ class SerialPage(QWidget):
 
     def _build_terminal(self) -> QTextEdit:
         self.terminal = _TerminalTextEdit()
-        self.terminal.setFont(QFont("Consolas", 10))
+        self.terminal.setFont(QFont("Microsoft YaHei", 10))
         self.terminal.setMinimumHeight(300)
         self.terminal.installEventFilter(self)   # 键盘输入路由 + Ctrl+F
+        self.terminal.viewport().installEventFilter(self)   # Ctrl+滚轮缩放
         # 设置光标样式，让用户知道可以在此直接输入
         self.terminal.setCursorWidth(4)
         self.terminal.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -771,7 +806,7 @@ class SerialPage(QWidget):
 
         self.input_line = _VisibleCursorLineEdit()
         self.input_line.setPlaceholderText("输入指令，按 Enter 发送 | ↑↓ 历史 | Tab 补全...")
-        self.input_line.setFont(QFont("Consolas", 10))
+        self.input_line.setFont(QFont("Microsoft YaHei", 10))
         self.input_line.returnPressed.connect(self._on_send)
         self.input_line.installEventFilter(self)   # Tab/上下键拦截
         layout.addWidget(self.input_line, stretch=1)
@@ -814,36 +849,22 @@ class SerialPage(QWidget):
         )
 
     def _update_cursor_highlight(self):
-        """将当前光标位置的字符高亮为亮色块，方便定位。
-        光标在文档末尾时（自动滚动触发）清除 ExtraSelection，
-        依赖原生 4px 光标显示；不在末尾时高亮光标所在字符。
-        """
+        """光标位置变化时维护自动滚动状态（蓝色方块已移除，仅依赖原生 4px 光标）。"""
         c = QTextCursor(self.terminal.textCursor())
         c.movePosition(
             QTextCursor.MoveOperation.Right,
             QTextCursor.MoveMode.KeepAnchor, 1
         )
         if not c.hasSelection():
-            # 光标在文档末尾 → 清除 ExtraSelection，靠原生 4px 光标指示位置
-            if self._cursor_extra_sel:
-                self._cursor_extra_sel = []
-                self._refresh_extra_sels()
             self._maybe_pause_autoscroll(at_end=True)
-            return
-        self._maybe_pause_autoscroll(at_end=False)
-        fmt = QTextCharFormat()
-        fmt.setBackground(QColor('#00bcd4'))   # 亮青色
-        fmt.setForeground(QColor('#000000'))   # 黑色文字
-        sel = QTextEdit.ExtraSelection()
-        sel.cursor = c
-        sel.format = fmt
-        self._cursor_extra_sel = [sel]
-        self._refresh_extra_sels()
+        else:
+            self._maybe_pause_autoscroll(at_end=False)
 
     def _maybe_pause_autoscroll(self, at_end: bool):
         """光标离开文档末尾时暂停自动滚动，回到末尾时恢复。
         - 光标在内联输入缓冲区内（cursor >= anchor）→ 保持输入模式，不暂停
-        - 光标移到缓冲区之前 → 静默取消输入模式并暂停
+        - 鼠标点击导致光标移走 → 仅暂停自动滚动，不取消输入（Bug3修复）
+        - 键盘导航到缓冲区之前 → 静默取消输入模式并暂停
         """
         if not at_end:
             if getattr(self, '_terminal_input_mode', False):
@@ -852,7 +873,11 @@ class SerialPage(QWidget):
                     # 光标在输入缓冲区内（← 在蓝字中导航）→ 保持输入模式
                     self._nav_paused = False
                     return
-                # 光标移到缓冲区起点之前 → 静默取消（不触发嵌套信号）
+                # Bug3修复：鼠标点击时不取消内联输入，仅暂停自动滚动
+                if QApplication.mouseButtons() != Qt.MouseButton.NoButton:
+                    self._nav_paused = True
+                    return
+                # 键盘导航到缓冲区起点之前 → 静默取消（不触发嵌套信号）
                 self._terminal_cancel_input_silent()
         self._nav_paused = not at_end
 
@@ -871,7 +896,7 @@ class SerialPage(QWidget):
 
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("输入关键词，Enter 搜索下一个...")
-        self.search_edit.setFont(QFont("Consolas", 10))
+        self.search_edit.setFont(QFont("Microsoft YaHei", 10))
         self.search_edit.returnPressed.connect(self._on_search_next)
         self.search_edit.textChanged.connect(self._on_search_text_changed)
         layout.addWidget(self.search_edit, stretch=1)
@@ -2215,35 +2240,44 @@ class SerialPage(QWidget):
     #  终端内联输入（WindTerm 风格）
     # ──────────────────────────────────────────────────────────────────────────
     def _terminal_enter_input_mode(self, first_char: str = ''):
-        """进入内联输入模式：在终端末尾直接输入，不显示特殊提示符。"""
+        """进入内联输入模式：在最后一个非空行末尾输入，不换行、不变色。"""
         self._terminal_input_mode = True
         self._terminal_input_buf = first_char
         cur = self.terminal.textCursor()
         cur.movePosition(QTextCursor.MoveOperation.End)
-        # 若末尾不是换行，先补一个（确保输入区在新行开始）
         doc_text = self.terminal.toPlainText()
-        if doc_text and not doc_text.endswith('\n'):
+        if not doc_text.endswith('\n'):
+            # 末尾无换行，先补一个确保有 \n 分隔
             fmt_nl = QTextCharFormat()
             fmt_nl.setForeground(QColor('#C9D1D9'))
             cur.insertText('\n', fmt_nl)
-        # 锚点在用户输入内容的起始位置（无提示符前缀）
-        self._terminal_input_anchor = cur.position()
-        # 插入第一个字符
+            doc_text = self.terminal.toPlainText()
+        # 找到最后一个非空行末尾位置：
+        # 先去掉尾部所有 \n，再去掉该行末尾多余空白，避免 Tab 补全的空格对齐
+        stripped = doc_text.rstrip('\n')
+        # 逐行找最后一行，去掉行尾空格
+        last_newline = stripped.rfind('\n')
+        last_line = stripped[last_newline + 1:] if last_newline >= 0 else stripped
+        anchor_pos = last_newline + 1 + len(last_line.rstrip())
+        cur.setPosition(anchor_pos)
+        self._terminal_input_anchor = anchor_pos
+        # 插入第一个字符（加粗+白色高亮，与历史输出区分）
         if first_char:
             fmt_input = QTextCharFormat()
-            fmt_input.setForeground(QColor('#79C0FF'))
+            fmt_input.setForeground(QColor('#FFFFFF'))
+            fmt_input.setFontWeight(700)
             cur.insertText(first_char, fmt_input)
         self.terminal.setTextCursor(cur)
         self.terminal.ensureCursorVisible()
 
     def _terminal_commit_input(self):
-        """提交内联输入：先从终端移除已输内容，再清除状态。"""
+        """提交内联输入：移除已输字符（保留末尾 \\n），清除状态。"""
         if self._terminal_input_anchor >= 0:
-            # anchor 直接指向输入内容起始位置（无前缀符号）
+            buf_len = len(self._terminal_input_buf)
             cur = self.terminal.textCursor()
             cur.setPosition(self._terminal_input_anchor)
-            cur.movePosition(QTextCursor.MoveOperation.End,
-                             QTextCursor.MoveMode.KeepAnchor)
+            cur.movePosition(QTextCursor.MoveOperation.Right,
+                             QTextCursor.MoveMode.KeepAnchor, buf_len)
             cur.removeSelectedText()
             self.terminal.setTextCursor(cur)
         self._terminal_input_mode = False
@@ -2265,13 +2299,15 @@ class SerialPage(QWidget):
         # 计算需要在终端末尾替换的字符数
         old_len = len(self._terminal_input_buf)
         new_len = len(new_text)
-        # 删除末尾 old_len 个字符（已输入内容），追加 new_text
+        # 删除已输字符（从 anchor 精确选中 old_len 个），追加 new_text（加粗白色）
         cur = self.terminal.textCursor()
-        cur.movePosition(QTextCursor.MoveOperation.End)
-        for _ in range(old_len):
-            cur.deletePreviousChar()
+        cur.setPosition(self._terminal_input_anchor)
+        cur.movePosition(QTextCursor.MoveOperation.Right,
+                         QTextCursor.MoveMode.KeepAnchor, old_len)
+        cur.removeSelectedText()
         fmt = QTextCharFormat()
-        fmt.setForeground(QColor('#79C0FF'))
+        fmt.setForeground(QColor('#FFFFFF'))
+        fmt.setFontWeight(700)
         cur.insertText(new_text, fmt)
         self.terminal.setTextCursor(cur)
         self.terminal.ensureCursorVisible()
@@ -2295,23 +2331,26 @@ class SerialPage(QWidget):
 
         old_len = len(self._terminal_input_buf)
         cur = self.terminal.textCursor()
-        cur.movePosition(QTextCursor.MoveOperation.End)
-        for _ in range(old_len):
-            cur.deletePreviousChar()
+        cur.setPosition(self._terminal_input_anchor)
+        cur.movePosition(QTextCursor.MoveOperation.Right,
+                         QTextCursor.MoveMode.KeepAnchor, old_len)
+        cur.removeSelectedText()
         fmt = QTextCharFormat()
-        fmt.setForeground(QColor('#79C0FF'))
+        fmt.setForeground(QColor('#FFFFFF'))
+        fmt.setFontWeight(700)
         cur.insertText(new_text, fmt)
         self.terminal.setTextCursor(cur)
         self.terminal.ensureCursorVisible()
         self._terminal_input_buf = new_text
 
     def _terminal_cancel_input(self):
-        """取消内联输入：删除已输入的文字。"""
+        """取消内联输入：删除已输字符（保留末尾 \\n）。"""
         if self._terminal_input_anchor >= 0:
-            # anchor 直接指向输入内容起始位置（无前缀符号）
             cur = self.terminal.textCursor()
             cur.setPosition(self._terminal_input_anchor)
             cur.movePosition(QTextCursor.MoveOperation.End,
+                             QTextCursor.MoveMode.KeepAnchor)
+            cur.movePosition(QTextCursor.MoveOperation.PreviousCharacter,
                              QTextCursor.MoveMode.KeepAnchor)
             cur.removeSelectedText()
             self.terminal.setTextCursor(cur)
@@ -2320,15 +2359,13 @@ class SerialPage(QWidget):
         self._terminal_input_buf = ''
 
     def _terminal_cancel_input_silent(self):
-        """静默取消内联输入：删除蓝字但不调用 setTextCursor（避免触发嵌套信号）。
-        用于 _maybe_pause_autoscroll 内部，防止递归 cursorPositionChanged 覆写状态。
-        """
+        """静默取消内联输入：删除已输字符（保留末尾 \\n），不调用 setTextCursor。"""
         if self._terminal_input_anchor >= 0:
-            # 使用文档 cursor 操作，不影响 QTextEdit 的显示光标位置
+            buf_len = len(self._terminal_input_buf)
             cur = QTextCursor(self.terminal.document())
             cur.setPosition(self._terminal_input_anchor)
-            cur.movePosition(QTextCursor.MoveOperation.End,
-                             QTextCursor.MoveMode.KeepAnchor)
+            cur.movePosition(QTextCursor.MoveOperation.Right,
+                             QTextCursor.MoveMode.KeepAnchor, buf_len)
             cur.removeSelectedText()
         self._terminal_input_mode = False
         self._terminal_input_anchor = -1
@@ -2378,16 +2415,52 @@ class SerialPage(QWidget):
                             pass
                     return True
 
-                # Ctrl+V：粘贴 → 将剪贴板文本逐字符发送到串口
+                # Ctrl+V：粘贴
+                # - 内联输入模式：将剪贴板文本追加到 buf，由 Enter 统一带换行发送
+                # - 非内联输入模式：直接发送到串口（维持原行为）
                 if (modifiers == Qt.KeyboardModifier.ControlModifier
                         and key == Qt.Key.Key_V):
                     clipboard = QApplication.clipboard()
                     text = clipboard.text() if clipboard else ''
-                    if text and self._serial and self._serial.is_open:
+                    if not text:
+                        return True
+                    # 过滤换行符（只保留可打印内容，换行由 Enter 按键发送）
+                    text = text.replace('\r\n', ' ').replace('\r', ' ').replace('\n', ' ')
+                    if self._terminal_input_mode:
+                        # 追加到当前 buf 并显示在终端
+                        offset = len(self._terminal_input_buf)
+                        self._terminal_input_buf += text
+                        insert_pos = self._terminal_input_anchor + offset
+                        cur = self.terminal.textCursor()
+                        cur.setPosition(insert_pos)
+                        fmt = QTextCharFormat()
+                        fmt.setForeground(QColor('#FFFFFF'))
+                        fmt.setFontWeight(700)
+                        cur.insertText(text, fmt)
+                        self.terminal.setTextCursor(cur)
+                        self.terminal.ensureCursorVisible()
+                    elif self._serial and self._serial.is_open:
+                        # 非内联输入模式：直接发送
                         try:
                             self._serial.write(text.encode('utf-8', errors='replace'))
                         except Exception as e:
                             self._sys_msg(f'粘贴发送失败: {e}', error=True)
+                    else:
+                        # 没有活跃输入模式也没有串口 → 进入内联输入模式显示粘贴内容
+                        self._terminal_enter_input_mode(text[0])
+                        if len(text) > 1:
+                            extra = text[1:]
+                            offset = 1
+                            self._terminal_input_buf += extra
+                            insert_pos = self._terminal_input_anchor + offset
+                            cur = self.terminal.textCursor()
+                            cur.setPosition(insert_pos)
+                            fmt = QTextCharFormat()
+                            fmt.setForeground(QColor('#FFFFFF'))
+                            fmt.setFontWeight(700)
+                            cur.insertText(extra, fmt)
+                            self.terminal.setTextCursor(cur)
+                            self.terminal.ensureCursorVisible()
                     return True
 
                 # Ctrl+字母 → 直接发送控制字符（与原 input_line 中的逻辑一致）
@@ -2474,11 +2547,47 @@ class SerialPage(QWidget):
 
                     if key == Qt.Key.Key_Backspace:
                         if self._terminal_input_buf:
-                            self._terminal_input_buf = self._terminal_input_buf[:-1]
-                            cur = self.terminal.textCursor()
-                            cur.movePosition(QTextCursor.MoveOperation.End)
-                            cur.deletePreviousChar()
-                            self.terminal.setTextCursor(cur)
+                            cur_pos = self.terminal.textCursor().position()
+                            offset = cur_pos - self._terminal_input_anchor
+                            # 限定在 [1, len(buf)] 范围：删光标前一个字符
+                            if 1 <= offset <= len(self._terminal_input_buf):
+                                self._terminal_input_buf = (
+                                    self._terminal_input_buf[:offset - 1]
+                                    + self._terminal_input_buf[offset:])
+                                cur = self.terminal.textCursor()
+                                cur.setPosition(cur_pos)
+                                cur.deletePreviousChar()
+                                self.terminal.setTextCursor(cur)
+                        return True
+
+                    # ← 方向键：防止光标越过 anchor（否则触发 cancel）
+                    if key == Qt.Key.Key_Left:
+                        cur_pos = self.terminal.textCursor().position()
+                        if cur_pos <= self._terminal_input_anchor:
+                            return True  # 已到达最左端，不再左移
+                        return False  # 放行，让 QTextEdit 处理光标移动
+
+                    # → 方向键：防止光标越过输入范围末尾
+                    if key == Qt.Key.Key_Right:
+                        cur_pos = self.terminal.textCursor().position()
+                        max_pos = self._terminal_input_anchor + len(self._terminal_input_buf)
+                        if cur_pos >= max_pos:
+                            return True  # 已到达最右端
+                        return False
+
+                    # Home：跳到输入起始
+                    if key == Qt.Key.Key_Home:
+                        cur = self.terminal.textCursor()
+                        cur.setPosition(self._terminal_input_anchor)
+                        self.terminal.setTextCursor(cur)
+                        return True
+
+                    # End：跳到输入末尾
+                    if key == Qt.Key.Key_End:
+                        end_pos = self._terminal_input_anchor + len(self._terminal_input_buf)
+                        cur = self.terminal.textCursor()
+                        cur.setPosition(end_pos)
+                        self.terminal.setTextCursor(cur)
                         return True
 
                     if key == Qt.Key.Key_Up:
@@ -2490,10 +2599,17 @@ class SerialPage(QWidget):
                         return True
 
                     if key == Qt.Key.Key_Tab:
-                        if self._is_tab_passthrough_enabled():
-                            self._send_tab_character()
-                        else:
-                            self._terminal_tab_complete()
+                        # 内联输入模式 Tab：将已输内容 + \t 一起发给设备，
+                        # 由设备回显补全结果，退出本地 inline input 状态
+                        if self._serial and self._serial.is_open:
+                            buf = self._terminal_input_buf
+                            self._terminal_commit_input()   # 清除终端里已输字符
+                            try:
+                                payload = buf.encode('utf-8') + b'\t'
+                                self._serial.write(payload)
+                                self._log_lines.append(f'[TX] {buf}\\t')
+                            except Exception as e:
+                                self._sys_msg(f'发送 Tab 失败: {e}', error=True)
                         return True
 
                     if key == Qt.Key.Key_Escape:
@@ -2504,11 +2620,20 @@ class SerialPage(QWidget):
                     if char and (char.isprintable() or char == ' ') and modifiers in (
                             Qt.KeyboardModifier.NoModifier,
                             Qt.KeyboardModifier.ShiftModifier):
-                        self._terminal_input_buf += char
+                        # 光标位置插入（支持在已输内容中间插入）
+                        cur_pos = self.terminal.textCursor().position()
+                        offset = cur_pos - self._terminal_input_anchor
+                        offset = max(0, min(offset, len(self._terminal_input_buf)))
+                        self._terminal_input_buf = (
+                            self._terminal_input_buf[:offset]
+                            + char
+                            + self._terminal_input_buf[offset:])
+                        insert_pos = self._terminal_input_anchor + offset
                         cur = self.terminal.textCursor()
-                        cur.movePosition(QTextCursor.MoveOperation.End)
+                        cur.setPosition(insert_pos)
                         fmt = QTextCharFormat()
-                        fmt.setForeground(QColor('#79C0FF'))
+                        fmt.setForeground(QColor('#FFFFFF'))  # 加粗白色高亮
+                        fmt.setFontWeight(700)
                         cur.insertText(char, fmt)
                         self.terminal.setTextCursor(cur)
                         self.terminal.ensureCursorVisible()
@@ -2517,19 +2642,30 @@ class SerialPage(QWidget):
                     # 其他键（翻页、方向键）保留给终端滚动
                     return False
 
+                # ── Bug1修复：非输入模式末尾按 Enter → 发空回车到串口 ───────
+                if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    cur_pos = self.terminal.textCursor().position()
+                    doc_end = self.terminal.document().characterCount() - 1
+                    if cur_pos >= doc_end:
+                        self._send_command('')
+                        return True
+
                 # ── 非直通模式：终端内打字进入内联输入（CMD 风格） ──────────
                 char = event.text()
                 if char and char.isprintable() and modifiers in (
                         Qt.KeyboardModifier.NoModifier,
                         Qt.KeyboardModifier.ShiftModifier):
-                    # 仅光标在末尾时进入内联输入模式（发往串口）；
-                    # 不在末尾时放行给 keyPressEvent 在当前位置插入（文本编辑模式）
                     cur_pos = self.terminal.textCursor().position()
                     doc_end = self.terminal.document().characterCount() - 1
                     if cur_pos >= doc_end:
                         self._terminal_enter_input_mode(char)
                         return True
-                    return False
+                    # Bug2修复：光标不在末尾（鼠标点击中间后打字）→ 强制移到末尾再输入
+                    cur = self.terminal.textCursor()
+                    cur.movePosition(QTextCursor.MoveOperation.End)
+                    self.terminal.setTextCursor(cur)
+                    self._terminal_enter_input_mode(char)
+                    return True
 
                 # 方向键/翻页键等放行（QTextEdit 原生移动光标 → ExtraSelection 跟随）
                 return False
@@ -3195,21 +3331,25 @@ class SerialPage(QWidget):
         fmt.setForeground(QColor(color))
 
         if self._terminal_input_mode and self._terminal_input_anchor >= 0:
-            # 内联输入模式：将新数据插入到已输内容"上方"，保留已输内容
+            # 内联输入模式：新数据插入已输内容之前，保留已输内容（不换行、不变色）
             saved_buf = self._terminal_input_buf
-            # 删除已输内容（从 anchor 到末尾，无前缀符号）
+            # 1. 精确删除已输字符：从 anchor 向右 len(buf) 个字符（保留末尾 \n）
             cursor = self.terminal.textCursor()
             cursor.setPosition(self._terminal_input_anchor)
-            cursor.movePosition(QTextCursor.MoveOperation.End,
-                                QTextCursor.MoveMode.KeepAnchor)
+            cursor.movePosition(QTextCursor.MoveOperation.Right,
+                                QTextCursor.MoveMode.KeepAnchor, len(saved_buf))
             cursor.removeSelectedText()
-            # 插入新数据
-            cursor.insertText(new_line, fmt)
-            # 更新锚点后重新插入已输内容（无➤前缀）
+            # 2. 移到 End（跨过保留的 \n），再插入新设备数据
+            cursor.movePosition(QTextCursor.MoveOperation.End)
+            cursor.insertText(new_line, fmt)  # new_line 以 \n 结尾
+            # 3. 锚点设在新行末尾 \n 之前
+            cursor.movePosition(QTextCursor.MoveOperation.PreviousCharacter)
             self._terminal_input_anchor = cursor.position()
+            # 4. 不变色重新插入已输内容
             if saved_buf:
                 fmt_input = QTextCharFormat()
-                fmt_input.setForeground(QColor('#79C0FF'))
+                fmt_input.setForeground(QColor('#FFFFFF'))
+                fmt_input.setFontWeight(700)
                 cursor.insertText(saved_buf, fmt_input)
             self._terminal_input_buf = saved_buf
             if not getattr(self, '_nav_paused', False):
@@ -4297,7 +4437,7 @@ class SerialPage(QWidget):
     def _load_all_data(self):
         self._serial_state = {
             'version': 2,
-            'theme': {'dark_mode': False},
+            'theme': {'dark_mode': True},
             'custom_commands': list(_DEFAULT_CUSTOM_CMDS),
             'fixed_sections': {},
             'dynamic_sections': [],
@@ -4322,7 +4462,7 @@ class SerialPage(QWidget):
             self._serial_state.setdefault('theme', {})
             self._serial_state['theme'].setdefault(
                 'dark_mode',
-                bool(self._config_mgr.get('serial.dark_mode', False)),
+                bool(self._config_mgr.get('serial.dark_mode', True)),
             )
 
     def _apply_builtin_state(self, fixed_sections: dict):

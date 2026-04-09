@@ -85,7 +85,13 @@
       "title": "ADB",
       "category": "未分类",
       "format": "markdown",
-      "content": "# 国内\n机器联网\nxgimitools->开发者选项->adb\n\n```\nadb connect <ip>\n```\n\n# 国外\n机器联网\nxgimitools->开发者选项->adb\n设置->开发者选项->打开无线调试\n\n```\nadb connect <ip:port>\n```\n\n# 指令\n```\nadb devices\nadb shell\nadb push\nadb kill-server; adb start-server\n```"
+      "content": "# 加入环境变量\n```\necho 'export PATH=$PATH:/workspace/android/out/host/linux-x86/bin' >> ~/.bashrc\nsource ~/.bashrc\n```\n\n# 国内\n机器联网\nxgimitools->开发者选项->adb\n\n```\nadb connect <ip>\n```\n\n# 国外\n机器联网\nxgimitools->开发者选项->adb\n设置->开发者选项->打开无线调试\n\n```\nadb connect <ip:port>\n```\n\n# 常用 adb 命令\n```\nadb devices          # 查看设备\nadb shell            # 进入设备命令行\nadb push <local> <remote>   # 推送文件\nadb pull <remote> <local> # 拉取文件\nadb logcat           # 查看日志\nadb reboot           # 重启设备\nadb shell kill -9 $(adb shell pidof gmpfService) # 重启服务（或重启设备）\n\nadb kill-server; adb start-server  # 重启adb服务\n```"
+    },
+    {
+      "title": "账户",
+      "category": "未分类",
+      "format": "markdown",
+      "content": "# Google TV\n账号：fangzhenS402@gmail.com  \n电话：07908135514 \n密码：cqupt402\n\ninput text \"fangzhenS402@gmail.com\"\ninput text \"cqupt402\""
     }
   ]
 }
