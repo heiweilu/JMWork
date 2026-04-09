@@ -1,0 +1,14 @@
+{
+  "training_mode": "optimized_builtin",
+  "input_format": "txt_raw",
+  "errorcode_filter": "label_ec_gt1",
+  "shuffle_seed": 42,
+  "train_ratio": 0.8,
+  "svm_kernel": "rbf",
+  "svm_c": 1.0,
+  "svm_gamma": 0.1,
+  "run_cv": true,
+  "k_folds": 5,
+  "run_grid_search": true,
+  "project_root": "D:\\software\\heiweilu\\workspace\\xgimi\\code\\xgimi_dlp_test"
+}

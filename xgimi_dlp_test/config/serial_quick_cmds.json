@@ -183,25 +183,6 @@
       ]
     },
     {
-      "id": "dyn:1774350309133",
-      "title": "ADB",
-      "parent_id": "",
-      "hint": "",
-      "commands": []
-    },
-    {
-      "id": "dyn:1774350334465",
-      "title": "常用",
-      "parent_id": "dyn:1774350309133",
-      "hint": "",
-      "commands": [
-        {
-          "name": "重启ADB",
-          "cmd": "adb kill-server; adb start-server"
-        }
-      ]
-    },
-    {
       "id": "dyn:1774409685107",
       "title": "DLP/AK",
       "parent_id": "",
@@ -364,8 +345,6 @@
     "system_tools",
     "custom_commands",
     "dyn:1773910651940",
-    "dyn:1774350309133",
-    "dyn:1774350334465",
     "dyn:1774409685107",
     "dyn:1774409696889",
     "dyn:1774410167772",

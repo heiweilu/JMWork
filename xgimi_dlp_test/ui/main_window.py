@@ -17,7 +17,7 @@ from PyQt6.QtGui import QIcon, QFont
 from ui.styles import MAIN_STYLE
 from ui.widgets.log_panel import LogPanel
 from ui.widgets.progress_bar import ProgressWidget
-from ui.widgets.particle_bg import ParticleBg
+# from ui.widgets.particle_bg import ParticleBg  # 已移除粒子特效
 from ui.pages.analysis_page import AnalysisPage
 from ui.pages.preprocessing_page import PreprocessingPage
 from ui.pages.config_page import ConfigPage
@@ -78,11 +78,6 @@ class MainWindow(QMainWindow):
 
         self._init_ui()
         self._init_status_bar()
-        # 粒子背景层（置于最顶层䯕袍，WA_TransparentForMouseEvents 确保交互不受影响）
-        central = self.centralWidget()
-        self._particle_bg = ParticleBg(parent=central)
-        self._particle_bg.resize(central.size())
-        self._particle_bg.raise_()  # 置顶层覆盖全屏
         # 导航栏霓虹脉冲光晕
         self._nav_neon = NeonPulse(
             self.nav_list,
@@ -460,13 +455,7 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage(msg)
 
     def resizeEvent(self, event):  # noqa: N802
-        """窗口大小变化时同步调整粒子背景层"""
         super().resizeEvent(event)
-        if hasattr(self, "_particle_bg"):
-            central = self.centralWidget()
-            if central:
-                self._particle_bg.resize(central.size())
-                self._particle_bg.raise_()  # 始终保持顶层
 
     def refresh_modules(self):
         """刷新所有页面的模块列表"""
