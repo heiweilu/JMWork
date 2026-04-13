@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """设备联调台页面。"""
 
 import ast
@@ -11,6 +11,7 @@ import cv2
 from PyQt6.QtCore import QEvent, QPoint, QTimer, Qt, QUrl, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QDesktopServices, QImage, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
+    QAbstractItemView,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
@@ -786,6 +787,7 @@ class ScriptStepDialog(QDialog):
         "setting": "快捷配置",
         "shortcut": "快捷指令",
         "serial": "串口指令",
+        "serial_check": "条件检查",
         "wait": "等待",
         "set_variable": "变量赋值",
         "capture_snapshot": "抓拍保存",
@@ -798,6 +800,7 @@ class ScriptStepDialog(QDialog):
         "setting": "按名称引用左侧“配置项2 快捷配置”，适合复用一组稳定配置。",
         "shortcut": "按名称引用左侧“遥控快捷指令”，适合复用按键或相机动作。",
         "serial": "直接写要发给设备的原始串口命令。",
+        "serial_check": "发送串口指令后，等待设备回发内容并与参考值比较，根据匹配结果决定是否继续后续步骤。",
         "wait": "仅等待，不发串口；适合留给系统加载或界面切换。",
         "set_variable": "给剧本变量赋值，后续指令和条件表达式都可以引用。",
         "capture_snapshot": "保存当前相机画面到设备联调抓拍目录。",
@@ -806,13 +809,15 @@ class ScriptStepDialog(QDialog):
         "green_screen_detect": "连续检测当前画面是否出现大面积绿屏；支持 ROI、结果变量、失败恢复和重试。",
     }
 
-    def __init__(self, quick_settings: List[Dict[str, Any]], shortcuts: List[Dict[str, Any]], data: Optional[Dict[str, Any]] = None, parent=None):
+    def __init__(self, quick_settings: List[Dict[str, Any]], shortcuts: List[Dict[str, Any]], data: Optional[Dict[str, Any]] = None, serial_check_presets: Optional[List[Dict[str, Any]]] = None, on_presets_changed=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("编辑剧本步骤")
         self.resize(1280, 900)
         values = data or {}
         self._green_preview_image = None
         self._green_preview_path = values.get("green_preview_image", "")
+        self._serial_check_presets: List[Dict[str, Any]] = serial_check_presets if serial_check_presets is not None else []
+        self._on_presets_changed = on_presets_changed
 
         layout = QVBoxLayout(self)
         body_splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -899,6 +904,50 @@ class ScriptStepDialog(QDialog):
 
         self.edit_result_variable = QLineEdit(values.get("result_variable", ""))
         self.edit_result_variable.setPlaceholderText("例如 boot_ok，检图结果会写入 true/false")
+
+        # --- 条件检查专用控件 ---
+        self.edit_check_reference = QLineEdit(values.get("check_reference", ""))
+        self.edit_check_reference.setPlaceholderText("例如 getactparam: 1985560818，设备回发中包含该文本则视为匹配")
+
+        self.combo_check_mode = QComboBox()
+        self.combo_check_mode.addItem("包含（回发中含有参考值）", "contains")
+        self.combo_check_mode.addItem("不包含（回发中不含参考值）", "not_contains")
+        self.combo_check_mode.addItem("精确匹配（某行完全等于参考值）", "exact")
+        self.combo_check_mode.addItem("正则匹配（按正则表达式匹配回发）", "regex")
+        check_mode_index = self.combo_check_mode.findData(values.get("check_mode", "contains"))
+        self.combo_check_mode.setCurrentIndex(check_mode_index if check_mode_index >= 0 else 0)
+
+        self.combo_check_fail_action = QComboBox()
+        self.combo_check_fail_action.addItem("停止剧本（不匹配则停止）", "stop")
+        self.combo_check_fail_action.addItem("继续执行（不匹配也继续）", "continue")
+        fail_action_index = self.combo_check_fail_action.findData(values.get("check_fail_action", "stop"))
+        self.combo_check_fail_action.setCurrentIndex(fail_action_index if fail_action_index >= 0 else 0)
+
+        self.spin_check_timeout = QSpinBox()
+        self.spin_check_timeout.setRange(500, 60000)
+        self.spin_check_timeout.setSingleStep(500)
+        self.spin_check_timeout.setValue(int(values.get("check_timeout_ms", 3000) or 3000))
+        self.spin_check_timeout.setSuffix(" ms")
+
+        # --- 条件检查预设控件 ---
+        self.combo_check_preset = QComboBox()
+        self.combo_check_preset.setMinimumWidth(200)
+        self._fill_preset_combo()
+        self.combo_check_preset.currentIndexChanged.connect(self._on_check_preset_selected)
+        _btn_save_preset = QPushButton("保存为预设")
+        _btn_save_preset.setFixedWidth(96)
+        _btn_save_preset.clicked.connect(self._save_check_preset)
+        _btn_del_preset = QPushButton("删除预设")
+        _btn_del_preset.setFixedWidth(76)
+        _btn_del_preset.clicked.connect(self._delete_check_preset)
+        _preset_row_layout = QHBoxLayout()
+        _preset_row_layout.setContentsMargins(0, 0, 0, 0)
+        _preset_row_layout.setSpacing(6)
+        _preset_row_layout.addWidget(self.combo_check_preset, 1)
+        _preset_row_layout.addWidget(_btn_save_preset)
+        _preset_row_layout.addWidget(_btn_del_preset)
+        self._check_preset_widget = QWidget()
+        self._check_preset_widget.setLayout(_preset_row_layout)
 
         self.combo_recovery_shortcut = QComboBox()
         self.combo_recovery_shortcut.addItem("（无）", "")
@@ -1004,6 +1053,11 @@ class ScriptStepDialog(QDialog):
         form.addRow("快捷配置", self.combo_setting)
         form.addRow("快捷指令", self.combo_shortcut)
         form.addRow("串口指令", self._serial_cmd_widget)
+        form.addRow("参考值", self.edit_check_reference)
+        form.addRow("匹配方式", self.combo_check_mode)
+        form.addRow("等待超时", self.spin_check_timeout)
+        form.addRow("不匹配时", self.combo_check_fail_action)
+        form.addRow("快选预设", self._check_preset_widget)
         form.addRow("变量名", self.edit_variable_name)
         form.addRow("变量值", self.edit_variable_value)
         form.addRow("等待时长", self.spin_wait)
@@ -1090,6 +1144,7 @@ class ScriptStepDialog(QDialog):
         show_setting = current_type == "setting"
         show_shortcut = current_type == "shortcut"
         show_command = current_type == "serial"
+        show_check = current_type == "serial_check"
         show_wait = current_type == "wait"
         show_variable = current_type == "set_variable"
         show_capture = current_type == "capture_snapshot"
@@ -1100,13 +1155,18 @@ class ScriptStepDialog(QDialog):
 
         _set_form_row_visible(self._form, self.combo_setting, show_setting)
         _set_form_row_visible(self._form, self.combo_shortcut, show_shortcut)
-        _set_form_row_visible(self._form, self._serial_cmd_widget, show_command)
+        _set_form_row_visible(self._form, self._serial_cmd_widget, show_command or show_check)
+        _set_form_row_visible(self._form, self.edit_check_reference, show_check)
+        _set_form_row_visible(self._form, self.combo_check_mode, show_check)
+        _set_form_row_visible(self._form, self.spin_check_timeout, show_check)
+        _set_form_row_visible(self._form, self.combo_check_fail_action, show_check)
+        _set_form_row_visible(self._form, self._check_preset_widget, show_check)
         _set_form_row_visible(self._form, self.spin_wait, show_wait)
         _set_form_row_visible(self._form, self.edit_variable_name, show_variable)
         _set_form_row_visible(self._form, self.edit_variable_value, show_variable)
         _set_form_row_visible(self._form, self.spin_capture_count, show_capture)
         _set_form_row_visible(self._form, self.spin_capture_interval, show_capture)
-        _set_form_row_visible(self._form, self.edit_result_variable, show_detect_result)
+        _set_form_row_visible(self._form, self.edit_result_variable, show_detect_result or show_check)
         _set_form_row_visible(self._form, self.combo_recovery_shortcut, show_detect_result)
         _set_form_row_visible(self._form, self.edit_reference_category, show_compare or show_append_reference)
         _set_form_row_visible(self._form, self.edit_reference_dir, show_compare or show_append_reference)
@@ -1135,8 +1195,65 @@ class ScriptStepDialog(QDialog):
             self.edit_result_variable.setPlaceholderText("例如 screen_ok；未检出绿屏会写入 true")
         elif show_compare:
             self.edit_result_variable.setPlaceholderText("例如 boot_ok，检图结果会写入 true/false")
+        elif show_check:
+            self.edit_result_variable.setPlaceholderText("例如 check_ok；匹配写 true，不匹配写 false（留空不写）")
         self.lbl_help.setText(self._TYPE_HELP.get(current_type, ""))
         self._refresh_green_preview()
+
+    def _fill_preset_combo(self):
+        """用当前 _serial_check_presets 刷新预设下拉框。"""
+        self.combo_check_preset.blockSignals(True)
+        self.combo_check_preset.clear()
+        self.combo_check_preset.addItem("选择预设…", None)
+        for preset in self._serial_check_presets:
+            self.combo_check_preset.addItem(preset.get("name", ""), preset)
+        self.combo_check_preset.setCurrentIndex(0)
+        self.combo_check_preset.blockSignals(False)
+
+    def _on_check_preset_selected(self, index: int):
+        if index <= 0:
+            return
+        preset = self.combo_check_preset.itemData(index)
+        if not preset:
+            return
+        self.edit_command.setText(preset.get("command", ""))
+        self.edit_check_reference.setText(preset.get("check_reference", ""))
+        mode_idx = self.combo_check_mode.findData(preset.get("check_mode", "contains"))
+        self.combo_check_mode.setCurrentIndex(mode_idx if mode_idx >= 0 else 0)
+        self.spin_check_timeout.setValue(int(preset.get("check_timeout_ms", 3000)))
+        fail_idx = self.combo_check_fail_action.findData(preset.get("check_fail_action", "stop"))
+        self.combo_check_fail_action.setCurrentIndex(fail_idx if fail_idx >= 0 else 0)
+
+    def _save_check_preset(self):
+        name, ok = QInputDialog.getText(self, "保存条件检查预设", "预设名称:")
+        if not ok or not name.strip():
+            return
+        preset = {
+            "name": name.strip(),
+            "command": self.edit_command.text().strip(),
+            "check_reference": self.edit_check_reference.text().strip(),
+            "check_mode": self.combo_check_mode.currentData() or "contains",
+            "check_timeout_ms": int(self.spin_check_timeout.value()),
+            "check_fail_action": self.combo_check_fail_action.currentData() or "stop",
+        }
+        # 同名覆盖
+        self._serial_check_presets[:] = [p for p in self._serial_check_presets if p.get("name") != preset["name"]]
+        self._serial_check_presets.append(preset)
+        self._fill_preset_combo()
+        if self._on_presets_changed:
+            self._on_presets_changed()
+
+    def _delete_check_preset(self):
+        index = self.combo_check_preset.currentIndex()
+        if index <= 0:
+            return
+        preset = self.combo_check_preset.itemData(index)
+        if not preset:
+            return
+        self._serial_check_presets[:] = [p for p in self._serial_check_presets if p.get("name") != preset.get("name")]
+        self._fill_preset_combo()
+        if self._on_presets_changed:
+            self._on_presets_changed()
 
     def _apply_green_preset(self, preset_key: str):
         values = _green_preset_values(preset_key)
@@ -1205,6 +1322,12 @@ class ScriptStepDialog(QDialog):
         if current_type == "serial" and not self.edit_command.text().strip():
             QMessageBox.warning(self, "提示", "串口指令不能为空")
             return
+        if current_type == "serial_check" and not self.edit_command.text().strip():
+            QMessageBox.warning(self, "提示", "条件检查：发送指令不能为空")
+            return
+        if current_type == "serial_check" and not self.edit_check_reference.text().strip():
+            QMessageBox.warning(self, "提示", "条件检查：参考值不能为空")
+            return
         if current_type == "set_variable" and not self.edit_variable_name.text().strip():
             QMessageBox.warning(self, "提示", "变量名不能为空")
             return
@@ -1221,7 +1344,7 @@ class ScriptStepDialog(QDialog):
             target = self.combo_setting.currentText().strip()
         elif current_type == "shortcut":
             target = self.combo_shortcut.currentText().strip()
-        elif current_type == "serial":
+        elif current_type in {"serial", "serial_check"}:
             command = self.edit_command.text().strip()
         elif current_type == "wait":
             seconds = float(self.spin_wait.value())
@@ -1259,6 +1382,10 @@ class ScriptStepDialog(QDialog):
             "green_value_threshold": int(self.spin_green_value_threshold.value()),
             "green_check_frames": int(self.spin_green_check_frames.value()),
             "green_check_interval_ms": int(self.spin_green_check_interval.value()),
+            "check_reference": self.edit_check_reference.text().strip(),
+            "check_mode": self.combo_check_mode.currentData() or "contains",
+            "check_timeout_ms": int(self.spin_check_timeout.value()),
+            "check_fail_action": self.combo_check_fail_action.currentData() or "stop",
         }
 
 
@@ -1412,6 +1539,7 @@ class DeviceLabPage(QWidget):
         self._snapshot_batch_token = ""
         self._last_snapshot_path = ""
         self._last_run_output_dir = ""
+        self._run_log_file = None  # 当前运行的日志文件句柄
         self._active_run_context: Optional[Dict[str, Any]] = None
         self._queue_paused = False
         self._queue_busy = False
@@ -1440,6 +1568,13 @@ class DeviceLabPage(QWidget):
         self._serial_flush_timer = QTimer(self)
         self._serial_flush_timer.setInterval(220)
         self._serial_flush_timer.timeout.connect(self._flush_serial_rx_buffer)
+
+        self._serial_check_timer = QTimer(self)
+        self._serial_check_timer.setInterval(100)
+        self._serial_check_timer.timeout.connect(self._on_serial_check_tick)
+        self._serial_check_lines: List[str] = []
+        self._serial_check_deadline: float = 0.0
+        self._serial_check_action: Optional[Dict[str, Any]] = None
 
         self.setObjectName("device_lab_root")
         self.setStyleSheet(_PAGE_QSS)
@@ -1727,7 +1862,8 @@ class DeviceLabPage(QWidget):
         self.list_scripts.setHeaderHidden(True)
         self.list_scripts.currentItemChanged.connect(self._on_script_selection_changed)
         self.list_scripts.setMinimumWidth(280)
-        self.list_scripts.setMinimumHeight(320)
+        self.list_scripts.setMinimumHeight(120)
+        self.list_scripts.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         left_layout.addWidget(self.list_scripts, 1)
 
         left_layout.addWidget(QLabel("剧本说明"))
@@ -1736,7 +1872,7 @@ class DeviceLabPage(QWidget):
         script_desc_scroll = QScrollArea()
         script_desc_scroll.setWidgetResizable(True)
         script_desc_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        script_desc_scroll.setMinimumHeight(160)
+        script_desc_scroll.setMinimumHeight(60)
         script_desc_scroll.setWidget(self.lbl_script_desc)
         left_layout.addWidget(script_desc_scroll)
         content_split.addWidget(left_panel)
@@ -1758,7 +1894,12 @@ class DeviceLabPage(QWidget):
         self.list_script_steps.setHeaderHidden(True)
         self.list_script_steps.currentItemChanged.connect(self._on_step_selection_changed)
         self.list_script_steps.setMinimumWidth(300)
-        self.list_script_steps.setMinimumHeight(420)
+        self.list_script_steps.setMinimumHeight(160)
+        self.list_script_steps.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.list_script_steps.setDragEnabled(True)
+        self.list_script_steps.setAcceptDrops(True)
+        self.list_script_steps.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.list_script_steps.setDropIndicatorShown(True)
         step_nav_layout.addWidget(self.list_script_steps, 1)
         step_workspace_split.addWidget(step_nav_panel)
 
@@ -1772,7 +1913,7 @@ class DeviceLabPage(QWidget):
         step_detail_scroll = QScrollArea()
         step_detail_scroll.setWidgetResizable(True)
         step_detail_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        step_detail_scroll.setMinimumHeight(240)
+        step_detail_scroll.setMinimumHeight(80)
         step_detail_scroll.setWidget(self.lbl_step_detail)
         detail_layout.addWidget(step_detail_scroll, 1)
 
@@ -1786,7 +1927,7 @@ class DeviceLabPage(QWidget):
         run_output_scroll = QScrollArea()
         run_output_scroll.setWidgetResizable(True)
         run_output_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        run_output_scroll.setMinimumHeight(96)
+        run_output_scroll.setMinimumHeight(60)
         run_output_scroll.setWidget(self.lbl_run_output)
         status_layout.addWidget(run_output_scroll)
         status_layout.addWidget(QLabel("运行状态"))
@@ -1795,7 +1936,7 @@ class DeviceLabPage(QWidget):
         run_stats_scroll = QScrollArea()
         run_stats_scroll.setWidgetResizable(True)
         run_stats_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        run_stats_scroll.setMinimumHeight(120)
+        run_stats_scroll.setMinimumHeight(60)
         run_stats_scroll.setWidget(self.lbl_run_stats)
         status_layout.addWidget(run_stats_scroll)
         detail_layout.addWidget(status_panel)
@@ -2007,7 +2148,7 @@ class DeviceLabPage(QWidget):
         self.text_log = QPlainTextEdit()
         self.text_log.setObjectName("device_log")
         self.text_log.setReadOnly(True)
-        self.text_log.setMaximumBlockCount(500)
+        self.text_log.setMaximumBlockCount(2000)
         self.text_log.setMinimumHeight(200)
         layout.addWidget(self.text_log)
         return card
@@ -2159,6 +2300,7 @@ class DeviceLabPage(QWidget):
         self._refresh_script_steps()
 
     def _refresh_script_steps(self):
+        self.list_script_steps.model().rowsMoved.disconnect() if self.list_script_steps.model().receivers(self.list_script_steps.model().rowsMoved) > 0 else None  # type: ignore
         self.list_script_steps.clear()
         script = self._current_script()
         ui_state = self._profile.setdefault("ui_state", {})
@@ -2168,21 +2310,14 @@ class DeviceLabPage(QWidget):
             return
         target_step_id = ui_state.get("last_step_id")
         first_step_item = None
-        groups: Dict[str, QTreeWidgetItem] = {}
         for index, step in enumerate(script.get("steps", []), start=1):
-            group_key = self._step_group_title(step)
-            group_item = groups.get(group_key)
-            if group_item is None:
-                group_item = QTreeWidgetItem([group_key])
-                group_item.setData(0, Qt.ItemDataRole.UserRole, "")
-                self.list_script_steps.addTopLevelItem(group_item)
-                group_item.setExpanded(True)
-                groups[group_key] = group_item
             item = QTreeWidgetItem([f"{index:02d}. {self._step_summary(step)}"])
             item.setData(0, Qt.ItemDataRole.UserRole, step.get("id"))
-            group_item.addChild(item)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsDragEnabled)
+            self.list_script_steps.addTopLevelItem(item)
             if first_step_item is None:
                 first_step_item = item
+        self.list_script_steps.model().rowsMoved.connect(self._on_steps_reordered)
         if first_step_item is not None:
             target_item = first_step_item
             if target_step_id:
@@ -2193,6 +2328,29 @@ class DeviceLabPage(QWidget):
         else:
             self.lbl_step_detail.setText("当前剧本还没有步骤")
             ui_state["last_step_id"] = ""
+
+    def _on_steps_reordered(self):
+        """拖拽排序后，按树中当前顺序更新剧本步骤数据并重新渲染序号。"""
+        script = self._current_script()
+        if not script:
+            return
+        old_steps = {step.get("id"): step for step in script.get("steps", [])}
+        new_order = []
+        for index in range(self.list_script_steps.topLevelItemCount()):
+            step_id = self.list_script_steps.topLevelItem(index).data(0, Qt.ItemDataRole.UserRole)
+            step = old_steps.get(step_id)
+            if step is not None:
+                new_order.append(step)
+        script["steps"] = new_order
+        self._persist_profile()
+        # 刷新序号文字（保留当前选中）
+        current_id = self._profile.setdefault("ui_state", {}).get("last_step_id")
+        for index in range(self.list_script_steps.topLevelItemCount()):
+            item = self.list_script_steps.topLevelItem(index)
+            step_id = item.data(0, Qt.ItemDataRole.UserRole)
+            step = old_steps.get(step_id)
+            if step:
+                item.setText(0, f"{index + 1:02d}. {self._step_summary(step)}")
 
     def _on_project_selection_changed(self):
         project = self._current_project()
@@ -2238,15 +2396,15 @@ class DeviceLabPage(QWidget):
             return "变量步骤"
         if step_type in {"wait"}:
             return "等待步骤"
+        if step_type in {"serial_check"}:
+            return "条件步骤"
         return "其他步骤"
 
     def _find_step_tree_item(self, step_id: str) -> Optional[QTreeWidgetItem]:
-        for group_index in range(self.list_script_steps.topLevelItemCount()):
-            group_item = self.list_script_steps.topLevelItem(group_index)
-            for child_index in range(group_item.childCount()):
-                item = group_item.child(child_index)
-                if item.data(0, Qt.ItemDataRole.UserRole) == step_id:
-                    return item
+        for index in range(self.list_script_steps.topLevelItemCount()):
+            item = self.list_script_steps.topLevelItem(index)
+            if item.data(0, Qt.ItemDataRole.UserRole) == step_id:
+                return item
         return None
 
     def _step_summary(self, step: Dict[str, Any]) -> str:
@@ -2272,6 +2430,11 @@ class DeviceLabPage(QWidget):
             base = (
                 f"绿屏检测[{step.get('roi_text', '').strip() or '全图'}]"
             )
+        elif step_type == "serial_check":
+            mode_labels = {"contains": "含", "not_contains": "不含", "exact": "精确", "regex": "正则"}
+            mode_label = mode_labels.get(step.get("check_mode", "contains"), "含")
+            ref = step.get("check_reference", "")
+            base = f"条件检查[{mode_label}] {ref[:30]}{'…' if len(ref) > 30 else ''}"
         else:
             base = step.get("command", "串口指令") or "串口指令"
         if repeat > 1:
@@ -2324,6 +2487,16 @@ class DeviceLabPage(QWidget):
             lines.append(f"失败重试: {int(step.get('retry_count', 0) or 0)} 次")
             lines.append(f"重试间隔: {int(step.get('retry_interval_ms', 1000) or 1000)} ms")
             lines.append("失败策略: 检出即暂停" if step.get("pause_on_fail", True) else "失败策略: 仅记录命中")
+        if step.get("type") == "serial_check":
+            mode_labels = {"contains": "包含", "not_contains": "不包含", "exact": "精确匹配", "regex": "正则匹配"}
+            lines.append(f"发送指令: {step.get('command', '')}")
+            lines.append(f"参考值: {step.get('check_reference', '')}")
+            lines.append(f"匹配方式: {mode_labels.get(step.get('check_mode', 'contains'), '包含')}")
+            lines.append(f"等待超时: {int(step.get('check_timeout_ms', 3000) or 3000)} ms")
+            fail_label = "停止剧本" if step.get("check_fail_action", "stop") == "stop" else "继续执行"
+            lines.append(f"不匹配时: {fail_label}")
+            if step.get("result_variable"):
+                lines.append(f"结果变量: {step.get('result_variable')}")
         if step.get("note"):
             lines.append(f"说明: {step.get('note')}")
         return "\n".join(lines)
@@ -2467,6 +2640,8 @@ class DeviceLabPage(QWidget):
             if line:
                 self._append_terminal(line)
                 self._collect_rx_paths(line)
+                if self._serial_check_timer.isActive():
+                    self._serial_check_lines.append(line)
         self._serial_rx_buffer = bytearray(parts[-1])
 
     def _flush_serial_rx_buffer(self):
@@ -2477,12 +2652,83 @@ class DeviceLabPage(QWidget):
         if line.strip():
             self._append_terminal(line)
             self._collect_rx_paths(line)
+            if self._serial_check_timer.isActive():
+                self._serial_check_lines.append(line)
 
     def _collect_rx_paths(self, text: str):
         for path in re.findall(r"(?:/[A-Za-z0-9._-]+)+/?", text):
             if path not in self._rx_path_cache:
                 self._rx_path_cache.insert(0, path)
         self._rx_path_cache = self._rx_path_cache[:120]
+
+    def _check_serial_lines_match(self, lines: List[str], reference: str, mode: str) -> bool:
+        combined_nl = "\n".join(lines)        # 行内精确搜索
+        combined_flat = "".join(lines)        # 跨行 token 桥接（串口换行切词时仍能匹配）
+        if mode == "contains":
+            return reference in combined_nl or reference in combined_flat
+        if mode == "not_contains":
+            return reference not in combined_nl and reference not in combined_flat
+        if mode == "exact":
+            return any(line.strip() == reference.strip() for line in lines)
+        if mode == "regex":
+            try:
+                return bool(re.search(reference, combined_nl)) or bool(re.search(reference, combined_flat))
+            except re.error:
+                return False
+        return reference in combined_nl or reference in combined_flat
+
+    def _on_serial_check_tick(self):
+        if self._serial_check_action is None:
+            self._serial_check_timer.stop()
+            return
+        reference = self._serial_check_action.get("check_reference", "")
+        mode = self._serial_check_action.get("check_mode", "contains")
+        matched = self._check_serial_lines_match(self._serial_check_lines, reference, mode)
+        if matched:
+            self._serial_check_timer.stop()
+            source = self._serial_check_action.get("source", "条件检查")
+            result_var = self._serial_check_action.get("result_variable", "")
+            if result_var:
+                self._script_variables[result_var] = True
+            self._log(f"条件检查通过: {source}")
+            self._finish_serial_check(success=True)
+            return
+        if time.time() >= self._serial_check_deadline:
+            self._serial_check_timer.stop()
+            source = self._serial_check_action.get("source", "条件检查")
+            result_var = self._serial_check_action.get("result_variable", "")
+            if result_var:
+                self._script_variables[result_var] = False
+            fail_action = self._serial_check_action.get("check_fail_action", "stop")
+            recv_count = len(self._serial_check_lines)
+            preview = self._serial_check_lines[:5]
+            preview_str = " | ".join(repr(l) for l in preview)
+            if recv_count > 5:
+                preview_str += f" …({recv_count} 行)"
+            self._log(f"条件检查超时/不匹配: {source}（{recv_count} 行回发）回发预览: {preview_str}", "WARN")
+            self._finish_serial_check(success=(fail_action == "continue"))
+
+    def _finish_serial_check(self, success: bool):
+        action = self._serial_check_action
+        self._serial_check_action = None
+        if action is None:
+            return
+        stop_on_fail = bool(action.get("stop_on_fail", True))
+        source = action.get("source", "条件检查")
+        delay_seconds = float(action.get("delay_seconds", 0.0) or 0.0)
+        if not success and stop_on_fail:
+            self._queue_timer.stop()
+            self._queue_paused = True
+            self._log(f"条件检查失败，已暂停: {source}", "ERROR")
+            self._queue_busy = False
+            self._update_run_stats(force_status="失败暂停")
+            self._refresh_queue_controls()
+            return
+        if not success:
+            self._log(f"条件检查失败但按配置继续: {source}", "WARN")
+        self._queue_busy = False
+        self._queue_timer.start(max(0, int(delay_seconds * 1000)))
+        self._refresh_queue_controls()
 
     def _history_prev(self):
         if not self._cmd_history:
@@ -2761,6 +3007,19 @@ class DeviceLabPage(QWidget):
                 green_check_frames=int(action.get("green_check_frames", 3) or 3),
                 green_check_interval_ms=int(action.get("green_check_interval_ms", 250) or 250),
             )
+        elif action_type == "serial_check":
+            cmd = self._interpolate_text(action.get("command", ""))
+            send_ok = self._send_serial_command(cmd, source=source) if cmd else True
+            if send_ok:
+                timeout_ms = int(action.get("check_timeout_ms", 3000) or 3000)
+                self._serial_check_action = action
+                self._serial_check_lines = []
+                self._serial_check_deadline = time.time() + timeout_ms / 1000.0
+                self._serial_check_timer.start()
+                self._queue_busy = True
+                self._refresh_queue_controls()
+                return  # 等待 _on_serial_check_tick 完成后续逻辑
+            success = False  # 发送失败直接走失败分支
 
         if not success and retry_count > 0:
             action["retry_count"] = retry_count - 1
@@ -2960,6 +3219,27 @@ class DeviceLabPage(QWidget):
                     "green_check_frames": int(step.get("green_check_frames", 3) or 3),
                     "green_check_interval_ms": int(step.get("green_check_interval_ms", 250) or 250),
                 })
+            elif step_type == "serial_check":
+                command = step.get("command", "").strip()
+                reference = step.get("check_reference", "")
+                _mode_lbls = {"contains": "含", "not_contains": "不含", "exact": "精确", "regex": "正则"}
+                _mode_lbl = _mode_lbls.get(step.get("check_mode", "contains"), "含")
+                check_source = step.get("note") or f"条件检查[{_mode_lbl}] {reference}"
+                if command:
+                    actions.append({
+                        "type": "serial_check",
+                        "command": command,
+                        "check_reference": reference,
+                        "check_mode": step.get("check_mode", "contains"),
+                        "check_timeout_ms": int(step.get("check_timeout_ms", 3000) or 3000),
+                        "check_fail_action": step.get("check_fail_action", "stop"),
+                        "result_variable": step.get("result_variable", ""),
+                        "delay_seconds": delay_seconds,
+                        "source": check_source,
+                        "stop_on_fail": stop_on_fail,
+                        "condition": step.get("condition", ""),
+                        "step_id": step.get("id", ""),
+                    })
             else:
                 command = step.get("command", "").strip()
                 if command:
@@ -3633,6 +3913,16 @@ class DeviceLabPage(QWidget):
         os.makedirs(artifact_dir, exist_ok=True)
         self._last_run_output_dir = base_dir
         self.lbl_run_output.setText(f"输出目录: {base_dir}")
+        # 开启日志文件
+        if self._run_log_file is not None:
+            try:
+                self._run_log_file.close()
+            except Exception:
+                pass
+        try:
+            self._run_log_file = open(os.path.join(base_dir, 'run_log.txt'), 'w', encoding='utf-8')
+        except Exception:
+            self._run_log_file = None
         return {
             'base_dir': base_dir,
             'snapshot_dir': snapshot_dir,
@@ -3661,6 +3951,13 @@ class DeviceLabPage(QWidget):
             self._log(f"{message}，输出目录: {self._active_run_context.get('base_dir', '')}")
             self._last_run_output_dir = self._active_run_context.get('base_dir', self._last_run_output_dir)
             self.lbl_run_output.setText(f"输出目录: {self._last_run_output_dir}")
+        # 关闭日志文件
+        if self._run_log_file is not None:
+            try:
+                self._run_log_file.close()
+            except Exception:
+                pass
+            self._run_log_file = None
         self._active_run_context = None
         self._update_run_stats(force_status="空闲")
         if self._camera_capture is None:
@@ -3696,17 +3993,15 @@ class DeviceLabPage(QWidget):
 
     def _highlight_running_step(self, step_id: Optional[str]):
         self._running_step_id = step_id or None
-        for group_index in range(self.list_script_steps.topLevelItemCount()):
-            group_item = self.list_script_steps.topLevelItem(group_index)
-            for child_index in range(group_item.childCount()):
-                item = group_item.child(child_index)
-                if item.data(0, Qt.ItemDataRole.UserRole) == self._running_step_id:
-                    item.setBackground(0, QColor('#fef3c7'))
-                    item.setForeground(0, QColor('#92400e'))
-                    self.list_script_steps.setCurrentItem(item)
-                else:
-                    item.setBackground(0, QBrush())
-                    item.setForeground(0, QBrush())
+        for index in range(self.list_script_steps.topLevelItemCount()):
+            item = self.list_script_steps.topLevelItem(index)
+            if item.data(0, Qt.ItemDataRole.UserRole) == self._running_step_id:
+                item.setBackground(0, QColor('#fef3c7'))
+                item.setForeground(0, QColor('#92400e'))
+                self.list_script_steps.setCurrentItem(item)
+            else:
+                item.setBackground(0, QBrush())
+                item.setForeground(0, QBrush())
 
     def _open_run_output_dir(self):
         target_dir = self._last_run_output_dir
@@ -4022,6 +4317,8 @@ class DeviceLabPage(QWidget):
         dialog = ScriptStepDialog(
             self._profile.get("quick_settings", []),
             self._profile.get("shortcuts", []),
+            serial_check_presets=self._profile.setdefault("serial_check_presets", []),
+            on_presets_changed=self._persist_profile,
             parent=self,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
@@ -4043,7 +4340,9 @@ class DeviceLabPage(QWidget):
             self._profile.get("quick_settings", []),
             self._profile.get("shortcuts", []),
             step,
-            self,
+            serial_check_presets=self._profile.setdefault("serial_check_presets", []),
+            on_presets_changed=self._persist_profile,
+            parent=self,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
@@ -4104,9 +4403,6 @@ class DeviceLabPage(QWidget):
             return
         item = self._find_step_tree_item(step_id)
         if item is not None:
-            parent = item.parent()
-            if parent is not None:
-                parent.setExpanded(True)
             self.list_script_steps.setCurrentItem(item)
 
     def _run_selected_script(self):
@@ -4246,7 +4542,14 @@ class DeviceLabPage(QWidget):
 
     def _log(self, message: str, level: str = "INFO"):
         timestamp = time.strftime("%H:%M:%S")
-        self.text_log.appendPlainText(f"[{timestamp}] {level:<5} {message}")
+        line = f"[{timestamp}] {level:<5} {message}"
+        self.text_log.appendPlainText(line)
+        if self._run_log_file is not None:
+            try:
+                self._run_log_file.write(line + "\n")
+                self._run_log_file.flush()
+            except Exception:
+                pass
         if level == 'ERROR' and self._run_metrics:
             self._run_metrics['error_count'] = int(self._run_metrics.get('error_count', 0)) + 1
             self._update_run_stats()

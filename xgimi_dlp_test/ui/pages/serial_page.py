@@ -38,7 +38,7 @@ import time
 import datetime
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QPushButton, QLabel,
-    QComboBox, QTextEdit, QLineEdit, QGroupBox, QScrollArea, QFileDialog,
+    QComboBox, QTextEdit, QPlainTextEdit, QLineEdit, QGroupBox, QScrollArea, QFileDialog,
     QMessageBox, QDialog, QFormLayout, QDialogButtonBox, QSizePolicy,
     QCheckBox, QSpinBox, QDoubleSpinBox, QFrame, QTabWidget, QToolButton,
     QInputDialog, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem,
@@ -88,7 +88,7 @@ _DARK = {
     'btn_bdr':       '#30363D',
     'btn_hover':     '#21262D',
     'btn_hover_bdr': '#58A6FF',
-    'util_lbl':      '#546E7A',
+    'util_lbl':      '#8EA8B8',
 }
 _LIGHT = {
     'bar_bg':        '#DDE6F0',
@@ -304,38 +304,61 @@ class _TerminalTextEdit(QTextEdit):
         elif event.key() in (Qt.Key.Key_Backspace, Qt.Key.Key_Delete):
             super().keyPressEvent(event)
         elif event.text() and event.text().isprintable():
-            # eventFilter 已处理末尾情况（入输入模式）；到此说明光标不在末尾，直接插入
+            # 兜底：若首个字符未被外层 eventFilter 捕获，避免写入历史行。
+            # 在非直通模式下，统一改为移到底部并进入内联输入。
+            cur_pos = self.textCursor().position()
+            doc_end = self.document().characterCount() - 1
+            if cur_pos < doc_end:
+                owner = self.parentWidget()
+                try:
+                    if (owner is not None
+                            and hasattr(owner, '_is_tab_passthrough_enabled')
+                            and hasattr(owner, '_terminal_enter_input_mode')
+                            and hasattr(owner, '_move_terminal_cursor_to_visible_end')
+                            and not owner._is_tab_passthrough_enabled()):
+                        owner._move_terminal_cursor_to_visible_end()
+                        owner._terminal_enter_input_mode(event.text())
+                        event.accept()
+                        return
+                except Exception:
+                    pass
+            # 其余情况按 QTextEdit 默认行为处理
             super().keyPressEvent(event)
         else:
             event.accept()   # 消化事件，不插入文字
 
     def wheelEvent(self, event):
-        """Ctrl+滚轮：通过 viewport 事件过滤器拦截，此处仅处理普通滚动。"""
-        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            # 让 viewport eventFilter 处理，这里直接执行缩放作为后备
-            delta = event.angleDelta().y()
-            if delta > 0:
-                self.zoomIn(1)
-            else:
-                self.zoomOut(1)
-            event.accept()
-            return
+        """Ctrl+滚轮由 viewport eventFilter 统一处理，此处仅传递普通滚动。"""
         super().wheelEvent(event)
 
     def eventFilter(self, obj, event):
-        """自带 viewport 事件过滤：拦截 Ctrl+滚轮实现字体缩放。"""
+        """viewport 事件过滤：拦截 Ctrl+滚轮缩放（必须 return True 阻止 QAbstractScrollArea 消费）。"""
         from PyQt6.QtCore import QEvent
         if obj is self.viewport() and event.type() == QEvent.Type.Wheel:
-            ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
-            print(f"[DEBUG] viewport Wheel: modifiers={event.modifiers()}, ctrl={ctrl}, delta={event.angleDelta().y()}")
+            ctrl = bool(QApplication.keyboardModifiers() & Qt.KeyboardModifier.ControlModifier)
+            if not ctrl:
+                ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
             if ctrl:
                 delta = event.angleDelta().y()
-                if delta > 0:
-                    self.zoomIn(1)
-                else:
-                    self.zoomOut(1)
+                font = self.font()
+                cur_size = font.pointSize()
+                if cur_size < 1:
+                    cur_size = getattr(self, '_zoom_pt', 10)  # fallback
+                new_size = max(6, min(60, cur_size + (2 if delta > 0 else -2)))
+                self._zoom_pt = new_size  # 存储供插入时引用
+                font.setPointSize(new_size)
+                self.setFont(font)
+                self.document().setDefaultFont(font)  # 显式更新文档默认字体
+                # 用全新空格式（只设字号）avoid 颜色污染
+                from PyQt6.QtGui import QTextCursor as _TC
+                cursor = self.textCursor()
+                cursor.select(_TC.SelectionType.Document)
+                _size_fmt = QTextCharFormat()
+                _size_fmt.setFontPointSize(new_size)
+                cursor.mergeCharFormat(_size_fmt)
+                self.update()
                 event.accept()
-                return True  # 消费事件，阻止 Qt 自带 Ctrl+Wheel 行为
+                return True  # 必须 True：阻止 QAbstractScrollArea 的内置 filter 消费事件
         return super().eventFilter(obj, event)
 
     def insertFromMimeData(self, source):
@@ -583,6 +606,13 @@ class SerialPage(QWidget):
         self._workflow_cmd_started = False
         self._workflow_idle_ms = 900
         self._workflow_silent_ms = 1800
+        # ── 逐行批量发送状态 ──
+        self._batch_lines: list = []        # 待发命令列表
+        self._batch_index: int = 0          # 当前行索引
+        self._batch_repeat_total: int = 1   # 总重复次数
+        self._batch_repeat_done: int = 0    # 已完成重复次数
+        self._batch_timer = QTimer(self)
+        self._batch_timer.timeout.connect(self._on_batch_send_tick)
         self._init_ui()
         self._refresh_ports()
 
@@ -792,6 +822,8 @@ class SerialPage(QWidget):
         self._terminal_input_mode = False   # 是否处于终端内输入模式
         self._terminal_input_anchor = -1    # 输入区起始位置
         self._terminal_input_buf  = ''      # 已输入内容
+        self._nav_paused = False            # 是否暂停自动滚动
+        self._freeze_view_on_rx = False     # Tab 补全期间冻结视图
         # 光标高亮 & 搜索高亮分离管理
         self._search_extra_sels: list = []
         self._cursor_extra_sel:  list = []
@@ -850,15 +882,14 @@ class SerialPage(QWidget):
 
     def _update_cursor_highlight(self):
         """光标位置变化时维护自动滚动状态（蓝色方块已移除，仅依赖原生 4px 光标）。"""
-        c = QTextCursor(self.terminal.textCursor())
-        c.movePosition(
-            QTextCursor.MoveOperation.Right,
-            QTextCursor.MoveMode.KeepAnchor, 1
-        )
-        if not c.hasSelection():
-            self._maybe_pause_autoscroll(at_end=True)
-        else:
-            self._maybe_pause_autoscroll(at_end=False)
+        if getattr(self, '_freeze_view_on_rx', False):
+            self._nav_paused = True
+            return
+        # 兼容“可见末尾”光标（位于最后一个可见字符，尾随 '\n' 之前）
+        cur_pos = self.terminal.textCursor().position()
+        doc_end = self.terminal.document().characterCount() - 1
+        at_end = cur_pos >= max(0, doc_end - 1)
+        self._maybe_pause_autoscroll(at_end=at_end)
 
     def _maybe_pause_autoscroll(self, at_end: bool):
         """光标离开文档末尾时暂停自动滚动，回到末尾时恢复。
@@ -1057,6 +1088,7 @@ class SerialPage(QWidget):
 
         # ── 构建各板块 ──
         built_in_secs = [
+            (self._build_batch_send_group(), "common"),
             (self._build_firmware_group(), "common"),
             (self._build_angle_test_group(), "common"),
             (self._build_kst_angle_group(), "kst"),
@@ -1224,6 +1256,166 @@ class SerialPage(QWidget):
         dyn_cmds.pop(cmd_idx)
         self._refresh_dyn_buttons(sec)
         self._save_all_data()
+
+    def _build_batch_send_group(self) -> '_CollapsibleSection':
+        """逐行批量发送面板（WindTerm 风格）"""
+        sec = _CollapsibleSection("📋 逐行批量发送", collapsed=False)
+        layout = sec.body_layout
+
+        # ── 命令文本区 ──
+        hint = QLabel("每行一条命令，按顺序逐行发送到串口")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        self._batch_edit = QPlainTextEdit()
+        self._batch_edit.setFont(QFont("Microsoft YaHei", 10))
+        self._batch_edit.setPlaceholderText(
+            "每行输入一条命令，例如：\n"
+            "su\n"
+            "remount\n"
+            "sync"
+        )
+        self._batch_edit.setMinimumHeight(120)
+        self._batch_edit.setMaximumHeight(200)
+        layout.addWidget(self._batch_edit)
+
+        # ── 控制行：间隔 + 重复 + 进度 ──
+        ctrl_row = QHBoxLayout()
+        ctrl_row.setSpacing(6)
+
+        ctrl_row.addWidget(QLabel("间隔(s):"))
+        self._batch_interval_spin = QDoubleSpinBox()
+        self._batch_interval_spin.setRange(0.05, 60.0)
+        self._batch_interval_spin.setSingleStep(0.5)
+        self._batch_interval_spin.setValue(1.0)
+        self._batch_interval_spin.setDecimals(2)
+        self._batch_interval_spin.setFixedWidth(70)
+        ctrl_row.addWidget(self._batch_interval_spin)
+
+        ctrl_row.addWidget(QLabel("重复:"))
+        self._batch_repeat_spin = QSpinBox()
+        self._batch_repeat_spin.setRange(1, 999)
+        self._batch_repeat_spin.setValue(1)
+        self._batch_repeat_spin.setFixedWidth(55)
+        ctrl_row.addWidget(self._batch_repeat_spin)
+
+        ctrl_row.addStretch()
+
+        self._lbl_batch_progress = QLabel("就绪")
+        self._lbl_batch_progress.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        ctrl_row.addWidget(self._lbl_batch_progress)
+
+        layout.addLayout(ctrl_row)
+
+        # ── 发送 / 停止 按钮 ──
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(6)
+
+        self._btn_batch_start = QPushButton("▶ 逐行发送")
+        self._btn_batch_start.setObjectName("btn_primary")
+        self._btn_batch_start.clicked.connect(self._start_batch_send)
+        btn_row.addWidget(self._btn_batch_start, stretch=1)
+
+        self._btn_batch_stop = QPushButton("■ 停止")
+        self._btn_batch_stop.setObjectName("btn_danger")
+        self._btn_batch_stop.setEnabled(False)
+        self._btn_batch_stop.clicked.connect(self._stop_batch_send)
+        btn_row.addWidget(self._btn_batch_stop)
+
+        layout.addLayout(btn_row)
+
+        self._batch_send_sec = sec
+        return sec
+
+    def _start_batch_send(self):
+        """开始逐行批量发送"""
+        if not (self._serial and self._serial.is_open):
+            self._sys_msg("⚠ 串口未连接，无法发送", error=True)
+            return
+        text = self._batch_edit.toPlainText()
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        if not lines:
+            self._sys_msg("⚠ 批量发送：命令列表为空", error=True)
+            return
+        self._batch_lines = lines
+        self._batch_index = 0
+        self._batch_repeat_total = max(1, self._batch_repeat_spin.value())
+        self._batch_repeat_done = 0
+        interval_ms = max(50, int(self._batch_interval_spin.value() * 1000))
+        self._batch_timer.setInterval(interval_ms)
+        self._btn_batch_start.setEnabled(False)
+        self._btn_batch_stop.setEnabled(True)
+        self._lbl_batch_progress.setText("发送中…")
+        # 立即发送第一条，再启动定时器
+        self._on_batch_send_tick()
+
+    def _stop_batch_send(self):
+        """停止逐行批量发送"""
+        self._batch_timer.stop()
+        self._batch_lines = []
+        self._batch_index = 0
+        self._btn_batch_start.setEnabled(True)
+        self._btn_batch_stop.setEnabled(False)
+        self._lbl_batch_progress.setText("已停止")
+
+    def _on_batch_send_tick(self):
+        """定时器回调：发送当前行，推进索引"""
+        if not (self._serial and self._serial.is_open):
+            self._stop_batch_send()
+            self._sys_msg("⚠ 批量发送中串口断开，已停止", error=True)
+            return
+        if not self._batch_lines:
+            self._stop_batch_send()
+            return
+        total = len(self._batch_lines)
+        if self._batch_index >= total:
+            # 当前遍结束
+            self._batch_repeat_done += 1
+            if self._batch_repeat_done >= self._batch_repeat_total:
+                # 全部完成
+                self._batch_timer.stop()
+                self._batch_lines = []
+                self._batch_index = 0
+                self._btn_batch_start.setEnabled(True)
+                self._btn_batch_stop.setEnabled(False)
+                self._lbl_batch_progress.setText(
+                    f"✅ 完成 {self._batch_repeat_done}/{self._batch_repeat_total} 遍"
+                )
+                return
+            # 重新开始下一遍
+            self._batch_index = 0
+
+        cmd = self._batch_lines[self._batch_index]
+        # 高亮当前行：在批量输入框中选中对应行
+        try:
+            cur = self._batch_edit.textCursor()
+            doc = self._batch_edit.document()
+            block = doc.findBlockByLineNumber(self._batch_index)
+            cur.setPosition(block.position())
+            cur.movePosition(
+                QTextCursor.MoveOperation.EndOfBlock,
+                QTextCursor.MoveMode.KeepAnchor
+            )
+            self._batch_edit.setTextCursor(cur)
+        except Exception:
+            pass
+
+        self._send_command(cmd)
+        total_r = self._batch_repeat_total
+        done_r = self._batch_repeat_done
+        idx = self._batch_index + 1
+        self._lbl_batch_progress.setText(
+            f"第{idx}/{total}行 | 第{done_r + 1}/{total_r}遍"
+        )
+        self._batch_index += 1
+        # 如果还有下一条，启动定时器；否则在定时器回调中处理
+        if self._batch_index < total or (self._batch_repeat_done + 1) < total_r:
+            if not self._batch_timer.isActive():
+                self._batch_timer.start()
+        else:
+            # 最后一条已发，下一 tick 完成收尾
+            if not self._batch_timer.isActive():
+                self._batch_timer.start()
 
     def _build_firmware_group(self) -> _CollapsibleSection:
         """固件升级准备区"""
@@ -2137,6 +2329,21 @@ class SerialPage(QWidget):
             self.btn_connect.setObjectName("btn_danger")
             self.lbl_status.setText("● 已连接")
             self.lbl_status.setStyleSheet("color:#4CAF50; font-size:12px; font-weight:bold;")
+            # 连接后重置输入/滚动状态，避免首次输入受历史状态影响
+            self._terminal_input_mode = False
+            self._terminal_input_anchor = -1
+            self._terminal_input_buf = ''
+            self._nav_paused = False
+            self._freeze_view_on_rx = False
+            self._passthrough_mode = False
+            if hasattr(self, '_btn_passthrough'):
+                self._btn_passthrough.setChecked(False)
+                self._btn_passthrough.setText("✏")
+            if hasattr(self, 'input_line'):
+                self.input_line.setPlaceholderText("编辑模式：方向键移动光标，Enter 发送命令")
+            if hasattr(self, 'terminal'):
+                self.terminal.setFocus()
+                QTimer.singleShot(0, lambda: self._terminal_enter_input_mode(''))
         else:
             self.btn_connect.setText("  连接  ")
             self.btn_connect.setObjectName("btn_primary")
@@ -2229,8 +2436,13 @@ class SerialPage(QWidget):
         if self._serial and self._serial.is_open:
             try:
                 self._serial.write(cmd.encode('utf-8') + nl)
-                self._append_terminal(f"▶ {cmd}" if cmd else "▶ ␍", color=self._tx_color)
-                self._log_lines.append(f"[TX] {cmd}")
+                # 非空命令：显示发送记录；空回车：静默发送，不污染终端
+                if cmd:
+                    self._append_terminal(f"▶ {cmd}", color=self._tx_color)
+                self._log_lines.append(f"[TX] {cmd}" if cmd else "[TX] ↵")
+                # clear/cls：延迟清空本地终端（等设备处理后效果更自然）
+                if cmd.strip().lower() in ('clear', 'cls'):
+                    QTimer.singleShot(120, self._on_clear)
             except Exception as e:
                 self._sys_msg(f"发送失败: {e}", error=True)
         else:
@@ -2242,6 +2454,8 @@ class SerialPage(QWidget):
     def _terminal_enter_input_mode(self, first_char: str = ''):
         """进入内联输入模式：在最后一个非空行末尾输入，不换行、不变色。"""
         self._terminal_input_mode = True
+        self._nav_paused = False
+        self._freeze_view_on_rx = False
         self._terminal_input_buf = first_char
         cur = self.terminal.textCursor()
         cur.movePosition(QTextCursor.MoveOperation.End)
@@ -2264,8 +2478,11 @@ class SerialPage(QWidget):
         # 插入第一个字符（加粗+白色高亮，与历史输出区分）
         if first_char:
             fmt_input = QTextCharFormat()
-            fmt_input.setForeground(QColor('#FFFFFF'))
+            fmt_input.setForeground(QColor(self._inline_input_color))
             fmt_input.setFontWeight(700)
+            _pt = getattr(self.terminal, '_zoom_pt', 0) or self.terminal.font().pointSize()
+            if _pt > 0:
+                fmt_input.setFontPointSize(_pt)
             cur.insertText(first_char, fmt_input)
         self.terminal.setTextCursor(cur)
         self.terminal.ensureCursorVisible()
@@ -2283,6 +2500,16 @@ class SerialPage(QWidget):
         self._terminal_input_mode = False
         self._terminal_input_anchor = -1
         self._terminal_input_buf = ''
+
+    def _move_terminal_cursor_to_visible_end(self):
+        """将终端光标放在最后一个可见字符处，避免停在尾部空段落闪烁。"""
+        cur = self.terminal.textCursor()
+        cur.movePosition(QTextCursor.MoveOperation.End)
+        txt = self.terminal.toPlainText()
+        if txt.endswith('\n') and cur.position() > 0:
+            cur.movePosition(QTextCursor.MoveOperation.PreviousCharacter)
+        self.terminal.setTextCursor(cur)
+        self.terminal.ensureCursorVisible()
 
     def _terminal_tab_complete(self):
         """内联输入模式下的 Tab 补全：借用 input_line 的补全逻辑。"""
@@ -2306,8 +2533,11 @@ class SerialPage(QWidget):
                          QTextCursor.MoveMode.KeepAnchor, old_len)
         cur.removeSelectedText()
         fmt = QTextCharFormat()
-        fmt.setForeground(QColor('#FFFFFF'))
+        fmt.setForeground(QColor(self._inline_input_color))
         fmt.setFontWeight(700)
+        _ptc = getattr(self.terminal, '_zoom_pt', 0) or self.terminal.font().pointSize()
+        if _ptc > 0:
+            fmt.setFontPointSize(_ptc)
         cur.insertText(new_text, fmt)
         self.terminal.setTextCursor(cur)
         self.terminal.ensureCursorVisible()
@@ -2336,8 +2566,11 @@ class SerialPage(QWidget):
                          QTextCursor.MoveMode.KeepAnchor, old_len)
         cur.removeSelectedText()
         fmt = QTextCharFormat()
-        fmt.setForeground(QColor('#FFFFFF'))
+        fmt.setForeground(QColor(self._inline_input_color))
         fmt.setFontWeight(700)
+        _pth = getattr(self.terminal, '_zoom_pt', 0) or self.terminal.font().pointSize()
+        if _pth > 0:
+            fmt.setFontPointSize(_pth)
         cur.insertText(new_text, fmt)
         self.terminal.setTextCursor(cur)
         self.terminal.ensureCursorVisible()
@@ -2376,6 +2609,11 @@ class SerialPage(QWidget):
     # ──────────────────────────────────────────────────────────────────────────
     def eventFilter(self, obj, event):
         from PyQt6.QtCore import QEvent
+        # ── Ctrl+滚轮缩放：返回 False 让事件自然流经到 _TerminalTextEdit.wheelEvent ──
+        if (event.type() == QEvent.Type.Wheel
+                and hasattr(self, 'terminal')
+                and obj is self.terminal.viewport()):
+            return False  # 不消费，递归到 wheelEvent
         if event.type() == QEvent.Type.KeyPress:
             key = event.key()
             # 去掉 NumLock/GroupSwitch 等干扰标志，确保 Ctrl 组合键在任何键盘
@@ -2389,7 +2627,11 @@ class SerialPage(QWidget):
                 if key == Qt.Key.Key_Escape:
                     self._close_search()
                     return True
-            if obj is self.terminal:
+            _is_terminal_target = (
+                obj is self.terminal
+                or (hasattr(self, 'terminal') and obj is self.terminal.viewport())
+            )
+            if _is_terminal_target:
                 # Ctrl+F：切换搜索栏
                 if (modifiers == Qt.KeyboardModifier.ControlModifier
                         and key == Qt.Key.Key_F):
@@ -2416,8 +2658,7 @@ class SerialPage(QWidget):
                     return True
 
                 # Ctrl+V：粘贴
-                # - 内联输入模式：将剪贴板文本追加到 buf，由 Enter 统一带换行发送
-                # - 非内联输入模式：直接发送到串口（维持原行为）
+                # 统一行为：粘贴到本地内联输入，按 Enter 再发送
                 if (modifiers == Qt.KeyboardModifier.ControlModifier
                         and key == Qt.Key.Key_V):
                     clipboard = QApplication.clipboard()
@@ -2426,41 +2667,23 @@ class SerialPage(QWidget):
                         return True
                     # 过滤换行符（只保留可打印内容，换行由 Enter 按键发送）
                     text = text.replace('\r\n', ' ').replace('\r', ' ').replace('\n', ' ')
-                    if self._terminal_input_mode:
-                        # 追加到当前 buf 并显示在终端
-                        offset = len(self._terminal_input_buf)
-                        self._terminal_input_buf += text
-                        insert_pos = self._terminal_input_anchor + offset
-                        cur = self.terminal.textCursor()
-                        cur.setPosition(insert_pos)
-                        fmt = QTextCharFormat()
-                        fmt.setForeground(QColor('#FFFFFF'))
-                        fmt.setFontWeight(700)
-                        cur.insertText(text, fmt)
-                        self.terminal.setTextCursor(cur)
-                        self.terminal.ensureCursorVisible()
-                    elif self._serial and self._serial.is_open:
-                        # 非内联输入模式：直接发送
-                        try:
-                            self._serial.write(text.encode('utf-8', errors='replace'))
-                        except Exception as e:
-                            self._sys_msg(f'粘贴发送失败: {e}', error=True)
-                    else:
-                        # 没有活跃输入模式也没有串口 → 进入内联输入模式显示粘贴内容
-                        self._terminal_enter_input_mode(text[0])
-                        if len(text) > 1:
-                            extra = text[1:]
-                            offset = 1
-                            self._terminal_input_buf += extra
-                            insert_pos = self._terminal_input_anchor + offset
-                            cur = self.terminal.textCursor()
-                            cur.setPosition(insert_pos)
-                            fmt = QTextCharFormat()
-                            fmt.setForeground(QColor('#FFFFFF'))
-                            fmt.setFontWeight(700)
-                            cur.insertText(extra, fmt)
-                            self.terminal.setTextCursor(cur)
-                            self.terminal.ensureCursorVisible()
+                    if not self._terminal_input_mode:
+                        self._terminal_enter_input_mode('')
+                    # 追加到当前 buf 并显示在终端
+                    offset = len(self._terminal_input_buf)
+                    self._terminal_input_buf += text
+                    insert_pos = self._terminal_input_anchor + offset
+                    cur = self.terminal.textCursor()
+                    cur.setPosition(insert_pos)
+                    fmt = QTextCharFormat()
+                    fmt.setForeground(QColor(self._inline_input_color))
+                    fmt.setFontWeight(700)
+                    _pt4 = getattr(self.terminal, '_zoom_pt', 0) or self.terminal.font().pointSize()
+                    if _pt4 > 0:
+                        fmt.setFontPointSize(_pt4)
+                    cur.insertText(text, fmt)
+                    self.terminal.setTextCursor(cur)
+                    self.terminal.ensureCursorVisible()
                     return True
 
                 # Ctrl+字母 → 直接发送控制字符（与原 input_line 中的逻辑一致）
@@ -2534,8 +2757,11 @@ class SerialPage(QWidget):
                     if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
                         cmd = self._terminal_input_buf
                         self._terminal_commit_input()
-                        # 无论 cmd 是否为空都调用 _send_command（空回车也要发送）
-                        self._send_command(cmd)
+                        # commit 后重置 nav_paused，确保 _append_terminal 能移动光标到末尾
+                        self._nav_paused = False
+                        # 只有 buf 非空才发送（空 buf 直接退出内联模式，不发送空回车）
+                        if cmd:
+                            self._send_command(cmd)
                         stripped = cmd.strip()
                         if stripped:
                             if not self._cmd_history or self._cmd_history[-1] != stripped:
@@ -2604,6 +2830,9 @@ class SerialPage(QWidget):
                         if self._serial and self._serial.is_open:
                             buf = self._terminal_input_buf
                             self._terminal_commit_input()   # 清除终端里已输字符
+                            # Tab 补全输出时保持当前位置，不自动跳到后续新行
+                            self._nav_paused = True
+                            self._freeze_view_on_rx = True
                             try:
                                 payload = buf.encode('utf-8') + b'\t'
                                 self._serial.write(payload)
@@ -2632,8 +2861,11 @@ class SerialPage(QWidget):
                         cur = self.terminal.textCursor()
                         cur.setPosition(insert_pos)
                         fmt = QTextCharFormat()
-                        fmt.setForeground(QColor('#FFFFFF'))  # 加粗白色高亮
+                        fmt.setForeground(QColor(self._inline_input_color))  # 加粗高亮
                         fmt.setFontWeight(700)
+                        _pt3 = getattr(self.terminal, '_zoom_pt', 0) or self.terminal.font().pointSize()
+                        if _pt3 > 0:
+                            fmt.setFontPointSize(_pt3)
                         cur.insertText(char, fmt)
                         self.terminal.setTextCursor(cur)
                         self.terminal.ensureCursorVisible()
@@ -2642,13 +2874,14 @@ class SerialPage(QWidget):
                     # 其他键（翻页、方向键）保留给终端滚动
                     return False
 
-                # ── Bug1修复：非输入模式末尾按 Enter → 发空回车到串口 ───────
+                # ── 非输入模式按 Enter → 移到末尾并静默发空回车（刷新设备提示符）──
                 if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-                    cur_pos = self.terminal.textCursor().position()
-                    doc_end = self.terminal.document().characterCount() - 1
-                    if cur_pos >= doc_end:
-                        self._send_command('')
-                        return True
+                    # 无论光标位置，先移末尾再发，避免"第一次回车无反应"问题
+                    self._freeze_view_on_rx = False
+                    self._move_terminal_cursor_to_visible_end()
+                    self._send_command('')
+                    self._move_terminal_cursor_to_visible_end()
+                    return True
 
                 # ── 非直通模式：终端内打字进入内联输入（CMD 风格） ──────────
                 char = event.text()
@@ -3026,6 +3259,8 @@ class SerialPage(QWidget):
         self._tx_color      = t['tx']
         self._sys_color     = t['sys']
         self._sys_err_color = t['sys_err']
+        # 内联输入高亮色：深色主题白色，浅色主题深蓝（白底可见）
+        self._inline_input_color = '#FFFFFF' if self._dark_mode else '#0550AE'
 
         # 端口栏
         self._port_bar.setStyleSheet(
@@ -3151,6 +3386,44 @@ class SerialPage(QWidget):
         right_widget and right_widget.setStyleSheet(
             f"background: {t['scroll_bg']};"
         )
+        # 批量发送区：QPlainTextEdit + SpinBox 单独设置样式
+        if hasattr(self, '_batch_edit'):
+            self._batch_edit.setStyleSheet(
+                f"QPlainTextEdit{{background:{t['input_bg']};color:{t['input_text']};"
+                f"border:1px solid {t['input_bdr']};border-radius:4px;padding:4px;}}"
+            )
+        _spin_qss = (
+            f"QDoubleSpinBox,QSpinBox{{background:{t['combo_bg']};color:{t['combo_text']};"
+            f"border:1px solid {t['btn_bdr']};border-radius:4px;padding:2px 4px;}}"
+        )
+        for w in ('_batch_interval_spin', '_batch_repeat_spin'):
+            if hasattr(self, w):
+                getattr(self, w).setStyleSheet(_spin_qss)
+        if hasattr(self, '_lbl_batch_progress'):
+            self._lbl_batch_progress.setStyleSheet(
+                f"font-size:11px; color:{t['sys']}; font-weight:bold;"
+            )
+        # 树状导航栏 QTreeWidget 深色主题
+        if hasattr(self, '_quick_section_nav'):
+            self._quick_section_nav.setStyleSheet(
+                f"QTreeWidget {{"
+                f"  background:{t['grp_bg']}; color:{t['combo_text']};"
+                f"  border:1px solid {t['grp_bdr']}; border-radius:4px;"
+                f"  outline:none;"
+                f"}}"
+                f"QTreeWidget::item {{"
+                f"  padding:4px 6px; border-radius:3px;"
+                f"}}"
+                f"QTreeWidget::item:selected {{"
+                f"  background:{t['terminal_sel']}; color:{t['combo_text']};"
+                f"}}"
+                f"QTreeWidget::item:hover:!selected {{"
+                f"  background:{t['btn_hover']};"
+                f"}}"
+                f"QTreeWidget::branch {{"
+                f"  background:{t['grp_bg']};"
+                f"}}"
+            )
 
     # Tab直发模式：ANSI CSI 序列匹配正则（一次性编译）
     _ANSI_ESCAPE_RE = re.compile(r'\x1b(?:\[[0-9;?]*[A-Za-z]|\][^\x07]*(?:\x07|\x1b\\)|[()][A-Z0-1]|\x1b)')
@@ -3329,6 +3602,15 @@ class SerialPage(QWidget):
         new_line = f"[{ts}] {text}\n"
         fmt = QTextCharFormat()
         fmt.setForeground(QColor(color))
+        freeze_view = bool(getattr(self, '_freeze_view_on_rx', False) or getattr(self, '_nav_paused', False))
+        _scroll_value = None
+        if freeze_view:
+            _vbar = self.terminal.verticalScrollBar()
+            _scroll_value = _vbar.value()
+        # 携带当前字号，确保缩放后新插入文字与已有文字一致
+        _pt = getattr(self.terminal, '_zoom_pt', 0) or self.terminal.font().pointSize()
+        if _pt > 0:
+            fmt.setFontPointSize(_pt)
 
         if self._terminal_input_mode and self._terminal_input_anchor >= 0:
             # 内联输入模式：新数据插入已输内容之前，保留已输内容（不换行、不变色）
@@ -3348,8 +3630,11 @@ class SerialPage(QWidget):
             # 4. 不变色重新插入已输内容
             if saved_buf:
                 fmt_input = QTextCharFormat()
-                fmt_input.setForeground(QColor('#FFFFFF'))
+                fmt_input.setForeground(QColor(self._inline_input_color))
                 fmt_input.setFontWeight(700)
+                _pt2 = getattr(self.terminal, '_zoom_pt', 0) or self.terminal.font().pointSize()
+                if _pt2 > 0:
+                    fmt_input.setFontPointSize(_pt2)
                 cursor.insertText(saved_buf, fmt_input)
             self._terminal_input_buf = saved_buf
             if not getattr(self, '_nav_paused', False):
@@ -3360,8 +3645,10 @@ class SerialPage(QWidget):
             cursor.movePosition(QTextCursor.MoveOperation.End)
             cursor.insertText(new_line, fmt)
             if self._auto_scroll and not getattr(self, '_nav_paused', False):
-                self.terminal.setTextCursor(cursor)
-                self.terminal.ensureCursorVisible()
+                self._move_terminal_cursor_to_visible_end()
+
+        if freeze_view and _scroll_value is not None:
+            self.terminal.verticalScrollBar().setValue(_scroll_value)
 
         # 从接收行中提取路径（Unix 绝对路径）缓入补全库
         if text and not text.startswith('▶') and not text.startswith('  ['):
@@ -3671,7 +3958,10 @@ class SerialPage(QWidget):
             self.input_line.setPlaceholderText("输入指令，按 Enter 发送 | ↑↓ 历史 | Tab 补全...")
 
     def _is_tab_passthrough_enabled(self) -> bool:
-        return getattr(self, '_passthrough_mode', True)
+        # 以按钮状态为准，避免内部状态与 UI 不一致导致误入直发模式
+        if hasattr(self, '_btn_passthrough'):
+            return bool(self._btn_passthrough.isChecked())
+        return bool(getattr(self, '_passthrough_mode', False))
 
     def _on_toggle_passthrough(self, checked: bool):
         """切换直通/编辑模式，并更新输入框占位文字与按钮图标。"""
@@ -3859,6 +4149,7 @@ class SerialPage(QWidget):
 
         self._built_in_sections = {}
         built_in_defs = [
+            ('batch_send', self._build_batch_send_group()),
             ('firmware', self._build_firmware_group()),
             ('angle_collect', self._build_angle_test_group()),
             ('kst_angle', self._build_kst_angle_group()),
@@ -4544,9 +4835,16 @@ class SerialPage(QWidget):
         if order:
             order_map = {getattr(sec, '_persist_id', ''): sec for sec in self._quick_sections_list}
             ordered = [order_map[item] for item in order if item in order_map]
-            for sec in self._quick_sections_list:
-                if sec not in ordered:
-                    ordered.append(sec)
+            # 未在保存列表的内置板块（非 dyn:）排最前，动态板块排最后
+            missing_builtins = [
+                sec for sec in self._quick_sections_list
+                if sec not in ordered and not getattr(sec, '_persist_id', '').startswith('dyn:')
+            ]
+            missing_dynamics = [
+                sec for sec in self._quick_sections_list
+                if sec not in ordered and getattr(sec, '_persist_id', '').startswith('dyn:')
+            ]
+            ordered = missing_builtins + ordered + missing_dynamics
             self._quick_sections_list = ordered
             for sec in ordered:
                 self._sections_layout.removeWidget(sec)
