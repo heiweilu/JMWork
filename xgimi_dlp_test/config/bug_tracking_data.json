@@ -10,21 +10,12 @@
   ],
   [
     "9679R+",
-    "切换左右3D转2D，画面会拉伸一下",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143157574",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6469928925",
-    "海外雅典娜",
-    "王建",
-    "等待/复测"
-  ],
-  [
-    "9679R+",
     "PS4播放3D碟片，切换3D模式时右侧闪绿或彩色-205",
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143096588",
     "https://project.feishu.cn/6bxxuo/issue/detail/6409667215",
     "海外雅典娜",
     "王建",
-    "等待/复测"
+    "MTK已关，等待提供下一个tag"
   ],
   [
     "9679R+",
@@ -33,7 +24,7 @@
     "https://project.feishu.cn/6bxxuo/issue/detail/6409829261",
     "海外雅典娜",
     "王建",
-    "待复现"
+    "让我们重提一单"
   ],
   [
     "9660R+",
@@ -172,21 +163,12 @@
   ],
   [
     "9660",
-    "巨幕模式有手动梯形点位下，退出重新播放时视频为黑屏",
-    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143252967",
-    "https://project.feishu.cn/6bxxuo/issue/detail/6849807846",
-    "国内猛禽",
-    "李梦江",
-    "Resolved"
-  ],
-  [
-    "9660",
     "连接PC切换到HDR桌面字体抖动变严重（大鹏）",
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143258869",
     "",
     "国内大鹏",
     "李清龙",
-    "继续跟踪"
+    "目前没有进展"
   ],
   [
     "9660",
@@ -195,7 +177,7 @@
     "https://project.feishu.cn/6bxxuo/issue/detail/6921455665",
     "国内猛禽",
     "李梦江",
-    "继续跟踪"
+    "我们已关闭，MTK还挂着"
   ],
   [
     "9660",
@@ -204,6 +186,6 @@
     "https://project.feishu.cn/6bxxuo/issue/detail/6935140629",
     "国内猛禽",
     "陈旭东",
-    "继续跟踪"
+    "我们已关闭，MTK还挂着"
   ]
 ]

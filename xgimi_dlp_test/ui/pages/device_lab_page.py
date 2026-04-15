@@ -8,6 +8,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
+import numpy as np
 from PyQt6.QtCore import QEvent, QPoint, QTimer, Qt, QUrl, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QDesktopServices, QImage, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
@@ -27,6 +28,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMenu,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
@@ -689,7 +691,7 @@ class CommandItemDialog(QDialog):
         self.lbl_green_analysis.setText(_build_green_analysis_text(None, int(self.spin_green_check_frames.value())))
 
     def _load_green_preview_image(self, file_path: str):
-        image = cv2.imread(file_path)
+        image = cv2.imdecode(np.fromfile(file_path, dtype=np.uint8), cv2.IMREAD_COLOR)
         if image is None:
             self._green_preview_image = None
             self._green_preview_path = ""
@@ -881,6 +883,9 @@ class ScriptStepDialog(QDialog):
 
         self.chk_pause_on_fail = QCheckBox("不通过时暂停后续执行")
         self.chk_pause_on_fail.setChecked(bool(values.get("pause_on_fail", True)))
+
+        self.chk_notify_on_fail = QCheckBox("失败/暂停时发送飞书通知")
+        self.chk_notify_on_fail.setChecked(bool(values.get("notify_on_fail", False)))
 
         self.spin_capture_count = QSpinBox()
         self.spin_capture_count.setRange(1, 999)
@@ -1080,6 +1085,7 @@ class ScriptStepDialog(QDialog):
         form.addRow("失败重试", self.spin_retry_count)
         form.addRow("重试间隔", self.spin_retry_interval)
         form.addRow("失败策略", self.chk_pause_on_fail)
+        form.addRow("飞书通知", self.chk_notify_on_fail)
         form.addRow("执行次数", self.spin_repeat)
         form.addRow("每次后等待", self.spin_delay)
         form.addRow("备注", self.edit_note)
@@ -1191,6 +1197,7 @@ class ScriptStepDialog(QDialog):
         _set_form_row_visible(self._form, self.spin_retry_count, show_detect_result)
         _set_form_row_visible(self._form, self.spin_retry_interval, show_detect_result)
         _set_form_row_visible(self._form, self.chk_pause_on_fail, show_detect_result)
+        _set_form_row_visible(self._form, self.chk_notify_on_fail, show_detect_result)
         if show_green:
             self.edit_result_variable.setPlaceholderText("例如 screen_ok；未检出绿屏会写入 true")
         elif show_compare:
@@ -1300,7 +1307,7 @@ class ScriptStepDialog(QDialog):
         self.lbl_green_analysis.setText(_build_green_analysis_text(None, int(self.spin_green_check_frames.value())))
 
     def _load_green_preview_image(self, file_path: str):
-        image = cv2.imread(file_path)
+        image = cv2.imdecode(np.fromfile(file_path, dtype=np.uint8), cv2.IMREAD_COLOR)
         if image is None:
             self._green_preview_image = None
             self._green_preview_path = ""
@@ -1386,6 +1393,7 @@ class ScriptStepDialog(QDialog):
             "check_mode": self.combo_check_mode.currentData() or "contains",
             "check_timeout_ms": int(self.spin_check_timeout.value()),
             "check_fail_action": self.combo_check_fail_action.currentData() or "stop",
+            "notify_on_fail": self.chk_notify_on_fail.isChecked(),
         }
 
 
@@ -1508,6 +1516,20 @@ class DraggableRemoteButton(QPushButton):
         super().mouseReleaseEvent(event)
 
 
+class _FlatDropTreeWidget(QTreeWidget):
+    """仅支持同级拖拽排序的 QTreeWidget（禁止拖入子级）。"""
+    items_reordered = pyqtSignal()
+
+    def dropEvent(self, event):  # type: ignore[override]
+        # 仅允许同级排序，禁止变成子项
+        drop_indicator = self.dropIndicatorPosition()
+        if drop_indicator == QAbstractItemView.DropIndicatorPosition.OnItem:
+            event.ignore()
+            return
+        super().dropEvent(event)
+        self.items_reordered.emit()
+
+
 class DeviceLabPage(QWidget):
     """设备联调台。"""
 
@@ -1543,6 +1565,7 @@ class DeviceLabPage(QWidget):
         self._active_run_context: Optional[Dict[str, Any]] = None
         self._queue_paused = False
         self._queue_busy = False
+        self._failure_notified = False  # 是否已发送过失败/暂停通知（防止重复发完成通知）
         self._script_camera_capture = None
         self._running_step_id: Optional[str] = None
         self._last_preview_render_at = 0.0
@@ -1890,7 +1913,7 @@ class DeviceLabPage(QWidget):
         step_nav_layout.setSpacing(8)
         step_nav_layout.addWidget(QLabel("步骤导航树"))
 
-        self.list_script_steps = QTreeWidget()
+        self.list_script_steps = _FlatDropTreeWidget()
         self.list_script_steps.setHeaderHidden(True)
         self.list_script_steps.currentItemChanged.connect(self._on_step_selection_changed)
         self.list_script_steps.setMinimumWidth(300)
@@ -1900,6 +1923,7 @@ class DeviceLabPage(QWidget):
         self.list_script_steps.setAcceptDrops(True)
         self.list_script_steps.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.list_script_steps.setDropIndicatorShown(True)
+        self.list_script_steps.items_reordered.connect(self._on_steps_reordered)
         step_nav_layout.addWidget(self.list_script_steps, 1)
         step_workspace_split.addWidget(step_nav_panel)
 
@@ -1994,6 +2018,16 @@ class DeviceLabPage(QWidget):
         self.btn_script_stop.setEnabled(False)
         self.btn_script_stop.clicked.connect(self._stop_script_run)
         row_bottom.addWidget(self.btn_script_stop)
+
+        self.btn_feishu_notify = QPushButton("📨 飞书通知 ▾")
+        self.btn_feishu_notify.setObjectName("lab_secondary")
+        self.btn_feishu_notify.setToolTip("手动发送通知或配置步骤自动通知")
+        feishu_menu = QMenu(self.btn_feishu_notify)
+        feishu_menu.addAction("📨 手动发送通知", self._on_feishu_notify)
+        feishu_menu.addAction("⚙️ 配置步骤自动通知", self._on_step_notify_config)
+        self.btn_feishu_notify.setMenu(feishu_menu)
+        row_bottom.addWidget(self.btn_feishu_notify)
+
         row_bottom.addStretch(1)
         layout.addLayout(row_top)
         layout.addLayout(row_bottom)
@@ -2300,7 +2334,6 @@ class DeviceLabPage(QWidget):
         self._refresh_script_steps()
 
     def _refresh_script_steps(self):
-        self.list_script_steps.model().rowsMoved.disconnect() if self.list_script_steps.model().receivers(self.list_script_steps.model().rowsMoved) > 0 else None  # type: ignore
         self.list_script_steps.clear()
         script = self._current_script()
         ui_state = self._profile.setdefault("ui_state", {})
@@ -2317,7 +2350,6 @@ class DeviceLabPage(QWidget):
             self.list_script_steps.addTopLevelItem(item)
             if first_step_item is None:
                 first_step_item = item
-        self.list_script_steps.model().rowsMoved.connect(self._on_steps_reordered)
         if first_step_item is not None:
             target_item = first_step_item
             if target_step_id:
@@ -2341,16 +2373,15 @@ class DeviceLabPage(QWidget):
             step = old_steps.get(step_id)
             if step is not None:
                 new_order.append(step)
+        if not new_order:
+            return
         script["steps"] = new_order
         self._persist_profile()
-        # 刷新序号文字（保留当前选中）
-        current_id = self._profile.setdefault("ui_state", {}).get("last_step_id")
-        for index in range(self.list_script_steps.topLevelItemCount()):
-            item = self.list_script_steps.topLevelItem(index)
-            step_id = item.data(0, Qt.ItemDataRole.UserRole)
-            step = old_steps.get(step_id)
-            if step:
-                item.setText(0, f"{index + 1:02d}. {self._step_summary(step)}")
+        # 记住当前选中步骤，完整刷新列表以更新序号
+        current_item = self.list_script_steps.currentItem()
+        if current_item:
+            self._profile.setdefault("ui_state", {})["last_step_id"] = current_item.data(0, Qt.ItemDataRole.UserRole) or ""
+        self._refresh_script_steps()
 
     def _on_project_selection_changed(self):
         project = self._current_project()
@@ -2722,6 +2753,40 @@ class DeviceLabPage(QWidget):
             self._log(f"条件检查失败，已暂停: {source}", "ERROR")
             self._queue_busy = False
             self._update_run_stats(force_status="失败暂停")
+            # >>> AI 集成：条件检查失败事件（仅步骤开启 notify_on_fail 时）
+            if action.get("notify_on_fail", False):
+                # 收集检查条件和实际结果
+                _mode_labels = {"contains": "包含", "not_contains": "不包含", "exact": "精确匹配", "regex": "正则匹配"}
+                check_mode = action.get("check_mode", "contains")
+                check_ref = action.get("check_reference", "")
+                actual_lines = getattr(self, '_serial_check_lines', []) or []
+                actual_preview = " | ".join(repr(l) for l in actual_lines[:5])
+                if len(actual_lines) > 5:
+                    actual_preview += f" …(共{len(actual_lines)}行)"
+                elif not actual_lines:
+                    actual_preview = "（无回发数据）"
+
+                reason_detail = (
+                    f"条件检查失败: {source}\n"
+                    f"**检查模式：** {_mode_labels.get(check_mode, check_mode)}\n"
+                    f"**期望值：** `{check_ref}`\n"
+                    f"**实际回发：** `{actual_preview}`"
+                )
+
+                try:
+                    from core.event_bus import get_event_bus, Events
+                    get_event_bus().emit_async(
+                        Events.CONDITION_CHECK_FAILED,
+                        script_name=self._run_metrics.get('script_name', '') if self._run_metrics else '',
+                        step_name=source, reason=reason_detail,
+                        notify_title=action.get("notify_title", ""),
+                        notify_content=action.get("notify_content", ""),
+                        include_logs=action.get("include_logs", True),
+                        use_ai_summary=action.get("use_ai_summary", False),
+                    )
+                    self._failure_notified = True
+                except Exception:
+                    pass
             self._refresh_queue_controls()
             return
         if not success:
@@ -2990,6 +3055,11 @@ class DeviceLabPage(QWidget):
                 save_diff_heatmap=bool(action.get("save_diff_heatmap", True)),
                 roi_text=action.get("roi_text", ""),
                 result_variable=action.get("result_variable", ""),
+                notify_on_fail=bool(action.get("notify_on_fail", False)),
+                notify_title=action.get("notify_title", ""),
+                notify_content=action.get("notify_content", ""),
+                include_logs=action.get("include_logs", True),
+                use_ai_summary=action.get("use_ai_summary", False),
             )
         elif action_type == "green_screen_detect":
             success = self._detect_green_screen(
@@ -3020,6 +3090,20 @@ class DeviceLabPage(QWidget):
                 self._refresh_queue_controls()
                 return  # 等待 _on_serial_check_tick 完成后续逻辑
             success = False  # 发送失败直接走失败分支
+        elif action_type == "ai_notify":
+            # >>> AI 集成：AI 通知步骤
+            try:
+                from core.event_bus import get_event_bus, Events
+                get_event_bus().emit_async(
+                    Events.AI_NOTIFY_TRIGGERED,
+                    script_name=self._run_metrics.get('script_name', '') if self._run_metrics else '',
+                    step_name=source,
+                    prompt_template=action.get('prompt_template', ''),
+                    include_logs=action.get('include_logs', True),
+                )
+                self._log(f"AI 通知已触发: {source}")
+            except Exception as e:
+                self._log(f"AI 通知失败: {e}", "WARN")
 
         if not success and retry_count > 0:
             action["retry_count"] = retry_count - 1
@@ -3043,6 +3127,22 @@ class DeviceLabPage(QWidget):
             self._log(f"执行失败，已暂停: {source}", "ERROR")
             self._queue_busy = False
             self._update_run_stats(force_status="失败暂停")
+            # >>> AI 集成：步骤失败暂停事件（仅步骤开启 notify_on_fail 时）
+            if action.get("notify_on_fail", False):
+                try:
+                    from core.event_bus import get_event_bus, Events
+                    get_event_bus().emit_async(
+                        Events.STEP_FAILED,
+                        script_name=self._run_metrics.get('script_name', '') if self._run_metrics else '',
+                        step_name=source, reason=f"执行失败: {source}",
+                        notify_title=action.get("notify_title", ""),
+                        notify_content=action.get("notify_content", ""),
+                        include_logs=action.get("include_logs", True),
+                        use_ai_summary=action.get("use_ai_summary", False),
+                    )
+                    self._failure_notified = True
+                except Exception:
+                    pass
             self._refresh_queue_controls()
             return
         if not success:
@@ -3194,6 +3294,11 @@ class DeviceLabPage(QWidget):
                     "result_variable": step.get("result_variable", ""),
                     "recovery_target": step.get("recovery_target", ""),
                     "step_id": step.get("id", ""),
+                    "notify_on_fail": bool(step.get("notify_on_fail", False)),
+                    "notify_title": step.get("notify_title", ""),
+                    "notify_content": step.get("notify_content", ""),
+                    "include_logs": bool(step.get("include_logs", True)),
+                    "use_ai_summary": bool(step.get("use_ai_summary", False)),
                 })
             elif step_type == "green_screen_detect":
                 actions.append({
@@ -3218,6 +3323,11 @@ class DeviceLabPage(QWidget):
                     "green_value_threshold": int(step.get("green_value_threshold", 60) or 60),
                     "green_check_frames": int(step.get("green_check_frames", 3) or 3),
                     "green_check_interval_ms": int(step.get("green_check_interval_ms", 250) or 250),
+                    "notify_on_fail": bool(step.get("notify_on_fail", False)),
+                    "notify_title": step.get("notify_title", ""),
+                    "notify_content": step.get("notify_content", ""),
+                    "include_logs": bool(step.get("include_logs", True)),
+                    "use_ai_summary": bool(step.get("use_ai_summary", False)),
                 })
             elif step_type == "serial_check":
                 command = step.get("command", "").strip()
@@ -3239,7 +3349,23 @@ class DeviceLabPage(QWidget):
                         "stop_on_fail": stop_on_fail,
                         "condition": step.get("condition", ""),
                         "step_id": step.get("id", ""),
+                        "notify_on_fail": bool(step.get("notify_on_fail", False)),
+                        "notify_title": step.get("notify_title", ""),
+                        "notify_content": step.get("notify_content", ""),
+                        "include_logs": bool(step.get("include_logs", True)),
+                        "use_ai_summary": bool(step.get("use_ai_summary", False)),
                     })
+            elif step_type == "ai_notify":
+                actions.append({
+                    "type": "ai_notify",
+                    "delay_seconds": delay_seconds,
+                    "source": source,
+                    "stop_on_fail": False,
+                    "condition": step.get("condition", ""),
+                    "prompt_template": step.get("prompt_template", ""),
+                    "include_logs": bool(step.get("include_logs", True)),
+                    "step_id": step.get("id", ""),
+                })
             else:
                 command = step.get("command", "").strip()
                 if command:
@@ -3409,6 +3535,9 @@ class DeviceLabPage(QWidget):
         capture = self._open_camera(self._selected_camera_index())
         if not capture.isOpened():
             return None
+        # 预热：丢弃前 N 帧，等待相机自动曝光调整
+        for _ in range(15):
+            capture.read()
         self._script_camera_capture = capture
         self.lbl_camera_chip.setText("剧本拍摄中")
         return self._script_camera_capture
@@ -3623,7 +3752,7 @@ class DeviceLabPage(QWidget):
             return self._append_current_frame_to_reference_pool(quiet=True)
         reference_images = []
         for path in pool_paths:
-            image = cv2.imread(path)
+            image = cv2.imdecode(np.fromfile(path, dtype=np.uint8), cv2.IMREAD_COLOR)
             if image is not None:
                 reference_images.append(image)
         if not reference_images:
@@ -3655,7 +3784,9 @@ class DeviceLabPage(QWidget):
             )
         else:
             file_path = os.path.join(snapshot_dir, f"{file_prefix}_{time.strftime('%Y%m%d_%H%M%S')}.png")
-        cv2.imwrite(file_path, frame)
+        ext = os.path.splitext(file_path)[1]
+        _, buf = cv2.imencode(ext, frame)
+        buf.tofile(file_path)
         self._last_snapshot_path = file_path
         self._current_camera_frame = frame.copy()
         self._render_camera_frame(frame)
@@ -3678,6 +3809,11 @@ class DeviceLabPage(QWidget):
         save_diff_heatmap: Optional[bool] = None,
         roi_text: str = "",
         result_variable: str = "",
+        notify_on_fail: bool = False,
+        notify_title: str = "",
+        notify_content: str = "",
+        include_logs: bool = True,
+        use_ai_summary: bool = False,
     ) -> bool:
         current_frame = self._get_latest_camera_frame()
         if current_frame is None:
@@ -3700,7 +3836,7 @@ class DeviceLabPage(QWidget):
             return False
 
         for path in reference_paths:
-            image = cv2.imread(path)
+            image = cv2.imdecode(np.fromfile(path, dtype=np.uint8), cv2.IMREAD_COLOR)
             if image is not None:
                 reference_images.append(image)
 
@@ -3729,7 +3865,8 @@ class DeviceLabPage(QWidget):
             snapshot_dir = self._action_artifact_dir()
             os.makedirs(snapshot_dir, exist_ok=True)
             heatmap_path = os.path.join(snapshot_dir, f"compare_heatmap_{time.strftime('%Y%m%d_%H%M%S')}.png")
-            cv2.imwrite(heatmap_path, heatmap)
+            _, buf = cv2.imencode('.png', heatmap)
+            buf.tofile(heatmap_path)
 
         self._log(
             f"{source}: category={compare_category}, roi={compare_roi_text or 'full'}, refs={compare_result.get('reference_count', len(reference_images))}, best={compare_result.get('matched_index', -1)}, "
@@ -3743,6 +3880,23 @@ class DeviceLabPage(QWidget):
             return True
 
         self._log(f"{source} 未通过，已判定为异常画面", "ERROR")
+        # >>> AI 集成：图像对比失败事件（仅步骤开启 notify_on_fail 时）
+        if notify_on_fail:
+            try:
+                from core.event_bus import get_event_bus, Events
+                get_event_bus().emit_async(
+                    Events.COMPARE_FAILED,
+                    script_name=self._run_metrics.get('script_name', '') if self._run_metrics else '',
+                    step_name=source,
+                    reason=f"图像对比未通过 score={compare_result['final_score']:.4f} threshold={compare_result['threshold_used']:.4f}",
+                    notify_title=notify_title,
+                    notify_content=notify_content,
+                    include_logs=include_logs,
+                    use_ai_summary=use_ai_summary,
+                )
+                self._failure_notified = True
+            except Exception:
+                pass
         if pause_on_fail:
             QMessageBox.warning(
                 self,
@@ -3818,7 +3972,8 @@ class DeviceLabPage(QWidget):
             snapshot_dir = self._action_artifact_dir()
             os.makedirs(snapshot_dir, exist_ok=True)
             heatmap_path = os.path.join(snapshot_dir, f"green_detect_mask_{time.strftime('%Y%m%d_%H%M%S')}.png")
-            cv2.imwrite(heatmap_path, heatmap)
+            _, buf = cv2.imencode('.png', heatmap)
+            buf.tofile(heatmap_path)
 
         self._log(
             f"{source}: roi={compare_roi_text or 'full'}, sampled={sample_frames}, hits={hit_count}, "
@@ -3941,6 +4096,7 @@ class DeviceLabPage(QWidget):
             self.btn_script_stop.setEnabled(has_running_queue)
 
     def _finish_queue_run(self, message: str):
+        self._failure_notified = False
         self._queue_paused = False
         self._queue_busy = False
         self._refresh_queue_controls()
@@ -4011,6 +4167,62 @@ class DeviceLabPage(QWidget):
             QMessageBox.information(self, '提示', '当前还没有可打开的输出目录')
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(target_dir))
+
+    def _on_feishu_notify(self):
+        """弹出飞书通知发送弹窗（设备联调台）。"""
+        from ui.widgets.feishu_notify_dialog import FeishuNotifyDialog
+
+        dlg = FeishuNotifyDialog(self)
+
+        # 收集可发送的文件（输出目录下的截图/日志）
+        files = []
+        target_dir = self._last_run_output_dir
+        if self._active_run_context:
+            target_dir = self._active_run_context.get('base_dir', target_dir)
+        if target_dir and os.path.isdir(target_dir):
+            for fn in os.listdir(target_dir):
+                fp = os.path.join(target_dir, fn)
+                if os.path.isfile(fp):
+                    files.append(fp)
+
+        # 获取当前脚本信息
+        script_name = ""
+        if self._run_metrics:
+            script_name = self._run_metrics.get("script_name", "")
+
+        status = ""
+        if self._queue_paused:
+            status = "已暂停"
+        elif self._queue_timer.isActive() or self._queue_busy:
+            status = "运行中"
+        else:
+            status = "空闲"
+
+        dlg.set_preset(
+            title=f"设备联调台 - {script_name or '手动通知'}",
+            description=f"脚本: {script_name}\n状态: {status}",
+            files=files[:20],
+            include_logs=True,
+            context_info=f"脚本={script_name}, 状态={status}",
+        )
+        dlg.exec()
+
+    def _on_step_notify_config(self):
+        """打开步骤自动通知配置弹窗。"""
+        script = self._current_script()
+        if not script:
+            QMessageBox.information(self, "提示", "请先选择一个剧本。")
+            return
+
+        from ui.widgets.step_notify_config import StepNotifyConfigDialog
+
+        dlg = StepNotifyConfigDialog(script, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            # 将修改后的步骤写回 store
+            script["steps"] = dlg.get_modified_steps()
+            self._store.save()
+            self._refresh_script_steps()
+            self._log("步骤自动通知配置已更新")
 
     def _update_run_stats(self, force_status: str = ""):
         if not self._run_metrics:
@@ -4417,6 +4629,7 @@ class DeviceLabPage(QWidget):
             self._stop_camera_preview()
         self._active_run_context = self._create_run_context(script)
         self._script_variables = {}
+        self._failure_notified = False
         self._run_metrics = {
             'script_name': script.get('name', ''),
             'run_count': int(script.get('run_count', 1) or 1),

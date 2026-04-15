@@ -40,6 +40,8 @@ class AnalysisPage(QWidget):
         self._last_output_path = ''   # 记录最近一次成功输出路径
         self._last_data_path   = ''   # 结构化数据路径（TSV，供下游）
         self._last_angle_test_path = ''
+        self._last_output_files = []   # 最近输出文件列表（用于飞书通知）
+        self._last_module_name = ''    # 最近执行的模块名
         self._init_ui()
 
     def _init_ui(self):
@@ -148,6 +150,12 @@ class AnalysisPage(QWidget):
         self.btn_open_output.setToolTip("在文件管理器中打开分析结果所在目录")
         self.btn_open_output.clicked.connect(self._on_open_output)
         btn_layout.addWidget(self.btn_open_output)
+
+        self.btn_feishu_notify = QPushButton("📨 发送飞书通知")
+        self.btn_feishu_notify.setEnabled(False)
+        self.btn_feishu_notify.setToolTip("将分析结果发送到飞书群")
+        self.btn_feishu_notify.clicked.connect(self._on_feishu_notify)
+        btn_layout.addWidget(self.btn_feishu_notify)
 
         btn_layout.addStretch()
         left_layout.addLayout(btn_layout)
@@ -648,6 +656,11 @@ class AnalysisPage(QWidget):
                 self._log_panel.append_log(
                     f"执行成功! 输出: {output_path}", "SUCCESS")
 
+            # 启用飞书通知按钮，记录输出文件
+            self._last_output_files = output_files or image_paths or []
+            self._last_module_name = cur_name
+            self.btn_feishu_notify.setEnabled(True)
+
             QMessageBox.information(self, "完成",
                                     f"分析执行成功\n输出: {output_path}")
 
@@ -671,6 +684,40 @@ class AnalysisPage(QWidget):
         if self._log_panel:
             self._log_panel.append_log(f"异常: {error_msg}", "ERROR")
         QMessageBox.critical(self, "异常", f"执行异常:\n{error_msg}")
+
+    def _on_feishu_notify(self):
+        """弹出飞书通知发送弹窗。"""
+        from ui.widgets.feishu_notify_dialog import FeishuNotifyDialog
+
+        dlg = FeishuNotifyDialog(self)
+
+        # 收集输出文件
+        files = []
+        if self._last_output_files:
+            files = [f for f in self._last_output_files if os.path.isfile(f)]
+        elif self._last_output_path and os.path.isdir(self._last_output_path):
+            for fn in os.listdir(self._last_output_path):
+                fp = os.path.join(self._last_output_path, fn)
+                if os.path.isfile(fp):
+                    files.append(fp)
+
+        module_name = self._last_module_name or "分析执行"
+
+        # 构建文件名列表写入正文
+        file_names = [os.path.basename(f) for f in files]
+        file_list_text = "\n".join(f"  • {fn}" for fn in file_names) if file_names else "（无输出文件）"
+        description = (
+            f"模块: {module_name}\n"
+            f"输出文件 ({len(file_names)} 个):\n{file_list_text}"
+        )
+
+        dlg.set_preset(
+            title=f"{module_name} 执行完成",
+            description=description,
+            files=files[:20],
+            context_info=f"模块={module_name}, 文件数={len(files)}",
+        )
+        dlg.exec()
 
     def _on_export(self):
         """导出当前图表"""

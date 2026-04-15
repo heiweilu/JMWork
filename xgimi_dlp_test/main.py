@@ -51,6 +51,15 @@ def main():
     config_dir = os.path.join(APP_DIR, 'config')
     config_mgr = ConfigManager(config_dir=config_dir)
 
+    # 初始化 AI + 飞书服务（从 ai_config.json 加载凭证）
+    try:
+        config_mgr.apply_ai_config_to_services()
+        from core.ai_agent import get_ai_agent
+        get_ai_agent().bind_event_bus()
+        print("[启动] AI Agent 已绑定事件总线")
+    except Exception as e:
+        print(f"[启动] AI 服务初始化跳过: {e}")
+
     # 自动发现并注册所有模块
     task_registry.discover_all()
 

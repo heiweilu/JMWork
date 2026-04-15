@@ -262,6 +262,8 @@ Compress-Archive -Path dist\xgimi_dlp_test -DestinationPath xgimi_dlp_test_v0.1.
 | v0.1.7 | — | 打包清单同步、hidden_imports 补全、TSD 存储驱动兼容 |
 | v0.1.8 | — | 双版本差异点可视化、角度边界统计双文件对比、参数区布局优化 |
 | v0.1.9 | 2026-04 | SVM模型验证独立顶层页面、SVM训练树状导航精简、验证标签解析对齐训练逻辑 |
+| v0.1.10 | 2026-04 | AI 智能通知（通义千问 qwen3.5-flash + 飞书 Webhook/OpenAPI 双模式）、事件总线驱动自动告警、步骤级通知配置 |
+| v0.1.11 | 2026-04 | 修复 cv2 Unicode 路径静默失败、相机预热防黑图、通知排版优化（lark_md + hr分割线）、防重复通知 |
 | v0.2.0 | 计划 | 新增历史对比分析 |
 | v1.0.0 | 计划 | 正式交付版本 |
 
@@ -269,7 +271,7 @@ Compress-Archive -Path dist\xgimi_dlp_test -DestinationPath xgimi_dlp_test_v0.1.
 
 ## 工程结构概览
 
-### 主要功能亮点（v0.1.7）
+### 主要功能亮点（v0.1.11）
 
 | 功能 | 说明 |
 |---|---|
@@ -279,11 +281,14 @@ Compress-Archive -Path dist\xgimi_dlp_test -DestinationPath xgimi_dlp_test_v0.1.
 | 十六进制转换工具 | 实时 HEX↔DEC/BIN/OCT/ASCII 互转 |
 | BUG 跟踪表 | 可编辑表格，双击链接直接打开浏览器 |
 | 设备实验室 | 串口调试 + 摄像头 + 脚本编排一体化 |
+| AI 智能通知 | 通义千问 qwen3.5-flash 分析异常事件，自动生成飞书群通知 |
+| 飞书集成 | Webhook（零审核）/ OpenAPI 双模式，支持交互卡片 + 文件上传 |
+| 步骤级告警配置 | 逐步骤开关 notify_on_fail，自定义通知标题/补充说明/是否包含日志 |
 | SVM 模型训练 | 自动数据集划分，单类数据保护，网格搜索自动寻优 C/gamma |
 | SVM 模型验证 | 独立顶层页面，加载已训练模型对数据集推理，输出准确率/混淆矩阵/误分类列表 |
 | 图像比对 | OpenCV SVM 特征分析与结果可视化 |
-| 双版本差异点提取 | 比较两份角度测试结果，输出差异点可视化散点图（猫头鹰风格），区分 A-通/B-失、B-通/A-失、独有等类型 |
-| 角度边界统计双文件对比 | 支持同时输入两份边界数据，实心/空心标记区分来源，可视化叠加多文件问题角点分布 |
+| 双版本差异点提取 | 比较两份角度测试结果，输出差异点可视化散点图 |
+| 角度边界统计双文件对比 | 支持同时输入两份边界数据，实心/空心标记区分来源 |
 
 ```
 xgimi_dlp_test/
@@ -292,20 +297,28 @@ xgimi_dlp_test/
 ├── xgimi_dlp_test.spec      # PyInstaller 打包配置
 ├── build_exe.bat            # 一键打包脚本
 ├── config/                  # 配置文件
+│   ├── ai_config.json       # AI + 飞书 + 通知规则配置（gitignored）
+│   └── device_lab_profile.json  # 设备联调项目/剧本定义
 ├── assets/                  # 固件资源
-├── core/                    # 基础设施（配置/注册表/工具）
+├── core/                    # 基础设施
+│   ├── ai_service.py        # 通义千问 API 封装
+│   ├── ai_agent.py          # ReAct Agent（事件分析 + 通知分发）
+│   ├── ai_tools.py          # Agent 工具注册表
+│   ├── event_bus.py         # 轻量级发布-订阅事件总线
+│   ├── feishu_service.py    # 飞书 Webhook / OpenAPI 双模式
+│   └── config_manager.py    # 配置管理
 ├── dlpc_sdk/                # 硬件 SDK（DLPC843x USB 控制）
 ├── modules/                 # 业务模块（插件式自动注册）
-│   ├── analysis/            # 数据分析
-│   ├── preprocessing/       # 数据预处理
-│   └── test/                # 硬件测试（需设备）
 ├── workers/                 # Qt 工作线程
 ├── ui/                      # 完整 GUI 层
-│   ├── styles.py            # 全局 QSS 浅色科技主题
-│   ├── animations.py        # 动画系统
-│   ├── main_window.py       # 主窗口
-│   ├── pages/               # 9 个功能页面
-│   └── widgets/             # 可复用控件（含 TreeWorkspace）
+│   ├── pages/               # 功能页面
+│   │   ├── device_lab_page.py   # 设备联调台（含 AI 集成）
+│   │   ├── ai_settings_page.py  # AI / 飞书配置页
+│   │   └── analysis_page.py     # 数据分析（含飞书通知）
+│   └── widgets/             # 可复用控件
+│       ├── ai_chat_panel.py     # AI 对话面板
+│       ├── feishu_notify_dialog.py  # 飞书通知弹窗
+│       └── step_notify_config.py   # 步骤级通知配置
 ├── reports/                 # 测试报告输出
 └── logs/                    # 运行日志
 ```

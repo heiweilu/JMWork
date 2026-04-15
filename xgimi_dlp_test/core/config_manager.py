@@ -258,3 +258,112 @@ class ConfigManager:
         if os.path.isabs(rel_path):
             return rel_path
         return os.path.join(self.get_project_root(), rel_path)
+
+    # ------------------------------------------------------------------
+    # AI 配置管理（独立文件，避免敏感信息进入 user_config）
+    # ------------------------------------------------------------------
+
+    _AI_CONFIG_DEFAULTS = {
+        "ai": {
+            "api_key": "",
+            "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "model": "qwen3.5-flash",
+            "max_tokens": 2048,
+            "temperature": 0.7,
+        },
+        "feishu": {
+            "webhook_url": "",
+            "webhook_secret": "",
+            "app_id": "",
+            "app_secret": "",
+            "default_chat_id": "",
+            "prefer_mode": "webhook",
+        },
+        "notification_rules": {
+            "on_script_started": False,
+            "on_script_finished": False,
+            "on_step_failed_pause": False,
+            "on_condition_check_failed": False,
+            "on_compare_failed": False,
+            "on_green_screen_detected": False,
+            "use_ai_summary": True,
+            "include_logs": True,
+            "max_log_lines": 30,
+        },
+    }
+
+    def _ai_config_path(self) -> str:
+        return os.path.join(self._config_dir, 'ai_config.json')
+
+    def load_ai_config(self) -> dict:
+        """加载 AI 配置（独立 JSON 文件）。"""
+        cfg = copy.deepcopy(self._AI_CONFIG_DEFAULTS)
+        path = self._ai_config_path()
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    user_ai = json.load(f)
+                self._deep_merge(cfg, user_ai)
+            except (json.JSONDecodeError, IOError):
+                pass
+        return cfg
+
+    def save_ai_config(self, cfg: dict):
+        """保存 AI 配置到独立 JSON 文件。"""
+        os.makedirs(self._config_dir, exist_ok=True)
+        with open(self._ai_config_path(), 'w', encoding='utf-8') as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+
+    def get_ai(self, key: str, default: Any = None) -> Any:
+        """
+        读取 AI 配置值，支持点分 key（如 'ai.api_key'、'feishu.webhook_url'）。
+        """
+        cfg = self.load_ai_config()
+        parts = key.split('.')
+        obj = cfg
+        for part in parts:
+            if isinstance(obj, dict) and part in obj:
+                obj = obj[part]
+            else:
+                return default
+        return obj
+
+    def set_ai(self, key: str, value: Any):
+        """设置 AI 配置值并持久化。"""
+        cfg = self.load_ai_config()
+        parts = key.split('.')
+        obj = cfg
+        for part in parts[:-1]:
+            if part not in obj or not isinstance(obj[part], dict):
+                obj[part] = {}
+            obj = obj[part]
+        obj[parts[-1]] = value
+        self.save_ai_config(cfg)
+
+    def apply_ai_config_to_services(self):
+        """
+        将当前 AI 配置应用到全局 AI 和飞书服务单例。
+        应在应用启动时或配置变更后调用。
+        """
+        cfg = self.load_ai_config()
+
+        from core.ai_service import get_ai_service
+        from core.feishu_service import get_feishu_service
+
+        ai_cfg = cfg.get("ai", {})
+        get_ai_service().configure(
+            api_key=ai_cfg.get("api_key", ""),
+            base_url=ai_cfg.get("base_url", ""),
+            model=ai_cfg.get("model", ""),
+            max_tokens=ai_cfg.get("max_tokens", 2048),
+            temperature=ai_cfg.get("temperature", 0.7),
+        )
+
+        fs_cfg = cfg.get("feishu", {})
+        get_feishu_service().configure(
+            webhook_url=fs_cfg.get("webhook_url", ""),
+            webhook_secret=fs_cfg.get("webhook_secret", ""),
+            app_id=fs_cfg.get("app_id", ""),
+            app_secret=fs_cfg.get("app_secret", ""),
+            default_chat_id=fs_cfg.get("default_chat_id", ""),
+        )

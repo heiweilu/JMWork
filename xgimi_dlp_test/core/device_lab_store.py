@@ -41,6 +41,12 @@ def _make_step(
     reference_dir: str = "",
     reference_pool_size: int = 5,
     save_diff_heatmap: bool = True,
+    prompt_template: str = "",
+    include_logs: bool = True,
+    notify_on_fail: bool = False,
+    notify_title: str = "",
+    notify_content: str = "",
+    use_ai_summary: bool = False,
 ) -> Dict[str, Any]:
     return {
         "id": f"step-{uuid.uuid4().hex[:8]}",
@@ -75,6 +81,12 @@ def _make_step(
         "reference_dir": reference_dir,
         "reference_pool_size": reference_pool_size,
         "save_diff_heatmap": save_diff_heatmap,
+        "prompt_template": prompt_template,
+        "include_logs": include_logs,
+        "notify_on_fail": notify_on_fail,
+        "notify_title": notify_title,
+        "notify_content": notify_content,
+        "use_ai_summary": use_ai_summary,
     }
 
 
@@ -589,5 +601,11 @@ class DeviceLabStore:
                     step.setdefault("reference_dir", "")
                     step.setdefault("reference_pool_size", 5)
                     step.setdefault("save_diff_heatmap", True)
+                    step.setdefault("prompt_template", "")
+                    step.setdefault("include_logs", True)
+                    step.setdefault("notify_on_fail", False)
+                    step.setdefault("notify_title", "")
+                    step.setdefault("notify_content", "")
+                    step.setdefault("use_ai_summary", False)
                     normalized_steps.append(step)
                 script["steps"] = normalized_steps

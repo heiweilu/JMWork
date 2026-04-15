@@ -332,11 +332,17 @@
           "name": "cmd_help",
           "cmd": "gmpfUnit dlpDebug cmd_help;\nlogcat | grep -iE \"GM_DISP_DBG\"",
           "desc": ""
+        },
+        {
+          "name": "打印固件版本",
+          "cmd": "getprop | grep -i inc",
+          "desc": ""
         }
       ]
     }
   ],
   "section_order": [
+    "batch_send",
     "firmware",
     "dyn:1773910651945",
     "angle_collect",
