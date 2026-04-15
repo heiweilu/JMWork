@@ -745,7 +745,7 @@ class ScriptDialog(QDialog):
         self.edit_name = QLineEdit(values.get("name", ""))
         self.edit_desc = QLineEdit(values.get("description", ""))
         self.spin_run_count = QSpinBox()
-        self.spin_run_count.setRange(1, 999)
+        self.spin_run_count.setRange(1, 9999)
         self.spin_run_count.setValue(int(values.get("run_count", 1)))
         self.spin_cycle_interval = QSpinBox()
         self.spin_cycle_interval.setRange(0, 600000)
@@ -796,6 +796,7 @@ class ScriptStepDialog(QDialog):
         "append_reference": "加入参考图库",
         "compare_reference": "检查参考图",
         "green_screen_detect": "绿屏检测",
+        "compound": "复合步骤",
     }
 
     _TYPE_HELP = {
@@ -809,6 +810,7 @@ class ScriptStepDialog(QDialog):
         "append_reference": "把当前画面加入指定参考分类目录，可用于剧本内定时刷新稳定参考图。",
         "compare_reference": "把当前画面与指定参考分类对比；支持 ROI、变量回写和失败恢复。",
         "green_screen_detect": "连续检测当前画面是否出现大面积绿屏；支持 ROI、结果变量、失败恢复和重试。",
+        "compound": "一个步骤内包含多个子动作序列，按顺序执行。适合将一组相关操作打包为一个逻辑单元。",
     }
 
     def __init__(self, quick_settings: List[Dict[str, Any]], shortcuts: List[Dict[str, Any]], data: Optional[Dict[str, Any]] = None, serial_check_presets: Optional[List[Dict[str, Any]]] = None, on_presets_changed=None, parent=None):
@@ -1086,6 +1088,34 @@ class ScriptStepDialog(QDialog):
         form.addRow("重试间隔", self.spin_retry_interval)
         form.addRow("失败策略", self.chk_pause_on_fail)
         form.addRow("飞书通知", self.chk_notify_on_fail)
+
+        # --- 复合步骤子动作列表 ---
+        self._compound_sub_steps: List[Dict[str, Any]] = list(values.get("sub_steps", []))
+        self._compound_quick_settings = quick_settings
+        self._compound_shortcuts = shortcuts
+        compound_container = QWidget()
+        compound_layout = QVBoxLayout(compound_container)
+        compound_layout.setContentsMargins(0, 0, 0, 0)
+        compound_layout.setSpacing(4)
+        self.list_sub_steps = QListWidget()
+        self.list_sub_steps.setMinimumHeight(120)
+        self.list_sub_steps.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+        compound_layout.addWidget(self.list_sub_steps)
+        btn_row_compound = QHBoxLayout()
+        btn_add_sub = QPushButton("添加子动作")
+        btn_add_sub.clicked.connect(self._add_sub_step)
+        btn_edit_sub = QPushButton("编辑子动作")
+        btn_edit_sub.clicked.connect(self._edit_sub_step)
+        btn_del_sub = QPushButton("删除子动作")
+        btn_del_sub.clicked.connect(self._delete_sub_step)
+        btn_row_compound.addWidget(btn_add_sub)
+        btn_row_compound.addWidget(btn_edit_sub)
+        btn_row_compound.addWidget(btn_del_sub)
+        btn_row_compound.addStretch()
+        compound_layout.addLayout(btn_row_compound)
+        self._compound_widget = compound_container
+        form.addRow("子动作列表", self._compound_widget)
+
         form.addRow("执行次数", self.spin_repeat)
         form.addRow("每次后等待", self.spin_delay)
         form.addRow("备注", self.edit_note)
@@ -1157,11 +1187,13 @@ class ScriptStepDialog(QDialog):
         show_append_reference = current_type == "append_reference"
         show_compare = current_type == "compare_reference"
         show_green = current_type == "green_screen_detect"
+        show_compound = current_type == "compound"
         show_detect_result = show_compare or show_green
 
         _set_form_row_visible(self._form, self.combo_setting, show_setting)
         _set_form_row_visible(self._form, self.combo_shortcut, show_shortcut)
         _set_form_row_visible(self._form, self._serial_cmd_widget, show_command or show_check)
+        _set_form_row_visible(self._form, self._compound_widget, show_compound)
         _set_form_row_visible(self._form, self.edit_check_reference, show_check)
         _set_form_row_visible(self._form, self.combo_check_mode, show_check)
         _set_form_row_visible(self._form, self.spin_check_timeout, show_check)
@@ -1206,6 +1238,77 @@ class ScriptStepDialog(QDialog):
             self.edit_result_variable.setPlaceholderText("例如 check_ok；匹配写 true，不匹配写 false（留空不写）")
         self.lbl_help.setText(self._TYPE_HELP.get(current_type, ""))
         self._refresh_green_preview()
+        if show_compound:
+            self._refresh_sub_steps_list()
+
+    # --- 复合步骤子动作管理 ---
+    def _refresh_sub_steps_list(self):
+        self.list_sub_steps.clear()
+        _type_labels = self._TYPE_LABELS
+        for i, sub in enumerate(self._compound_sub_steps):
+            st = sub.get("type", "serial")
+            label = _type_labels.get(st, st)
+            note = sub.get("note", "")
+            cmd = sub.get("command", "")
+            target = sub.get("target", "")
+            display = f"{i+1}. [{label}]"
+            if target:
+                display += f" {target}"
+            elif cmd:
+                display += f" {cmd[:40]}"
+            if note:
+                display += f" ({note})"
+            item = QListWidgetItem(display)
+            item.setData(Qt.ItemDataRole.UserRole, i)
+            self.list_sub_steps.addItem(item)
+
+    def _add_sub_step(self):
+        dlg = ScriptStepDialog(
+            self._compound_quick_settings,
+            self._compound_shortcuts,
+            serial_check_presets=self._serial_check_presets,
+            on_presets_changed=self._on_presets_changed,
+            parent=self,
+        )
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            sub = dlg.get_data()
+            self._compound_sub_steps.append(sub)
+            self._refresh_sub_steps_list()
+
+    def _edit_sub_step(self):
+        idx = self.list_sub_steps.currentRow()
+        if idx < 0 or idx >= len(self._compound_sub_steps):
+            return
+        dlg = ScriptStepDialog(
+            self._compound_quick_settings,
+            self._compound_shortcuts,
+            data=self._compound_sub_steps[idx],
+            serial_check_presets=self._serial_check_presets,
+            on_presets_changed=self._on_presets_changed,
+            parent=self,
+        )
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self._compound_sub_steps[idx] = dlg.get_data()
+            self._refresh_sub_steps_list()
+
+    def _delete_sub_step(self):
+        idx = self.list_sub_steps.currentRow()
+        if idx < 0 or idx >= len(self._compound_sub_steps):
+            return
+        self._compound_sub_steps.pop(idx)
+        self._refresh_sub_steps_list()
+
+    def _on_sub_steps_reordered(self):
+        """拖拽后根据列表项的 UserRole 索引重建 sub_steps 顺序"""
+        new_order = []
+        for i in range(self.list_sub_steps.count()):
+            item = self.list_sub_steps.item(i)
+            orig_idx = item.data(Qt.ItemDataRole.UserRole)
+            if orig_idx is not None and 0 <= orig_idx < len(self._compound_sub_steps):
+                new_order.append(self._compound_sub_steps[orig_idx])
+        if len(new_order) == len(self._compound_sub_steps):
+            self._compound_sub_steps = new_order
+        self._refresh_sub_steps_list()
 
     def _fill_preset_combo(self):
         """用当前 _serial_check_presets 刷新预设下拉框。"""
@@ -1394,6 +1497,7 @@ class ScriptStepDialog(QDialog):
             "check_timeout_ms": int(self.spin_check_timeout.value()),
             "check_fail_action": self.combo_check_fail_action.currentData() or "stop",
             "notify_on_fail": self.chk_notify_on_fail.isChecked(),
+            "sub_steps": list(self._compound_sub_steps) if current_type == "compound" else [],
         }
 
 
@@ -1571,9 +1675,11 @@ class DeviceLabPage(QWidget):
         self._last_preview_render_at = 0.0
         self._last_preview_size = None
         self._run_metrics: Dict[str, Any] = {}
+        self._paused_elapsed: float = 0.0  # 暂停时已经过的秒数（暂停时冻结计时）
         self._run_stats_timer = QTimer(self)
         self._run_stats_timer.setInterval(1000)
         self._run_stats_timer.timeout.connect(self._update_run_stats)
+        self._state_save_counter = 0  # 每 30 次 tick（~30s）自动保存状态
         self._reference_capture_timer = QTimer(self)
         self._reference_capture_timer.timeout.connect(self._attempt_auto_reference_capture)
         self._reference_reject_count = 0
@@ -2018,6 +2124,13 @@ class DeviceLabPage(QWidget):
         self.btn_script_stop.setEnabled(False)
         self.btn_script_stop.clicked.connect(self._stop_script_run)
         row_bottom.addWidget(self.btn_script_stop)
+
+        self.btn_script_resume = QPushButton("断点续执行")
+        self.btn_script_resume.setObjectName("lab_secondary")
+        self.btn_script_resume.setEnabled(False)
+        self.btn_script_resume.setToolTip("从上次暂停/失败/崩溃的位置恢复执行")
+        self.btn_script_resume.clicked.connect(self._resume_from_saved_state)
+        row_bottom.addWidget(self.btn_script_resume)
 
         self.btn_feishu_notify = QPushButton("📨 飞书通知 ▾")
         self.btn_feishu_notify.setObjectName("lab_secondary")
@@ -2466,6 +2579,9 @@ class DeviceLabPage(QWidget):
             mode_label = mode_labels.get(step.get("check_mode", "contains"), "含")
             ref = step.get("check_reference", "")
             base = f"条件检查[{mode_label}] {ref[:30]}{'…' if len(ref) > 30 else ''}"
+        elif step_type == "compound":
+            sub_count = len(step.get("sub_steps", []))
+            base = f"复合步骤 ({sub_count}个子动作)"
         else:
             base = step.get("command", "串口指令") or "串口指令"
         if repeat > 1:
@@ -2752,6 +2868,10 @@ class DeviceLabPage(QWidget):
             self._queue_paused = True
             self._log(f"条件检查失败，已暂停: {source}", "ERROR")
             self._queue_busy = False
+            # 冻结计时
+            if self._run_metrics:
+                self._paused_elapsed = time.time() - self._run_metrics.get('start_time', time.time())
+            self._run_stats_timer.stop()
             self._update_run_stats(force_status="失败暂停")
             # >>> AI 集成：条件检查失败事件（仅步骤开启 notify_on_fail 时）
             if action.get("notify_on_fail", False):
@@ -2775,6 +2895,8 @@ class DeviceLabPage(QWidget):
 
                 try:
                     from core.event_bus import get_event_bus, Events
+                    _cycle = self._run_metrics.get('current_cycle', 1) if self._run_metrics else 1
+                    _total = self._run_metrics.get('total_cycles', 1) if self._run_metrics else 1
                     get_event_bus().emit_async(
                         Events.CONDITION_CHECK_FAILED,
                         script_name=self._run_metrics.get('script_name', '') if self._run_metrics else '',
@@ -2783,10 +2905,13 @@ class DeviceLabPage(QWidget):
                         notify_content=action.get("notify_content", ""),
                         include_logs=action.get("include_logs", True),
                         use_ai_summary=action.get("use_ai_summary", False),
+                        current_cycle=_cycle,
+                        total_cycles=_total,
                     )
                     self._failure_notified = True
                 except Exception:
                     pass
+            self._save_execution_state()
             self._refresh_queue_controls()
             return
         if not success:
@@ -3036,6 +3161,13 @@ class DeviceLabPage(QWidget):
                 variable_value = self._coerce_variable_value(action.get("variable_value", ""))
                 self._script_variables[variable_name] = variable_value
                 self._log(f"变量写入: {variable_name}={variable_value}")
+        elif action_type == "cycle_marker":
+            cycle_idx = int(action.get("cycle_index", 1))
+            total = int(action.get("total_cycles", 1))
+            if self._run_metrics:
+                self._run_metrics['current_cycle'] = cycle_idx
+                self._run_metrics['total_cycles'] = total
+            self._log(f"--- 第 {cycle_idx}/{total} 轮开始 ---")
         elif action_type == "capture_snapshot":
             success = bool(self._capture_snapshot_frame(file_prefix=action.get("file_prefix", "snapshot")))
         elif action_type == "append_reference":
@@ -3126,11 +3258,17 @@ class DeviceLabPage(QWidget):
             self._queue_paused = True
             self._log(f"执行失败，已暂停: {source}", "ERROR")
             self._queue_busy = False
+            # 冻结计时
+            if self._run_metrics:
+                self._paused_elapsed = time.time() - self._run_metrics.get('start_time', time.time())
+            self._run_stats_timer.stop()
             self._update_run_stats(force_status="失败暂停")
             # >>> AI 集成：步骤失败暂停事件（仅步骤开启 notify_on_fail 时）
             if action.get("notify_on_fail", False):
                 try:
                     from core.event_bus import get_event_bus, Events
+                    _cycle = self._run_metrics.get('current_cycle', 1) if self._run_metrics else 1
+                    _total = self._run_metrics.get('total_cycles', 1) if self._run_metrics else 1
                     get_event_bus().emit_async(
                         Events.STEP_FAILED,
                         script_name=self._run_metrics.get('script_name', '') if self._run_metrics else '',
@@ -3139,10 +3277,13 @@ class DeviceLabPage(QWidget):
                         notify_content=action.get("notify_content", ""),
                         include_logs=action.get("include_logs", True),
                         use_ai_summary=action.get("use_ai_summary", False),
+                        current_cycle=_cycle,
+                        total_cycles=_total,
                     )
                     self._failure_notified = True
                 except Exception:
                     pass
+            self._save_execution_state()
             self._refresh_queue_controls()
             return
         if not success:
@@ -3366,18 +3507,33 @@ class DeviceLabPage(QWidget):
                     "include_logs": bool(step.get("include_logs", True)),
                     "step_id": step.get("id", ""),
                 })
+            elif step_type == "compound":
+                for sub_step in step.get("sub_steps", []):
+                    sub_step_copy = dict(sub_step)
+                    if not sub_step_copy.get("id"):
+                        sub_step_copy["id"] = step.get("id", "")
+                    actions.extend(self._build_actions_from_step(sub_step_copy, stop_on_fail=stop_on_fail))
             else:
                 command = step.get("command", "").strip()
                 if command:
                     actions.append({"type": "serial", "command": command, "delay_seconds": delay_seconds, "source": source, "stop_on_fail": stop_on_fail, "condition": step.get("condition", ""), "step_id": step.get("id", "")})
         return actions
 
-    def _build_actions_from_script(self, script: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _build_actions_from_script(self, script: Dict[str, Any], start_cycle: int = 1) -> List[Dict[str, Any]]:
         actions: List[Dict[str, Any]] = []
         run_count = max(1, int(script.get("run_count", 1) or 1))
         cycle_interval = max(0, int(script.get("cycle_interval_ms", 0) or 0))
         stop_on_fail = bool(script.get("stop_on_fail", True))
-        for run_index in range(run_count):
+        for run_index in range(start_cycle - 1, run_count):
+            # 轮次标记（用于运行时跟踪当前轮次）
+            actions.append({
+                "type": "cycle_marker",
+                "cycle_index": run_index + 1,
+                "total_cycles": run_count,
+                "delay_seconds": 0,
+                "source": f"轮次 {run_index + 1}/{run_count}",
+                "stop_on_fail": False,
+            })
             for step in script.get("steps", []):
                 actions.extend(self._build_actions_from_step(step, stop_on_fail=stop_on_fail))
             if cycle_interval > 0 and run_index < run_count - 1:
@@ -3884,6 +4040,8 @@ class DeviceLabPage(QWidget):
         if notify_on_fail:
             try:
                 from core.event_bus import get_event_bus, Events
+                _cycle = self._run_metrics.get('current_cycle', 1) if self._run_metrics else 1
+                _total = self._run_metrics.get('total_cycles', 1) if self._run_metrics else 1
                 get_event_bus().emit_async(
                     Events.COMPARE_FAILED,
                     script_name=self._run_metrics.get('script_name', '') if self._run_metrics else '',
@@ -3893,6 +4051,8 @@ class DeviceLabPage(QWidget):
                     notify_content=notify_content,
                     include_logs=include_logs,
                     use_ai_summary=use_ai_summary,
+                    current_cycle=_cycle,
+                    total_cycles=_total,
                 )
                 self._failure_notified = True
             except Exception:
@@ -4054,6 +4214,74 @@ class DeviceLabPage(QWidget):
         value = value.strip(' ._')
         return value or 'unnamed'
 
+    # ── 断点续执行：执行状态持久化 ──────────────────────────────────
+    def _execution_state_path(self) -> str:
+        if self._config_mgr and hasattr(self._config_mgr, '_config_dir'):
+            config_dir = self._config_mgr._config_dir
+        else:
+            config_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'config')
+        return os.path.join(config_dir, 'execution_state.json')
+
+    def _save_execution_state(self):
+        """保存当前执行状态到磁盘（用于断点续执行 / 崩溃恢复）"""
+        if not self._run_metrics or not self._active_run_context:
+            return
+        state = {
+            'version': 1,
+            'timestamp': time.time(),
+            'run_metrics': {
+                'script_name': self._run_metrics.get('script_name', ''),
+                'run_count': self._run_metrics.get('run_count', 1),
+                'current_cycle': self._run_metrics.get('current_cycle', 1),
+                'total_cycles': self._run_metrics.get('total_cycles', 1),
+                'saved_images': self._run_metrics.get('saved_images', 0),
+                'error_count': self._run_metrics.get('error_count', 0),
+                'start_time': self._run_metrics.get('start_time', 0),
+            },
+            'run_context': self._active_run_context,
+            'script_variables': self._script_variables,
+            'remaining_queue': self._command_queue[:],
+            'queue_paused': self._queue_paused,
+            'project_name': (self._current_project() or {}).get('name', ''),
+        }
+        try:
+            state_path = self._execution_state_path()
+            os.makedirs(os.path.dirname(state_path), exist_ok=True)
+            with open(state_path, 'w', encoding='utf-8') as f:
+                json.dump(state, f, ensure_ascii=False, indent=2)
+            self._log(f"执行状态已保存: {state_path}")
+        except Exception as e:
+            self._log(f"保存执行状态失败: {e}", "WARN")
+
+    def _clear_execution_state(self):
+        """清除保存的执行状态文件"""
+        try:
+            state_path = self._execution_state_path()
+            if os.path.exists(state_path):
+                os.remove(state_path)
+        except Exception:
+            pass
+
+    def _load_execution_state(self) -> Optional[Dict[str, Any]]:
+        """从磁盘加载保存的执行状态，如果不存在或已过期返回 None"""
+        try:
+            state_path = self._execution_state_path()
+            if not os.path.exists(state_path):
+                return None
+            with open(state_path, 'r', encoding='utf-8') as f:
+                state = json.load(f)
+            if state.get('version') != 1:
+                self._clear_execution_state()
+                return None
+            # 超过 24 小时的状态视为过期
+            if time.time() - state.get('timestamp', 0) > 86400:
+                self._clear_execution_state()
+                return None
+            return state
+        except Exception:
+            self._clear_execution_state()
+            return None
+
     def _create_run_context(self, script: Dict[str, Any]) -> Dict[str, Any]:
         project_root = self._config_mgr.get_project_root() if self._config_mgr else os.getcwd()
         project = self._current_project() or {}
@@ -4094,8 +4322,16 @@ class DeviceLabPage(QWidget):
             self.btn_open_output_dir.setEnabled(bool(self._last_run_output_dir or (self._active_run_context and self._active_run_context.get('base_dir'))))
         if hasattr(self, 'btn_script_stop'):
             self.btn_script_stop.setEnabled(has_running_queue)
+        if hasattr(self, 'btn_script_resume'):
+            # 仅在没有正在运行的队列时，且有可恢复状态时启用
+            has_saved_state = os.path.exists(self._execution_state_path()) if not has_running_queue else False
+            self.btn_script_resume.setEnabled(has_saved_state)
 
-    def _finish_queue_run(self, message: str):
+    def _finish_queue_run(self, message: str, manual_stop: bool = False):
+        # 完成通知（仅自动完成，非手动停止）
+        if not manual_stop and not self._failure_notified and self._run_metrics:
+            self._send_finish_notification()
+
         self._failure_notified = False
         self._queue_paused = False
         self._queue_busy = False
@@ -4103,6 +4339,7 @@ class DeviceLabPage(QWidget):
         self._close_script_capture()
         self._run_stats_timer.stop()
         self._highlight_running_step(None)
+        self._clear_execution_state()
         if self._active_run_context:
             self._log(f"{message}，输出目录: {self._active_run_context.get('base_dir', '')}")
             self._last_run_output_dir = self._active_run_context.get('base_dir', self._last_run_output_dir)
@@ -4120,6 +4357,34 @@ class DeviceLabPage(QWidget):
             self.lbl_camera_chip.setText('相机未连接')
         self._refresh_workspace_overview()
 
+    def _send_finish_notification(self):
+        """运行完成后发送飞书通知（受全局开关控制）"""
+        try:
+            if not self._config_mgr:
+                return
+            ai_cfg = self._config_mgr.load_ai_config()
+            rules = ai_cfg.get('notification_rules', {})
+            if not rules.get('notify_on_finish', False):
+                return
+            metrics = self._run_metrics or {}
+            elapsed = max(0, int(time.time() - metrics.get('start_time', time.time())))
+            duration = f"{elapsed // 60}m {elapsed % 60}s" if elapsed >= 60 else f"{elapsed}s"
+            from core.feishu_service import get_feishu_service, FeishuTemplates
+            fs = get_feishu_service()
+            if not fs.webhook_configured and not fs.openapi_configured:
+                return
+            payload = FeishuTemplates.test_completed_card(
+                title=metrics.get('script_name', '未知脚本'),
+                status="成功",
+                duration=duration,
+                summary=f"轮次: {metrics.get('current_cycle', 1)}/{metrics.get('total_cycles', 1)} | "
+                        f"保存图片: {metrics.get('saved_images', 0)} | 报错: {metrics.get('error_count', 0)}",
+            )
+            fs.send(payload)
+            self._log("运行完成通知已发送")
+        except Exception as e:
+            self._log(f"完成通知发送失败: {e}", "WARN")
+
     def _toggle_script_pause(self):
         has_running_queue = self._queue_busy or self._queue_timer.isActive() or bool(self._command_queue)
         if not has_running_queue:
@@ -4127,10 +4392,20 @@ class DeviceLabPage(QWidget):
         if not self._queue_paused:
             self._queue_paused = True
             self._queue_timer.stop()
+            # 冻结计时：记录已运行时长
+            if self._run_metrics:
+                self._paused_elapsed = time.time() - self._run_metrics.get('start_time', time.time())
+            self._run_stats_timer.stop()
             self._log('剧本执行已暂停', 'WARN')
+            self._update_run_stats(force_status="已暂停")
+            self._save_execution_state()
             self._refresh_queue_controls()
             return
         self._queue_paused = False
+        # 恢复计时：重新设定 start_time 使得已用时间连续
+        if self._run_metrics:
+            self._run_metrics['start_time'] = time.time() - self._paused_elapsed
+        self._run_stats_timer.start()
         self._log('剧本执行已继续')
         self._update_run_stats(force_status="运行中")
         self._refresh_queue_controls()
@@ -4145,7 +4420,77 @@ class DeviceLabPage(QWidget):
         self._queue_paused = False
         self._queue_busy = False
         self._log('剧本执行已手动停止', 'WARN')
-        self._finish_queue_run('剧本执行已手动停止')
+        self._finish_queue_run('剧本执行已手动停止', manual_stop=True)
+
+    def _resume_from_saved_state(self):
+        """从保存的执行状态中恢复（断点续执行）"""
+        state = self._load_execution_state()
+        if not state:
+            QMessageBox.information(self, "提示", "没有可恢复的执行状态")
+            self._refresh_queue_controls()
+            return
+        metrics = state.get('run_metrics', {})
+        remaining = state.get('remaining_queue', [])
+        script_name = metrics.get('script_name', '未知')
+        current_cycle = metrics.get('current_cycle', 1)
+        total_cycles = metrics.get('total_cycles', 1)
+        remaining_count = len(remaining)
+        project_name = state.get('project_name', '')
+        saved_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(state.get('timestamp', 0)))
+        msg = (
+            f"检测到未完成的执行状态：\n\n"
+            f"  项目：{project_name}\n"
+            f"  剧本：{script_name}\n"
+            f"  轮次：{current_cycle}/{total_cycles}\n"
+            f"  剩余动作：{remaining_count} 个\n"
+            f"  保存时间：{saved_time}\n\n"
+            f"是否从断点处继续执行？\n（将跳过失败步骤，从下一步开始）"
+        )
+        reply = QMessageBox.question(self, "断点续执行", msg,
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Discard)
+        if reply == QMessageBox.StandardButton.Discard:
+            self._clear_execution_state()
+            self._log("已丢弃保存的执行状态")
+            self._refresh_queue_controls()
+            return
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        # 恢复执行上下文
+        run_context = state.get('run_context', {})
+        base_dir = run_context.get('base_dir', '')
+        if base_dir:
+            for sub in ('snapshots', 'references', 'artifacts'):
+                os.makedirs(os.path.join(base_dir, sub), exist_ok=True)
+        self._active_run_context = run_context
+        self._script_variables = state.get('script_variables', {})
+        self._failure_notified = False
+        self._paused_elapsed = 0.0
+        self._run_metrics = {
+            'script_name': metrics.get('script_name', ''),
+            'run_count': metrics.get('run_count', 1),
+            'current_cycle': current_cycle,
+            'total_cycles': total_cycles,
+            'saved_images': metrics.get('saved_images', 0),
+            'error_count': metrics.get('error_count', 0),
+            'start_time': time.time(),  # 重置计时
+        }
+        self._last_run_output_dir = base_dir
+        self.lbl_run_output.setText(f"输出目录: {base_dir}")
+        # 重新打开日志文件（追加模式）
+        if self._run_log_file is not None:
+            try:
+                self._run_log_file.close()
+            except Exception:
+                pass
+        try:
+            self._run_log_file = open(os.path.join(base_dir, 'run_log.txt'), 'a', encoding='utf-8')
+        except Exception:
+            self._run_log_file = None
+        self._log(f"断点续执行: {script_name} | 轮次 {current_cycle}/{total_cycles} | 剩余 {remaining_count} 个动作")
+        self._run_stats_timer.start()
+        self._update_run_stats(force_status='运行中')
+        self._clear_execution_state()
+        self._queue_commands(remaining)
 
     def _highlight_running_step(self, step_id: Optional[str]):
         self._running_step_id = step_id or None
@@ -4234,10 +4579,15 @@ class DeviceLabPage(QWidget):
         status = force_status or ('已暂停' if self._queue_paused else '运行中')
         self.lbl_run_stats.setText(
             f"运行状态: {status} | 剧本: {self._run_metrics.get('script_name', '-') } | 总时长: {elapsed_seconds}s | "
-            f"总轮次: {self._run_metrics.get('run_count', 1)} | 已保存图片: {self._run_metrics.get('saved_images', 0)} | "
+            f"轮次: {self._run_metrics.get('current_cycle', 1)}/{self._run_metrics.get('total_cycles', 1)} | 已保存图片: {self._run_metrics.get('saved_images', 0)} | "
             f"报错次数: {self._run_metrics.get('error_count', 0)} | 剩余动作: {len(self._command_queue)}"
         )
         self._refresh_workspace_overview()
+        # 每 30 个 tick（~30s）自动保存执行状态，用于崩溃恢复
+        self._state_save_counter += 1
+        if self._state_save_counter >= 30:
+            self._state_save_counter = 0
+            self._save_execution_state()
 
     def _refresh_workspace_overview(self):
         if not hasattr(self, 'lbl_overview_scope'):
@@ -4630,9 +4980,12 @@ class DeviceLabPage(QWidget):
         self._active_run_context = self._create_run_context(script)
         self._script_variables = {}
         self._failure_notified = False
+        self._paused_elapsed = 0.0
         self._run_metrics = {
             'script_name': script.get('name', ''),
             'run_count': int(script.get('run_count', 1) or 1),
+            'current_cycle': 1,
+            'total_cycles': int(script.get('run_count', 1) or 1),
             'saved_images': 0,
             'error_count': 0,
             'start_time': time.time(),
@@ -4775,6 +5128,9 @@ class DeviceLabPage(QWidget):
             self._log_panel.append_log(message, panel_level)
 
     def cleanup(self):
+        # 如果有未完成的执行，保存状态用于下次恢复
+        if self._run_metrics and (self._command_queue or self._queue_paused):
+            self._save_execution_state()
         self._persist_profile()
         self._reference_capture_timer.stop()
         self._close_script_capture()

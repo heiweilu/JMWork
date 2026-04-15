@@ -264,6 +264,7 @@ Compress-Archive -Path dist\xgimi_dlp_test -DestinationPath xgimi_dlp_test_v0.1.
 | v0.1.9 | 2026-04 | SVM模型验证独立顶层页面、SVM训练树状导航精简、验证标签解析对齐训练逻辑 |
 | v0.1.10 | 2026-04 | AI 智能通知（通义千问 qwen3.5-flash + 飞书 Webhook/OpenAPI 双模式）、事件总线驱动自动告警、步骤级通知配置 |
 | v0.1.11 | 2026-04 | 修复 cv2 Unicode 路径静默失败、相机预热防黑图、通知排版优化（lark_md + hr分割线）、防重复通知 |
+| v0.1.12 | 2026-04 | 断点续执行（暂停/失败/崩溃恢复）、轮次跟踪、复合步骤、完成通知、暂停计时冻结 |
 | v0.2.0 | 计划 | 新增历史对比分析 |
 | v1.0.0 | 计划 | 正式交付版本 |
 
@@ -271,7 +272,7 @@ Compress-Archive -Path dist\xgimi_dlp_test -DestinationPath xgimi_dlp_test_v0.1.
 
 ## 工程结构概览
 
-### 主要功能亮点（v0.1.11）
+### 主要功能亮点（v0.1.12）
 
 | 功能 | 说明 |
 |---|---|
@@ -281,9 +282,13 @@ Compress-Archive -Path dist\xgimi_dlp_test -DestinationPath xgimi_dlp_test_v0.1.
 | 十六进制转换工具 | 实时 HEX↔DEC/BIN/OCT/ASCII 互转 |
 | BUG 跟踪表 | 可编辑表格，双击链接直接打开浏览器 |
 | 设备实验室 | 串口调试 + 摄像头 + 脚本编排一体化 |
+| 断点续执行 | 失败/暂停/崩溃后可恢复执行，状态自动持久化 |
+| 轮次跟踪 | 支持 9999 轮次，状态栏实时显示当前/总轮次 |
+| 复合步骤 | 一个步骤内包含多个子动作序列，支持递归嵌套 |
 | AI 智能通知 | 通义千问 qwen3.5-flash 分析异常事件，自动生成飞书群通知 |
 | 飞书集成 | Webhook（零审核）/ OpenAPI 双模式，支持交互卡片 + 文件上传 |
 | 步骤级告警配置 | 逐步骤开关 notify_on_fail，自定义通知标题/补充说明/是否包含日志 |
+| 完成通知 | 剧本自动执行完成后发送飞书通知（手动停止不发） |
 | SVM 模型训练 | 自动数据集划分，单类数据保护，网格搜索自动寻优 C/gamma |
 | SVM 模型验证 | 独立顶层页面，加载已训练模型对数据集推理，输出准确率/混淆矩阵/误分类列表 |
 | 图像比对 | OpenCV SVM 特征分析与结果可视化 |
@@ -298,6 +303,7 @@ xgimi_dlp_test/
 ├── build_exe.bat            # 一键打包脚本
 ├── config/                  # 配置文件
 │   ├── ai_config.json       # AI + 飞书 + 通知规则配置（gitignored）
+│   ├── execution_state.json # 断点续执行状态文件（自动生成/清除）
 │   └── device_lab_profile.json  # 设备联调项目/剧本定义
 ├── assets/                  # 固件资源
 ├── core/                    # 基础设施

@@ -40,6 +40,7 @@ class FeishuTemplates:
         logs: str = "",
         issue_link: str = "",
         extra: str = "",
+        cycle_info: str = "",
     ) -> dict:
         """测试暂停卡片模板。"""
         # 如果 reason 包含多行，拆分为首行概述 + 详情区块
@@ -47,16 +48,20 @@ class FeishuTemplates:
         brief_reason = reason_lines[0]
         detail_lines = reason_lines[1:]
 
+        header_content = (
+            f"**脚本名称：** {title}\n"
+            f"**暂停步骤：** {step_name}\n"
+            f"**暂停原因：** {brief_reason}"
+        )
+        if cycle_info:
+            header_content += f"\n**轮次信息：** {cycle_info}"
+
         elements = [
             {
                 "tag": "div",
                 "text": {
                     "tag": "lark_md",
-                    "content": (
-                        f"**脚本名称：** {title}\n"
-                        f"**暂停步骤：** {step_name}\n"
-                        f"**暂停原因：** {brief_reason}"
-                    ),
+                    "content": header_content,
                 },
             },
         ]

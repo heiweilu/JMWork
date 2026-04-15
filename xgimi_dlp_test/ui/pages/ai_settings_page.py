@@ -147,6 +147,8 @@ class AISettingsPage(QWidget):
 
         self.chk_use_ai = QCheckBox("使用 AI 生成通知摘要（关闭则直接发送原始信息）")
         self.chk_include_logs = QCheckBox("在通知中附带最近日志")
+        self.chk_notify_on_finish = QCheckBox("剧本自动执行完成后发送完成通知（手动停止不发）")
+        self.chk_notify_on_finish.setChecked(False)
 
         self.spin_max_log_lines = QSpinBox()
         self.spin_max_log_lines.setRange(5, 100)
@@ -154,6 +156,7 @@ class AISettingsPage(QWidget):
 
         ai_notify_layout.addWidget(self.chk_use_ai)
         ai_notify_layout.addWidget(self.chk_include_logs)
+        ai_notify_layout.addWidget(self.chk_notify_on_finish)
 
         log_row = QHBoxLayout()
         log_row.addWidget(QLabel("最大日志行数:"))
@@ -205,6 +208,7 @@ class AISettingsPage(QWidget):
 
         self.chk_use_ai.setChecked(rules.get("use_ai_summary", True))
         self.chk_include_logs.setChecked(rules.get("include_logs", True))
+        self.chk_notify_on_finish.setChecked(rules.get("notify_on_finish", False))
         self.spin_max_log_lines.setValue(rules.get("max_log_lines", 30))
 
         # 初始化 OpenAPI 提示可见性
@@ -230,6 +234,7 @@ class AISettingsPage(QWidget):
             "notification_rules": {
                 "use_ai_summary": self.chk_use_ai.isChecked(),
                 "include_logs": self.chk_include_logs.isChecked(),
+                "notify_on_finish": self.chk_notify_on_finish.isChecked(),
                 "max_log_lines": self.spin_max_log_lines.value(),
             },
         }

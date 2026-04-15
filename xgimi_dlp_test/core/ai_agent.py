@@ -319,6 +319,9 @@ class AIAgent:
 
         try:
             if event_type in ("script_paused", "step_failed", "condition_check_failed"):
+                _cc = data.get('current_cycle', 0)
+                _tc = data.get('total_cycles', 0)
+                _ci = f"第 {_cc}/{_tc} 轮" if _cc and _tc else ""
                 payload = FeishuTemplates.test_paused_card(
                     title=data.get("script_name", "未知脚本"),
                     step_name=data.get("step_name", ""),
@@ -326,6 +329,7 @@ class AIAgent:
                     logs=context.split("--- 最近日志 ---")[-1] if "--- 最近日志 ---" in context else "",
                     issue_link=data.get("issue_link", ""),
                     extra=f"🤖 AI 分析：\n{summary}",
+                    cycle_info=_ci,
                 )
             elif event_type == "script_finished":
                 payload = FeishuTemplates.test_completed_card(
@@ -352,11 +356,15 @@ class AIAgent:
 
         try:
             if event_type in ("script_paused", "step_failed", "condition_check_failed"):
+                _cc = data.get('current_cycle', 0)
+                _tc = data.get('total_cycles', 0)
+                _ci = f"第 {_cc}/{_tc} 轮" if _cc and _tc else ""
                 payload = FeishuTemplates.test_paused_card(
                     title=data.get("script_name", "未知脚本"),
                     step_name=data.get("step_name", ""),
                     reason=data.get("reason", data.get("error", "")),
                     extra=f"📌 {extra_note}" if extra_note else "",
+                    cycle_info=_ci,
                 )
             elif event_type == "script_finished":
                 payload = FeishuTemplates.test_completed_card(
