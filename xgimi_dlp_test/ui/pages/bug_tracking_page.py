@@ -1,41 +1,83 @@
 # -*- coding: utf-8 -*-
-"""BUG 追踪 → MTK 问题跟踪记录页面"""
+"""BUG 追踪 → MTK 问题跟踪记录页面（v2）
+
+新增功能：
+  1. 表列表头双击可修改名称，改名持久化到 JSON 配置
+  2. 打开页面时自动后台扫描所有 MTK 问题单：
+       - 分析最后活动日期 / Action Buttons 状态
+       - 筛选"需要催促"的问题单（超过 N 天未回复且非 Reopen 状态）
+       - 用状态过滤器快速查看
+       - 可在工具栏设置催促阈值天数
+"""
 
 import json
 import re
+from datetime import datetime
 from pathlib import Path
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem,
-    QHeaderView, QLineEdit, QAbstractItemView, QComboBox, QPushButton,
-    QApplication, QMenu,
-)
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QFont, QDesktopServices
-from PyQt6.QtCore import QUrl
 
-# 持久化文件路径（xgimi_dlp_test/config/bug_tracking_data.json）
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QColor, QFont, QDesktopServices, QPixmap
+from PyQt6.QtWidgets import (
+    QAbstractItemView, QApplication, QComboBox, QDialog, QHBoxLayout,
+    QInputDialog, QLabel, QLineEdit, QMenu, QProgressBar, QPushButton,
+    QScrollArea, QSpinBox, QTableWidget, QTableWidgetItem, QHeaderView,
+    QVBoxLayout, QWidget,
+)
+
+# ─────────────────── 持久化配置文件路径 ───────────────────────────────────────
 _DATA_FILE = Path(__file__).parent.parent.parent / 'config' / 'bug_tracking_data.json'
 
+_DEFAULT_HEADERS = ['平台', '问题描述', 'MTK链接', '飞书链接', '机型', '负责人', '备注/状态']
+_DEFAULT_THRESHOLD = 7
+_DEFAULT_CREDENTIALS = {"username": "app@xgimi.com", "password": "xgimi202508"}
 
-def _load_data() -> list:
-    """从 JSON 文件加载数据，失败则回退使用 _RAW。"""
+
+# ─────────────────── 配置加载 / 保存 ─────────────────────────────────────────
+
+def _load_config() -> dict:
+    """加载完整配置；自动迁移旧格式（list-of-lists → dict 格式）。"""
+    defaults: dict = {
+        "headers":      list(_DEFAULT_HEADERS),
+        "rows":         list(_RAW),
+        "threshold_days": _DEFAULT_THRESHOLD,
+        "credentials":  dict(_DEFAULT_CREDENTIALS),
+        "scan_results": {},        # key = mtk_url
+    }
     try:
         if _DATA_FILE.exists():
             with _DATA_FILE.open('r', encoding='utf-8') as f:
-                rows = json.load(f)
-            # JSON 里是 list-of-list，转为 list-of-tuple
-            return [tuple(r) for r in rows]
+                data = json.load(f)
+            if isinstance(data, list):
+                # 旧格式：直接是 list-of-list
+                defaults["rows"] = [tuple(r) for r in data]
+            elif isinstance(data, dict):
+                defaults["headers"]        = data.get("headers", list(_DEFAULT_HEADERS))
+                defaults["rows"]           = [tuple(r) for r in data.get("rows", list(_RAW))]
+                defaults["threshold_days"] = data.get("threshold_days", _DEFAULT_THRESHOLD)
+                defaults["credentials"]    = data.get("credentials", dict(_DEFAULT_CREDENTIALS))
+                defaults["scan_results"]   = data.get("scan_results", {})
     except Exception:
         pass
-    return list(_RAW)
+    return defaults
 
 
-def _save_data(data: list) -> None:
-    """将当前数据保存到 JSON 文件。"""
+def _save_config(headers: list, rows: list, threshold_days: int,
+                 credentials: dict, scan_results: dict) -> None:
+    """将完整配置保存到 JSON。"""
     try:
         _DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
         with _DATA_FILE.open('w', encoding='utf-8') as f:
-            json.dump([list(r) for r in data], f, ensure_ascii=False, indent=2)
+            json.dump(
+                {
+                    "version": 2,
+                    "headers":       headers,
+                    "rows":          [list(r) for r in rows],
+                    "threshold_days": threshold_days,
+                    "credentials":   credentials,
+                    "scan_results":  scan_results,
+                },
+                f, ensure_ascii=False, indent=2,
+            )
     except Exception:
         pass
 
@@ -44,7 +86,6 @@ def _save_data(data: list) -> None:
 # 字段顺序: (平台, 问题描述, MTK链接, 飞书链接, 机型, 负责人, 备注)
 
 def _u(raw: str) -> str:
-    """从可能含额外说明文字的字符串中提取第一个 URL（http 开头），如无则返回原字符串。"""
     m = re.search(r'https?://\S+', raw)
     return m.group(0).rstrip('】').rstrip(']') if m else raw.strip()
 
@@ -242,12 +283,15 @@ _RAW: list = [
 
 # ─────────────────── 颜色规则 ────────────────────────────────────────────────
 
+_SCAN_FOLLOWUP_COLOR = QColor('#FFE0B2')  # 橙色 - 需要催促
+
+
 def _row_color(notes: str) -> QColor | None:
     n = notes.lower()
     if 'resolved' in n:
-        return QColor('#d4edda')   # 绿色 - 已解决
+        return QColor('#d4edda')   # 绿 - 已解决
     if '暂停跟踪' in n:
-        return QColor('#e2e3e5')   # 灰色 - 暂停
+        return QColor('#e2e3e5')   # 灰 - 暂停
     if '未复现' in n:
         return QColor('#d1ecf1')   # 浅蓝 - 未复现
     if '继续跟踪' in n:
@@ -257,14 +301,13 @@ def _row_color(notes: str) -> QColor | None:
     return None
 
 
-# ─────────────────── 表格单元格（可点击链接）────────────────────────────────
+# ─────────────────── 链接单元格 ──────────────────────────────────────────────
 
 class _LinkItem(QTableWidgetItem):
-    """存储 URL 的单元格，双击在浏览器中打开；需通过编辑按钮才能编辑。"""
+    """存储 URL 的单元格，双击在浏览器中打开；编辑模式下才可编辑。"""
     def __init__(self, url: str):
         super().__init__(url or '')
         self.setData(Qt.ItemDataRole.ToolTipRole, url or '（空）')
-        # 默认不可编辑，防止双击进入编辑模式
         self.setFlags(self.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
     @property
@@ -272,18 +315,35 @@ class _LinkItem(QTableWidgetItem):
         return self.text()
 
 
-# ─────────────────── 页面 ────────────────────────────────────────────────────
+# ─────────────────── 页面主体 ────────────────────────────────────────────────
 
 class MtkBugTrackingPage(QWidget):
-    """MTK 问题跟踪记录表格页面"""
-
-    COLUMNS = ['平台', '问题描述', 'MTK链接', '飞书链接', '机型', '负责人', '备注/状态']
+    """MTK 问题跟踪记录表格页面（含 MTK 状态自动扫描）"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._all_data = _load_data()
+        cfg = _load_config()
+        self._columns: list         = cfg["headers"]
+        self._all_data: list        = cfg["rows"]
+        self._threshold_days: int   = cfg["threshold_days"]
+        self._credentials: dict     = cfg["credentials"]
+        self._scan_results: dict    = cfg["scan_results"]   # {mtk_url: result_dict}
+        self._scan_worker           = None
+        self._first_show: bool      = True
+        self._displayed_data: list  = []
         self._setup_ui()
         self._populate()
+
+    # ── 生命周期 ─────────────────────────────────────────────────────────────
+
+    def showEvent(self, event):
+        """页面第一次显示时自动触发 MTK 扫描。"""
+        super().showEvent(event)
+        if self._first_show:
+            self._first_show = False
+            self._on_start_scan()
+
+    # ── UI 搭建 ──────────────────────────────────────────────────────────────
 
     def _setup_ui(self):
         root = QVBoxLayout(self)
@@ -296,7 +356,7 @@ class MtkBugTrackingPage(QWidget):
         title.setStyleSheet("color:#1A237E;")
         root.addWidget(title)
 
-        # ── 工具栏 ──
+        # ── 工具栏 第一行（搜索 / 过滤 / 编辑）──────────────────────────────
         bar = QHBoxLayout()
         bar.setSpacing(8)
 
@@ -321,9 +381,11 @@ class MtkBugTrackingPage(QWidget):
         lbl_status = QLabel("状态:")
         lbl_status.setFixedWidth(36)
         self._combo_status = QComboBox()
-        self._combo_status.addItems(["全部状态", "继续跟踪", "Resolved", "暂停跟踪", "未复现", "等待/复测"])
+        self._combo_status.addItems(
+            ["全部状态", "🔴 需要催促", "继续跟踪", "Resolved", "暂停跟踪", "未复现", "等待/复测"]
+        )
         self._combo_status.currentTextChanged.connect(self._apply_filter)
-        self._combo_status.setFixedWidth(110)
+        self._combo_status.setFixedWidth(120)
 
         self._count_lbl = QLabel("")
         self._count_lbl.setStyleSheet("color:#888;font-size:12px;")
@@ -367,23 +429,87 @@ class MtkBugTrackingPage(QWidget):
         bar.addWidget(self._btn_edit)
         root.addLayout(bar)
 
-        # ── 表格 ──
-        self._table = QTableWidget(0, len(self.COLUMNS))
-        self._table.setHorizontalHeaderLabels(self.COLUMNS)
+        # ── 工具栏 第二行（MTK 扫描控制）─────────────────────────────────────
+        scan_bar = QHBoxLayout()
+        scan_bar.setSpacing(8)
+
+        scan_lbl = QLabel("⚡ MTK 自动扫描：")
+        scan_lbl.setStyleSheet("font-weight:bold;color:#5C4033;font-size:12px;")
+        scan_lbl.setFixedWidth(110)
+
+        lbl_threshold = QLabel("催促阈值(天):")
+        lbl_threshold.setStyleSheet("font-size:12px;color:#555;")
+        lbl_threshold.setFixedWidth(85)
+
+        self._threshold_spin = QSpinBox()
+        self._threshold_spin.setRange(1, 365)
+        self._threshold_spin.setValue(self._threshold_days)
+        self._threshold_spin.setSuffix(" 天")
+        self._threshold_spin.setFixedWidth(72)
+        self._threshold_spin.setToolTip("超过此天数且 Action Buttons 不含 Reopen Issue，则标记为需要催促")
+        self._threshold_spin.valueChanged.connect(self._on_threshold_changed)
+
+        self._btn_scan = QPushButton("🔍 立即扫描")
+        self._btn_scan.setFixedWidth(90)
+        self._btn_scan.setStyleSheet(
+            "QPushButton{border:1px solid #FF8F00;border-radius:4px;"
+            "padding:3px 8px;color:#E65100;background:#FFF8E1;font-weight:bold;}"
+            "QPushButton:hover{background:#FFE0B2;}"
+            "QPushButton:disabled{color:#aaa;background:#f5f5f5;border-color:#ddd;}")
+        self._btn_scan.clicked.connect(self._on_start_scan)
+
+        self._btn_stop_scan = QPushButton("⏹ 停止")
+        self._btn_stop_scan.setFixedWidth(62)
+        self._btn_stop_scan.setEnabled(False)
+        self._btn_stop_scan.setStyleSheet(
+            "QPushButton{border:1px solid #EF9A9A;border-radius:4px;"
+            "padding:3px 6px;color:#B71C1C;background:#FFEBEE;}"
+            "QPushButton:hover{background:#FFCDD2;}"
+            "QPushButton:disabled{color:#aaa;background:#f5f5f5;border-color:#ddd;}")
+        self._btn_stop_scan.clicked.connect(self._on_stop_scan)
+
+        self._scan_progress = QProgressBar()
+        self._scan_progress.setRange(0, 100)
+        self._scan_progress.setValue(0)
+        self._scan_progress.setFixedHeight(16)
+        self._scan_progress.setFixedWidth(120)
+        self._scan_progress.setVisible(False)
+        self._scan_progress.setStyleSheet(
+            "QProgressBar{border:1px solid #FFB300;border-radius:3px;background:#FFF8E1;}"
+            "QProgressBar::chunk{background:#FF8F00;border-radius:3px;}")
+
+        self._scan_status = QLabel("尚未扫描")
+        self._scan_status.setStyleSheet("color:#888;font-size:11px;")
+
+        scan_bar.addWidget(scan_lbl)
+        scan_bar.addWidget(lbl_threshold)
+        scan_bar.addWidget(self._threshold_spin)
+        scan_bar.addWidget(self._btn_scan)
+        scan_bar.addWidget(self._btn_stop_scan)
+        scan_bar.addWidget(self._scan_progress)
+        scan_bar.addWidget(self._scan_status, stretch=1)
+        root.addLayout(scan_bar)
+
+        # ── 表格 ─────────────────────────────────────────────────────────────
+        self._table = QTableWidget(0, len(self._columns))
+        self._table.setHorizontalHeaderLabels(self._columns)
         hh = self._table.horizontalHeader()
-        hh.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)  # 所有列均可拖拽调整宽度
-        hh.setStretchLastSection(True)  # 最后一列自动拉伸填满
-        # 设置初始合理列宽
-        hh.resizeSection(0, 70)    # 平台
-        hh.resizeSection(1, 280)   # 描述
-        hh.resizeSection(2, 160)   # MTK链接
-        hh.resizeSection(3, 160)   # 飞书链接
-        hh.resizeSection(4, 90)    # 机型
-        hh.resizeSection(5, 70)    # 负责人
+        hh.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        hh.setStretchLastSection(True)
+        hh.resizeSection(0, 70)
+        hh.resizeSection(1, 280)
+        hh.resizeSection(2, 160)
+        hh.resizeSection(3, 160)
+        hh.resizeSection(4, 90)
+        hh.resizeSection(5, 70)
+        # ★ 双击表头可修改列名
+        hh.sectionDoubleClicked.connect(self._on_header_dbl_click)
+        hh.setToolTip("双击表头可修改列名")
+
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked)
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self._table.setAlternatingRowColors(False)  # 我们自己控制颜色
+        self._table.setAlternatingRowColors(False)
         self._table.setWordWrap(True)
         self._table.setStyleSheet("""
             QTableWidget {
@@ -400,6 +526,10 @@ class MtkBugTrackingPage(QWidget):
                 border: none;
                 border-right: 1px solid #C5CAE9;
             }
+            QHeaderView::section:hover {
+                background: #C5CAE9;
+                cursor: pointer;
+            }
             QTableWidget::item { padding: 4px 6px; }
             QTableWidget::item:selected { background: #BBDEFB; color: #0D47A1; }
         """)
@@ -409,33 +539,37 @@ class MtkBugTrackingPage(QWidget):
         self._table.itemChanged.connect(self._on_item_changed)
         root.addWidget(self._table)
 
-        # ── 图例 ──
+        # ── 图例 ─────────────────────────────────────────────────────────────
         legend = QHBoxLayout()
         legend.setSpacing(12)
         for color, text in [
+            ('#FFE0B2', '需要催促 (MTK扫描)'),
             ('#d4edda', '已解决 (Resolved)'),
             ('#d1ecf1', '未复现'),
             ('#fff3cd', '继续跟踪'),
             ('#cce5ff', '等待/复测'),
             ('#e2e3e5', '暂停跟踪'),
         ]:
-            dot = QLabel(f"<span style='background:{color};padding:3px 10px;"
-                         f"border:1px solid #bbb;border-radius:3px;'>&nbsp;</span> {text}")
+            dot = QLabel(
+                f"<span style='background:{color};padding:3px 10px;"
+                f"border:1px solid #bbb;border-radius:3px;'>&nbsp;</span> {text}"
+            )
             dot.setStyleSheet("font-size:11px;color:#555;")
             legend.addWidget(dot)
         legend.addStretch()
         root.addLayout(legend)
 
+    # ── 数据填充 ─────────────────────────────────────────────────────────────
+
     def _make_item(self, text: str, align_center: bool = False) -> QTableWidgetItem:
         item = QTableWidgetItem(text)
         if align_center:
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
-        # 普通单元格允许编辑（链接单元格在 _LinkItem 中单独设置为不可编辑）
         return item
 
     def _populate(self, data=None):
         rows = data if data is not None else self._all_data
-        self._displayed_data = list(rows)   # 记录当前视图行对应的原始数据
+        self._displayed_data = list(rows)
         self._table.blockSignals(True)
         self._table.setRowCount(0)
         self._table.setRowCount(len(rows))
@@ -448,9 +582,22 @@ class MtkBugTrackingPage(QWidget):
             self._table.setItem(r, 5, self._make_item(person, True))
             self._table.setItem(r, 6, self._make_item(notes))
 
-            color = _row_color(notes)
+            # 优先显示扫描结果颜色（橙色=需催促），其次按备注状态着色
+            scan_res = self._scan_results.get(mtk, {}) if mtk else {}
+            if scan_res.get("needs_followup"):
+                color = _SCAN_FOLLOWUP_COLOR
+                # 在备注列附加扫描摘要
+                note_item = self._table.item(r, 6)
+                if note_item:
+                    days = scan_res.get("days_since_reply", -1)
+                    last = scan_res.get("last_reply_date", "未知")
+                    tip = f"⚠️ 需催促 | 最后活动：{last}（{days}天前）"
+                    note_item.setToolTip(tip)
+            else:
+                color = _row_color(notes)
+
             if color:
-                for c in range(len(self.COLUMNS)):
+                for c in range(len(self._columns)):
                     item = self._table.item(r, c)
                     if item:
                         item.setBackground(color)
@@ -459,15 +606,21 @@ class MtkBugTrackingPage(QWidget):
         self._table.blockSignals(False)
         self._count_lbl.setText(f"共 {len(rows)} 条")
 
+    # ── 过滤 ─────────────────────────────────────────────────────────────────
+
     def _apply_filter(self):
         query = self._search.text().strip().lower()
         plat = self._combo_plat.currentText()
         status = self._combo_status.currentText()
 
-        def _match_status(notes: str) -> bool:
+        def _match_status(row) -> bool:
+            notes = row[6]
             n = notes.lower()
+            mtk_url = row[2]
             if status == "全部状态":
                 return True
+            if status == "🔴 需要催促":
+                return self._scan_results.get(mtk_url, {}).get("needs_followup", False)
             if status == "继续跟踪":
                 return "继续跟踪" in n
             if status == "Resolved":
@@ -483,15 +636,34 @@ class MtkBugTrackingPage(QWidget):
         filtered = [
             row for row in self._all_data
             if (plat == "全部平台" or row[0] == plat)
-            and _match_status(row[6])
+            and _match_status(row)
             and (not query or any(query in str(f).lower() for f in row))
         ]
         self._populate(filtered)
 
+    # ── 表头双击修改列名 ──────────────────────────────────────────────────────
+
+    def _on_header_dbl_click(self, section: int):
+        """双击表头弹出输入框修改列名，修改后写入配置持久化。"""
+        if section < 0 or section >= len(self._columns):
+            return
+        current_name = self._columns[section]
+        new_name, ok = QInputDialog.getText(
+            self,
+            "修改列名",
+            f"请输入第 {section + 1} 列的新名称：",
+            text=current_name,
+        )
+        if ok and new_name.strip() and new_name.strip() != current_name:
+            self._columns[section] = new_name.strip()
+            self._table.setHorizontalHeaderLabels(self._columns)
+            self._save()
+
+    # ── 编辑模式切换 ─────────────────────────────────────────────────────────
+
     def _on_toggle_edit(self, checked: bool):
-        """切换编辑模式：开启时链接单元格可编辑，关闭时恢复为不可编辑。"""
         for r in range(self._table.rowCount()):
-            for c in (2, 3):  # MTK链接、飞书链接列
+            for c in (2, 3):
                 item = self._table.item(r, c)
                 if isinstance(item, _LinkItem):
                     flags = item.flags()
@@ -500,8 +672,9 @@ class MtkBugTrackingPage(QWidget):
                     else:
                         item.setFlags(flags & ~Qt.ItemFlag.ItemIsEditable)
 
+    # ── 双击单元格打开链接 ────────────────────────────────────────────────────
+
     def _on_cell_double_clicked(self, row: int, col: int):
-        """双击链接列时在浏览器中打开 URL（非编辑模式下）。"""
         if col not in (2, 3):
             return
         item = self._table.item(row, col)
@@ -511,34 +684,37 @@ class MtkBugTrackingPage(QWidget):
         if url.startswith('http'):
             QDesktopServices.openUrl(QUrl(url))
 
+    # ── 右键菜单 ─────────────────────────────────────────────────────────────
+
     def _on_context_menu(self, pos):
-        """右键菜单：在浏览器中打开 MTK / 飞书 链接。"""
         row = self._table.rowAt(pos.y())
         if row < 0:
             return
-        mtk_item = self._table.item(row, 2)
+        mtk_item   = self._table.item(row, 2)
         feishu_item = self._table.item(row, 3)
-        mtk_url = mtk_item.text().strip() if mtk_item else ''
+        mtk_url    = mtk_item.text().strip()   if mtk_item    else ''
         feishu_url = feishu_item.text().strip() if feishu_item else ''
 
         menu = QMenu(self)
         if mtk_url.startswith('http'):
-            act_mtk = menu.addAction('🔗 打开 MTK 链接')
-            act_mtk.triggered.connect(lambda: QDesktopServices.openUrl(QUrl(mtk_url)))
+            act = menu.addAction('🔗 打开 MTK 链接')
+            act.triggered.connect(lambda: QDesktopServices.openUrl(QUrl(mtk_url)))
         if feishu_url.startswith('http'):
-            act_fs = menu.addAction('🔗 打开飞书链接')
-            act_fs.triggered.connect(lambda: QDesktopServices.openUrl(QUrl(feishu_url)))
+            act = menu.addAction('🔗 打开飞书链接')
+            act.triggered.connect(lambda: QDesktopServices.openUrl(QUrl(feishu_url)))
         if not menu.isEmpty():
             menu.exec(self._table.viewport().mapToGlobal(pos))
 
+    # ── 单元格编辑同步 ────────────────────────────────────────────────────────
+
     def _on_item_changed(self, item: QTableWidgetItem):
-        """将表格单元格的编辑内容同步回 _all_data，确保过滤时使用最新值。"""
         row = self._table.row(item)
-        # 重建该行为 tuple
+
         def _get(c):
             it = self._table.item(row, c)
             return it.text() if it else ''
-        new_row = tuple(_get(c) for c in range(len(self.COLUMNS)))
+
+        new_row = tuple(_get(c) for c in range(len(self._columns)))
         if hasattr(self, '_displayed_data') and 0 <= row < len(self._displayed_data):
             orig = self._displayed_data[row]
             try:
@@ -547,13 +723,16 @@ class MtkBugTrackingPage(QWidget):
                 self._displayed_data[row] = new_row
             except ValueError:
                 pass
-            _save_data(self._all_data)
-        # 如果编辑的是"备注/状态"列，实时更新行颜色
+            self._save()
+
         if self._table.column(item) == 6:
             notes = item.text()
-            color = _row_color(notes)
+            mtk_url = (_get(2)) if True else ''
+            scan_res = self._scan_results.get(mtk_url, {})
+            color = (_SCAN_FOLLOWUP_COLOR if scan_res.get("needs_followup")
+                     else _row_color(notes))
             self._table.blockSignals(True)
-            for c in range(len(self.COLUMNS)):
+            for c in range(len(self._columns)):
                 it = self._table.item(row, c)
                 if it:
                     if color:
@@ -562,15 +741,14 @@ class MtkBugTrackingPage(QWidget):
                         it.setBackground(QColor(Qt.GlobalColor.white))
             self._table.blockSignals(False)
 
+    # ── 新增行 ────────────────────────────────────────────────────────────────
+
     def _on_add_row(self):
-        """在 _all_data 末尾追加一条空行并刷新显示。"""
         empty = ('', '', '', '', '', '', '')
         self._all_data.append(empty)
-        # 不重置过滤，直接在当前视图尾部插入
         self._populate_append_empty()
 
     def _populate_append_empty(self):
-        """仅在表格末尾插入一条空行，不全量刷新（保持过滤/滚动位置）。"""
         r = self._table.rowCount()
         self._table.blockSignals(True)
         self._table.insertRow(r)
@@ -579,17 +757,18 @@ class MtkBugTrackingPage(QWidget):
             self._table.setItem(r, c, QTableWidgetItem(val))
         self._displayed_data.append(empty)
         self._table.blockSignals(False)
-        _save_data(self._all_data)
+        self._save()
         self._table.scrollToBottom()
         self._table.setCurrentCell(r, 0)
         self._table.editItem(self._table.item(r, 0))
         self._count_lbl.setText(f'共 {self._table.rowCount()} 条')
 
+    # ── 删除行 ────────────────────────────────────────────────────────────────
+
     def _on_delete_rows(self):
-        """删除当前选中的行（支持多选）。"""
         rows = sorted(
             {idx.row() for idx in self._table.selectedIndexes()},
-            reverse=True   # 从底部开始删，避免行号移位
+            reverse=True,
         )
         if not rows:
             return
@@ -604,5 +783,153 @@ class MtkBugTrackingPage(QWidget):
                 self._displayed_data.pop(r)
             self._table.removeRow(r)
         self._table.blockSignals(False)
-        _save_data(self._all_data)
+        self._save()
         self._count_lbl.setText(f'共 {self._table.rowCount()} 条')
+
+    # ── 阈值变更 ──────────────────────────────────────────────────────────────
+
+    def _on_threshold_changed(self, value: int):
+        self._threshold_days = value
+        self._save()
+
+    # ── MTK 扫描 ──────────────────────────────────────────────────────────────
+
+    def _on_start_scan(self):
+        """启动 MTK 问题单后台扫描。"""
+        from workers.mtk_scan_worker import MtkScanWorker
+
+        if self._scan_worker and self._scan_worker.isRunning():
+            return  # 正在扫描中，忽略重复点击
+
+        # 收集所有有 MTK URL 的问题单
+        issues = [
+            (i, row[1], row[2])
+            for i, row in enumerate(self._all_data)
+            if row[2] and row[2].startswith('http')
+        ]
+        if not issues:
+            self._scan_status.setText("没有可扫描的 MTK 链接")
+            return
+
+        self._scan_worker = MtkScanWorker(
+            issues=issues,
+            threshold_days=self._threshold_days,
+            username=self._credentials.get("username", ""),
+            password=self._credentials.get("password", ""),
+            parent=self,
+        )
+        self._scan_worker.progress.connect(self._on_scan_progress_update)
+        self._scan_worker.login_screenshot.connect(self._on_login_screenshot)
+        self._scan_worker.scan_finished.connect(self._on_scan_finished)
+        self._scan_worker.scan_error.connect(self._on_scan_error)
+
+        self._btn_scan.setEnabled(False)
+        self._btn_stop_scan.setEnabled(True)
+        self._scan_progress.setVisible(True)
+        self._scan_progress.setValue(0)
+        self._scan_status.setText(f"正在启动（共 {len(issues)} 条，阈值 {self._threshold_days} 天）…")
+
+        self._scan_worker.start()
+
+    def _on_stop_scan(self):
+        if self._scan_worker:
+            self._scan_worker.request_stop()
+            self._scan_status.setText("正在停止…")
+
+    def _on_login_screenshot(self, png_bytes: bytes):
+        """收到登录截图后弹出预览对话框，让用户确认登录状态。"""
+        dlg = QDialog(self)
+        dlg.setWindowTitle("MTK Portal 登录状态确认")
+        dlg.setWindowFlags(dlg.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint)
+        dlg.resize(900, 620)
+
+        layout = QVBoxLayout(dlg)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+
+        tip = QLabel(
+            "⬇ 以下是登录后的页面截图，请确认是否已成功登录 MTK eService Portal。\n"
+            "若页面仍显示登录表单，说明账号密码有误；关闭此窗口后扫描将自动继续。"
+        )
+        tip.setWordWrap(True)
+        tip.setStyleSheet("color:#5C4033;font-size:12px;")
+        layout.addWidget(tip)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        img_label = QLabel()
+        img_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        pixmap = QPixmap()
+        pixmap.loadFromData(png_bytes, "PNG")
+        if not pixmap.isNull():
+            scaled = pixmap.scaledToWidth(860, Qt.TransformationMode.SmoothTransformation)
+            img_label.setPixmap(scaled)
+        else:
+            img_label.setText("（截图加载失败）")
+        scroll.setWidget(img_label)
+        layout.addWidget(scroll, stretch=1)
+
+        btn_close = QPushButton("✅ 确认，继续扫描")
+        btn_close.setStyleSheet(
+            "QPushButton{border:1px solid #81C784;border-radius:4px;"
+            "padding:4px 16px;color:#2E7D32;background:#F1F8E9;font-weight:bold;}"
+            "QPushButton:hover{background:#C8E6C9;}"
+        )
+        btn_close.clicked.connect(dlg.accept)
+        layout.addWidget(btn_close, alignment=Qt.AlignmentFlag.AlignRight)
+
+        # 非阻塞展示，不影响后台扫描线程继续运行
+        dlg.show()
+
+    def _on_scan_progress_update(self, current: int, total: int, desc: str):
+        pct = int(current / total * 100) if total else 0
+        self._scan_progress.setValue(pct)
+        self._scan_status.setText(f"扫描中 {current}/{total}：{desc}")
+
+    def _on_scan_finished(self, results: dict):
+        """扫描完成：按 row_idx 将结果写入 _scan_results（以 MTK URL 为键）。"""
+        self._btn_scan.setEnabled(True)
+        self._btn_stop_scan.setEnabled(False)
+        self._scan_progress.setVisible(False)
+
+        # 合并结果到 _scan_results {mtk_url: result}
+        for row_idx, res in results.items():
+            url = res.get("url", "")
+            if url:
+                self._scan_results[url] = res
+
+        followup_count = sum(
+            1 for r in self._scan_results.values() if r.get("needs_followup")
+        )
+        now_str = datetime.now().strftime("%H:%M:%S")
+        if followup_count:
+            self._scan_status.setText(
+                f"✅ 扫描完成（{now_str}）— ⚠️ {followup_count} 条需要催促，"
+                f"可在状态栏选择「🔴 需要催促」筛选"
+            )
+            self._scan_status.setStyleSheet("color:#E65100;font-size:11px;font-weight:bold;")
+        else:
+            self._scan_status.setText(f"✅ 扫描完成（{now_str}）— 暂无需催促问题单")
+            self._scan_status.setStyleSheet("color:#2E7D32;font-size:11px;")
+
+        self._save()
+        self._apply_filter()  # 刷新高亮
+
+    def _on_scan_error(self, msg: str):
+        self._btn_scan.setEnabled(True)
+        self._btn_stop_scan.setEnabled(False)
+        self._scan_progress.setVisible(False)
+        self._scan_status.setText(f"❌ 扫描失败：{msg[:80]}")
+        self._scan_status.setStyleSheet("color:#C62828;font-size:11px;")
+
+    # ── 统一保存 ─────────────────────────────────────────────────────────────
+
+    def _save(self):
+        """将当前所有配置持久化到 JSON。"""
+        _save_config(
+            headers=self._columns,
+            rows=self._all_data,
+            threshold_days=self._threshold_days,
+            credentials=self._credentials,
+            scan_results=self._scan_results,
+        )

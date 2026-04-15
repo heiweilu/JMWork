@@ -265,6 +265,7 @@ Compress-Archive -Path dist\xgimi_dlp_test -DestinationPath xgimi_dlp_test_v0.1.
 | v0.1.10 | 2026-04 | AI 智能通知（通义千问 qwen3.5-flash + 飞书 Webhook/OpenAPI 双模式）、事件总线驱动自动告警、步骤级通知配置 |
 | v0.1.11 | 2026-04 | 修复 cv2 Unicode 路径静默失败、相机预热防黑图、通知排版优化（lark_md + hr分割线）、防重复通知 |
 | v0.1.12 | 2026-04 | 断点续执行（暂停/失败/崩溃恢复）、轮次跟踪、复合步骤、完成通知、暂停计时冻结 |
+| v0.1.13 | 2026-04 | BUG追踪表头双击改名持久化、MTK问题单 Playwright 自动扫描、催促筛选（🔴需要催促）、阈值天数可设 |
 | v0.2.0 | 计划 | 新增历史对比分析 |
 | v1.0.0 | 计划 | 正式交付版本 |
 
@@ -272,7 +273,7 @@ Compress-Archive -Path dist\xgimi_dlp_test -DestinationPath xgimi_dlp_test_v0.1.
 
 ## 工程结构概览
 
-### 主要功能亮点（v0.1.12）
+### 主要功能亮点（v0.1.13）
 
 | 功能 | 说明 |
 |---|---|
@@ -280,7 +281,7 @@ Compress-Archive -Path dist\xgimi_dlp_test -DestinationPath xgimi_dlp_test_v0.1.
 | MobaXterm 配色方案 | Linux / CMD 两套语法高亮，可一键切换 |
 | 快捷指令面板 | 支持拖拽排序、自定义描述、分类管理 |
 | 十六进制转换工具 | 实时 HEX↔DEC/BIN/OCT/ASCII 互转 |
-| BUG 跟踪表 | 可编辑表格，双击链接直接打开浏览器 |
+| BUG 跟踪表 | 可编辑表格，**双击表头可修改列名**，双击链接直接打开浏览器；**自动爬取 MTK 问题单状态，筛选需要催促的问题单** |
 | 设备实验室 | 串口调试 + 摄像头 + 脚本编排一体化 |
 | 断点续执行 | 失败/暂停/崩溃后可恢复执行，状态自动持久化 |
 | 轮次跟踪 | 支持 9999 轮次，状态栏实时显示当前/总轮次 |
