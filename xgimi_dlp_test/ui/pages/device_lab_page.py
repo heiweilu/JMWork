@@ -2,6 +2,7 @@
 """设备联调台页面。"""
 
 import ast
+import json
 import os
 import re
 import time
@@ -3665,9 +3666,8 @@ class DeviceLabPage(QWidget):
         self._compare_against_reference(source="手动检图")
 
     def _get_latest_camera_frame(self) -> Optional[Any]:
-        if self._current_camera_frame is not None:
-            return self._current_camera_frame.copy()
-        capture = self._camera_capture
+        # 有活跃的相机 capture 时，始终读取最新帧（避免缓存导致抓拍图片不变）
+        capture = self._camera_capture or self._script_camera_capture
         if capture is None:
             capture = self._ensure_script_capture()
         if capture is not None:
@@ -3675,6 +3675,9 @@ class DeviceLabPage(QWidget):
             if ret and frame is not None:
                 self._current_camera_frame = frame.copy()
                 return frame
+        # 无相机时回退到缓存帧（静态回显场景）
+        if self._current_camera_frame is not None:
+            return self._current_camera_frame.copy()
         return None
 
     def _selected_camera_index(self) -> int:

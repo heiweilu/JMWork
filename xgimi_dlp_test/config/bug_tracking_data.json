@@ -281,6 +281,24 @@
       "继续跟踪"
     ],
     [
+      "9681",
+      "盒子3840*2160 50HZ HDMI下3D视频从上下切换到关闭，偶现花屏",
+      "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143279436",
+      "https://project.feishu.cn/6bxxuo/issue/detail/6926277987",
+      "雅典娜三代pro",
+      "李清龙",
+      "继续跟踪"
+    ],
+    [
+      "9681",
+      "执行避障AK后进入hdmi信号源，出现重叠阴影，有声音无画面",
+      "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143289894",
+      "https://project.feishu.cn/6bxxuo/issue/detail/6952732666",
+      "雅典娜三代pro",
+      "王方毅",
+      "继续跟踪"
+    ],
+    [
       "",
       "",
       "",
