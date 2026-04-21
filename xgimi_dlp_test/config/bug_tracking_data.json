@@ -290,12 +290,21 @@
       "继续跟踪"
     ],
     [
-      "9681",
-      "执行避障AK后进入hdmi信号源，出现重叠阴影，有声音无画面",
-      "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143289894",
-      "https://project.feishu.cn/6bxxuo/issue/detail/6952732666",
-      "雅典娜三代pro",
-      "王方毅",
+      "9660",
+      "xbox开启始终启用VRR,按home键返回桌面后画面扯一下",
+      "",
+      "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143287619",
+      "国内大鹏",
+      "周乐",
+      "继续跟踪"
+    ],
+    [
+      "9660",
+      "开关巨幕模式出现闪黑",
+      "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143295398",
+      "https://project.feishu.cn/6bxxuo/issue/detail/6954185220?tabKey=detail#detail",
+      "国内猛禽",
+      "李梦江",
       "继续跟踪"
     ],
     [
@@ -316,16 +325,16 @@
   "scan_results": {
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143202022": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143202022",
-      "last_reply_date": "2026-04-13",
-      "days_since_reply": 2,
-      "action_status": "reopen",
+      "last_reply_date": "错误",
+      "days_since_reply": -1,
+      "action_status": "unknown",
       "needs_followup": false,
-      "error": ""
+      "error": "Page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"https://eservice.mediatek.com/eservice-portal/issue_manager/update/143202022\", waiting until \"domcontentloaded\"\n"
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143096588": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143096588",
       "last_reply_date": "2026-03-24",
-      "days_since_reply": 22,
+      "days_since_reply": 27,
       "action_status": "reopen",
       "needs_followup": false,
       "error": ""
@@ -333,7 +342,7 @@
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143057789": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143057789",
       "last_reply_date": "2026-03-19",
-      "days_since_reply": 27,
+      "days_since_reply": 32,
       "action_status": "reopen",
       "needs_followup": false,
       "error": ""
@@ -341,15 +350,15 @@
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143231897": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143231897",
       "last_reply_date": "2026-04-15",
-      "days_since_reply": 0,
+      "days_since_reply": 5,
       "action_status": "pending",
-      "needs_followup": false,
+      "needs_followup": true,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143219220": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143219220",
       "last_reply_date": "2026-03-24",
-      "days_since_reply": 21,
+      "days_since_reply": 26,
       "action_status": "pending",
       "needs_followup": true,
       "error": ""
@@ -357,7 +366,7 @@
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143243431": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143243431",
       "last_reply_date": "2026-03-19",
-      "days_since_reply": 26,
+      "days_since_reply": 31,
       "action_status": "pending",
       "needs_followup": true,
       "error": ""
@@ -365,87 +374,87 @@
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143221941": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143221941",
       "last_reply_date": "2026-04-15",
-      "days_since_reply": 0,
+      "days_since_reply": 5,
       "action_status": "pending",
-      "needs_followup": false,
+      "needs_followup": true,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143170628": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143170628",
-      "last_reply_date": "2026-04-07",
-      "days_since_reply": 8,
-      "action_status": "pending",
-      "needs_followup": true,
+      "last_reply_date": "2026-04-20",
+      "days_since_reply": 0,
+      "action_status": "reopen",
+      "needs_followup": false,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143141868": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143141868",
-      "last_reply_date": "2026-04-07",
-      "days_since_reply": 8,
-      "action_status": "pending",
-      "needs_followup": true,
+      "last_reply_date": "2026-04-20",
+      "days_since_reply": 0,
+      "action_status": "reopen",
+      "needs_followup": false,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143126293": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143126293",
-      "last_reply_date": "2026-04-07",
-      "days_since_reply": 8,
-      "action_status": "pending",
-      "needs_followup": true,
+      "last_reply_date": "2026-04-20",
+      "days_since_reply": 0,
+      "action_status": "reopen",
+      "needs_followup": false,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143100011": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143100011",
-      "last_reply_date": "2026-04-07",
-      "days_since_reply": 8,
-      "action_status": "pending",
-      "needs_followup": true,
+      "last_reply_date": "2026-04-20",
+      "days_since_reply": 0,
+      "action_status": "reopen",
+      "needs_followup": false,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143097596": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143097596",
-      "last_reply_date": "2026-04-07",
-      "days_since_reply": 8,
-      "action_status": "pending",
-      "needs_followup": true,
+      "last_reply_date": "2026-04-20",
+      "days_since_reply": 0,
+      "action_status": "reopen",
+      "needs_followup": false,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143091605": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143091605",
-      "last_reply_date": "2026-04-07",
-      "days_since_reply": 8,
-      "action_status": "pending",
-      "needs_followup": true,
+      "last_reply_date": "2026-04-20",
+      "days_since_reply": 0,
+      "action_status": "reopen",
+      "needs_followup": false,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143091568": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143091568",
-      "last_reply_date": "2026-04-07",
-      "days_since_reply": 8,
-      "action_status": "pending",
-      "needs_followup": true,
+      "last_reply_date": "2026-04-20",
+      "days_since_reply": 0,
+      "action_status": "reopen",
+      "needs_followup": false,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143078465": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143078465",
       "last_reply_date": "2026-04-09",
-      "days_since_reply": 5,
+      "days_since_reply": 10,
       "action_status": "pending",
-      "needs_followup": false,
+      "needs_followup": true,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143243444": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143243444",
-      "last_reply_date": "2026-04-15",
-      "days_since_reply": 0,
+      "last_reply_date": "2026-04-17",
+      "days_since_reply": 3,
       "action_status": "pending",
-      "needs_followup": false,
+      "needs_followup": true,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143203291": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143203291",
       "last_reply_date": "2026-01-09",
-      "days_since_reply": 96,
+      "days_since_reply": 101,
       "action_status": "pending",
       "needs_followup": true,
       "error": ""
@@ -453,46 +462,46 @@
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143258869": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143258869",
       "last_reply_date": "2026-04-03",
-      "days_since_reply": 11,
+      "days_since_reply": 16,
       "action_status": "pending",
       "needs_followup": true,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143271116": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143271116",
-      "last_reply_date": "2026-03-31",
-      "days_since_reply": 14,
+      "last_reply_date": "2026-04-16",
+      "days_since_reply": 3,
       "action_status": "pending",
       "needs_followup": true,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143279772": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143279772",
-      "last_reply_date": "2026-04-08",
-      "days_since_reply": 6,
-      "action_status": "pending",
+      "last_reply_date": "2026-04-20",
+      "days_since_reply": 0,
+      "action_status": "reopen",
       "needs_followup": false,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143285027": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143285027",
       "last_reply_date": "2026-04-15",
-      "days_since_reply": 0,
+      "days_since_reply": 5,
       "action_status": "pending",
-      "needs_followup": false,
+      "needs_followup": true,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143241494": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143241494",
       "last_reply_date": "2026-04-10",
-      "days_since_reply": 4,
+      "days_since_reply": 9,
       "action_status": "reopen",
       "needs_followup": false,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143283913": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143283913",
-      "last_reply_date": "2026-04-15",
+      "last_reply_date": "2026-04-20",
       "days_since_reply": 0,
       "action_status": "pending",
       "needs_followup": false,
@@ -501,15 +510,15 @@
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143283671": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143283671",
       "last_reply_date": "2026-04-15",
-      "days_since_reply": 0,
+      "days_since_reply": 5,
       "action_status": "pending",
-      "needs_followup": false,
+      "needs_followup": true,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143283930": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143283930",
-      "last_reply_date": "2026-04-14",
-      "days_since_reply": 1,
+      "last_reply_date": "2026-04-18",
+      "days_since_reply": 2,
       "action_status": "pending",
       "needs_followup": false,
       "error": ""
@@ -517,23 +526,39 @@
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143283884": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143283884",
       "last_reply_date": "2026-04-15",
-      "days_since_reply": 0,
+      "days_since_reply": 5,
       "action_status": "pending",
-      "needs_followup": false,
+      "needs_followup": true,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143222994": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143222994",
-      "last_reply_date": "2026-04-10",
-      "days_since_reply": 5,
+      "last_reply_date": "2026-04-18",
+      "days_since_reply": 2,
       "action_status": "pending",
       "needs_followup": false,
       "error": ""
     },
     "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143285185": {
       "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143285185",
-      "last_reply_date": "2026-04-15",
-      "days_since_reply": 0,
+      "last_reply_date": "2026-04-16",
+      "days_since_reply": 4,
+      "action_status": "pending",
+      "needs_followup": true,
+      "error": ""
+    },
+    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143279436": {
+      "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143279436",
+      "last_reply_date": "2026-04-17",
+      "days_since_reply": 2,
+      "action_status": "pending",
+      "needs_followup": false,
+      "error": ""
+    },
+    "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143289894": {
+      "url": "https://eservice.mediatek.com/eservice-portal/issue_manager/update/143289894",
+      "last_reply_date": "2027-04-20",
+      "days_since_reply": -365,
       "action_status": "pending",
       "needs_followup": false,
       "error": ""

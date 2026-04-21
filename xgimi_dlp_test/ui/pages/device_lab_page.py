@@ -185,6 +185,51 @@ QPushButton#lab_secondary {
     border-radius: 10px;
     padding: 6px 14px;
 }
+QPushButton#hero_btn_run {
+    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+        stop:0 #22c55e, stop:1 #16a34a);
+    color: white;
+    border: 1px solid rgba(22,101,52,0.34);
+    border-radius: 8px;
+    font-weight: bold;
+    padding: 4px 12px;
+    font-size: 12px;
+}
+QPushButton#hero_btn_run:disabled {
+    background: #e2e8f0;
+    color: #94a3b8;
+    border: 1px solid rgba(148,163,184,0.28);
+}
+QPushButton#hero_btn_pause {
+    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+        stop:0 #f59e0b, stop:1 #d97706);
+    color: white;
+    border: 1px solid rgba(180,83,9,0.34);
+    border-radius: 8px;
+    font-weight: bold;
+    padding: 4px 12px;
+    font-size: 12px;
+}
+QPushButton#hero_btn_pause:disabled {
+    background: #e2e8f0;
+    color: #94a3b8;
+    border: 1px solid rgba(148,163,184,0.28);
+}
+QPushButton#hero_btn_stop {
+    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+        stop:0 #ef4444, stop:1 #dc2626);
+    color: white;
+    border: 1px solid rgba(153,27,27,0.34);
+    border-radius: 8px;
+    font-weight: bold;
+    padding: 4px 12px;
+    font-size: 12px;
+}
+QPushButton#hero_btn_stop:disabled {
+    background: #e2e8f0;
+    color: #94a3b8;
+    border: 1px solid rgba(148,163,184,0.28);
+}
 """
 
 
@@ -1738,6 +1783,28 @@ class DeviceLabPage(QWidget):
         self.lbl_camera_chip.setObjectName("status_chip")
         hero_layout.addWidget(self.lbl_serial_chip)
         hero_layout.addWidget(self.lbl_camera_chip)
+
+        # ── 全局执行控制按钮 ──
+        self.btn_global_run = QPushButton("▶ 执行剧本")
+        self.btn_global_run.setObjectName("hero_btn_run")
+        self.btn_global_run.setToolTip("执行当前选中的联调剧本")
+        self.btn_global_run.clicked.connect(self._run_selected_script)
+        hero_layout.addWidget(self.btn_global_run)
+
+        self.btn_global_pause = QPushButton("⏸ 暂停执行")
+        self.btn_global_pause.setObjectName("hero_btn_pause")
+        self.btn_global_pause.setToolTip("暂停/继续当前剧本执行")
+        self.btn_global_pause.setEnabled(False)
+        self.btn_global_pause.clicked.connect(self._toggle_script_pause)
+        hero_layout.addWidget(self.btn_global_pause)
+
+        self.btn_global_stop = QPushButton("⏹ 停止执行")
+        self.btn_global_stop.setObjectName("hero_btn_stop")
+        self.btn_global_stop.setToolTip("停止当前剧本执行")
+        self.btn_global_stop.setEnabled(False)
+        self.btn_global_stop.clicked.connect(self._stop_script_run)
+        hero_layout.addWidget(self.btn_global_stop)
+
         root_layout.addWidget(hero)
 
         overview = QFrame()
@@ -4318,9 +4385,10 @@ class DeviceLabPage(QWidget):
 
     def _refresh_queue_controls(self):
         has_running_queue = self._queue_busy or self._queue_timer.isActive() or bool(self._command_queue)
+        pause_text = '继续执行' if self._queue_paused else '暂停执行'
         if hasattr(self, 'btn_script_pause'):
             self.btn_script_pause.setEnabled(has_running_queue)
-            self.btn_script_pause.setText('继续执行' if self._queue_paused else '暂停执行')
+            self.btn_script_pause.setText(pause_text)
         if hasattr(self, 'btn_open_output_dir'):
             self.btn_open_output_dir.setEnabled(bool(self._last_run_output_dir or (self._active_run_context and self._active_run_context.get('base_dir'))))
         if hasattr(self, 'btn_script_stop'):
@@ -4329,6 +4397,14 @@ class DeviceLabPage(QWidget):
             # 仅在没有正在运行的队列时，且有可恢复状态时启用
             has_saved_state = os.path.exists(self._execution_state_path()) if not has_running_queue else False
             self.btn_script_resume.setEnabled(has_saved_state)
+        # ── 全局控制按钮同步 ──
+        if hasattr(self, 'btn_global_run'):
+            self.btn_global_run.setEnabled(not has_running_queue)
+        if hasattr(self, 'btn_global_pause'):
+            self.btn_global_pause.setEnabled(has_running_queue)
+            self.btn_global_pause.setText(f"{'▶ 继续执行' if self._queue_paused else '⏸ 暂停执行'}")
+        if hasattr(self, 'btn_global_stop'):
+            self.btn_global_stop.setEnabled(has_running_queue)
 
     def _finish_queue_run(self, message: str, manual_stop: bool = False):
         # 完成通知（仅自动完成，非手动停止）
