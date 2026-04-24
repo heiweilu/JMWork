@@ -94,16 +94,16 @@
       "content": "# Google TV\n账号：fangzhenS402@gmail.com  \n电话：07908135514 \n密码：cqupt402\n\ninput text \"fangzhenS402@gmail.com\"\ninput text \"cqupt402\""
     },
     {
-      "title": "戴安娜打开日志开关",
+      "title": "日志",
       "category": "未分类",
       "format": "markdown",
-      "content": "U盘创建一个空文件夹：xgimilog_debug_dir"
+      "content": "戴安娜打开日志开关：\nU盘创建一个空文件夹：xgimilog_debug_dir\n\nmm log:\n出现问题的时候：log -p v -t \"issue\" \"problemHere\"\n```\nsu\nsetenforce 0\nlogcat -G 256M\nmount -o remount /data\nsetprop media.acodec.verbose.log 1\nsetprop media.ccodec.verbose.log 1\nsetprop vendor.media.acodec.verbose.log 1\nsetprop media.mediacodec.verbose.log 1\nsetprop media.mediacodec.dbg 1\nsetprop vendor.mstar.vdec.log 1\nsetprop vendor.mstar.msvdec.log 2\nsetprop vendor.mstar.omx.log 1\nsetprop vendor.mstar.vsync_bridge.log 1\nsetprop vendor.mstar.sideband.log 1\nsetprop vendor.mtk.c2.enable.comp.log 2\nsetprop vendor.mtk.c2.enable.vdec.log 2\nsetprop vendor.mtktv.c2.enable.vdec.log 3\nsetprop vendor.mtktv.c2.enable.bm.log 2\nsetprop vendor.mtk.codec2.log 2\nsetprop vendor.mtk.vcodecvideo.log 2\nsetprop vendor.mtk.vcodecvdecimpl.log 3\nsetprop vendor.mtk.detile.log 1\nsetprop vendor.mtktv.c2.enable.venc.log 1\nsetprop vendor.mstar.detile.yuv.time 1\nsetprop vendor.mstar.venc.log 1\nsetprop vendor.mtk.gltransformer.debuglevel 2\nsetprop mstar.audio.log.level VERBOSE\nsetprop vendor.mstar.audio.log.level VERBOSE\nsetprop vendor.mstar.audioparser.log.level VERBOSE\nsetprop vendor.mstar.audio.log.level VERBOSE\nsetprop vendor.hal.c2.audio.log.level VERBOSE\nsetprop mtk.exoplayer.debug.level 95\nsetprop vendor.mtk.ts.verbose.log 1\nsetprop vendor.mtk.mkv.verbose.log 1\nsetprop vendor.mtk.avi.extract.log 1\nsetprop vendor.mtk.avi.verbose.log 1\nsetprop vendor.asfff.dump.audio 1\nsetprop vendor.asfff.dump.video 1\nsetprop vendor.asfff.verbose.log 1\nsetprop vendor.mtk.mkv.verbose.log 1\nsetprop vendor.mtk.rm.verbose.log 1\nsetprop vendor.mtk.ts.verbose.log 1\nsetprop vendor.mtk.ps.verbose.log 1\nsetprop vendor.mtk.mp4.extract.log 1\nsetprop vendor.mtk.mp4.verbose.log 1\nsetprop vendor.media.nuplayer.verbose.log 0x7fffffff\nsetprop media.nuplayer.verbose.log 0x7fffffff\nrm /data/dump_log.txt;\nlogcat -c;\nlogcat -v threadtime -f /data/dump_log.txt &\n\n```"
     },
     {
       "title": "设备/分支",
       "category": "未分类",
       "format": "markdown",
-      "content": "|芯片 | 设备 | 平台 | 分支 | 配置 | 管理员|\n|---|--|--|--|--|\n|国外dlp8424,dlp8445 |大鹏，猛禽 |\tMTK9660_GTV_4K | MT9660_GTV_xgimi_develop_munnar\t|\t|\t-李昌盛|\n|国内dlp8424,dlp8445 |猛禽 |\tMTK9660_AOSP | MTK9660_AOSP_develop\t|\t|\t-赵海洋/唐维|\n|国内dlp8424,dlp8445 |大鹏 |\tMTK9660_AOSP | MTK9660_AOSP_develop\t|\t|\t-何宝军|\n|国内dlp8445,c382 |雅典娜 |\tMTK9681\t|\tMTK9681_develop\t|\t|\t-唐怡|\n|国外dlp8445,c382 |雅典娜 |\tMTK9679_GTV\t| MT9660_GTV_xgimi_develop\t| kasol.sh | -罗中骏|\n|国外 |戴安娜 |\tMTK9681\t| MT9681_DIANA_PVT_20260112 | 9681.sh | -吴鹏威|\n|国外 |宝莱坞 |\t|\t| |\t-马凡|\n\n盒子，延迟仪\t-李静\n云台\t马苏东\nai\t-颜渤汶"
+      "content": "|芯片 | 设备 | 平台 | 分支 | 配置 | 管理员|\n|---|--|--|--|--|\n|国外dlp8424,dlp8445 |大鹏，猛禽 |\tMTK9660_GTV_4K | MT9660_GTV_xgimi_develop_munnar\t|\t|\t-李昌盛|\n|国内dlp8424,dlp8445 |猛禽 |\tMTK9660_AOSP | MTK9660_AOSP_develop\t|\t|\t-赵海洋/唐维|\n|国内dlp8424,dlp8445 |大鹏 |\tMTK9660_AOSP | MTK9660_AOSP_develop\t|\t|\t-何宝军|\n|国内dlp8445,c382 |雅典娜 |\tMTK9681\t|\tMTK9681_develop\t|\t|\t-唐怡|\n|国外dlp8445,c382 |雅典娜 |\tMTK9679_GTV\t| MT9660_GTV_xgimi_develop\t| kasol.sh | -罗中骏|\n|国外 |戴安娜 |\tMTK9681\t| MT9681_DIANA_PVT_20260112 | 9681.sh | -吴鹏威借机器，马春燕改时间|\n|国外dlp8445,fpga |宝莱坞 | MTK9679_GTV\t|\t| |\t-马凡|\n\n盒子，延迟仪\t-李静\n云台\t马苏东\nai\t-颜渤汶\n\n\n国外只有一个分支，国内有多个。\n猛禽都是软梯。\n"
     }
   ]
 }

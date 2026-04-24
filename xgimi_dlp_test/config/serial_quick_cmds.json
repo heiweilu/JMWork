@@ -132,7 +132,7 @@
         },
         {
           "name": "查看原模型（国内）",
-          "cmd": "ls -lh /mnt/vendor/xgimiconfig/H0065/kstAdjust/",
+          "cmd": "ls -lh /mnt/vendor/xgimiconfig/G0114/kstAdjust/",
           "desc": ""
         },
         {
@@ -142,7 +142,7 @@
         },
         {
           "name": "拷贝新模型（国内）",
-          "cmd": "cp /mnt/media_rw/0182-0265/norm_params.yaml /mnt/vendor/xgimiconfig/H0065/kstAdjust/\ncp /mnt/media_rw/0182-0265/svm_model.xml /mnt/vendor/xgimiconfig/H0065/kstAdjust/",
+          "cmd": "cp mnt/media_rw/1057-A7D0/norm_params.yaml /mnt/vendor/xgimiconfig/G0114/kstAdjust/\ncp mnt/media_rw/1057-A7D0/svm_model.xml /mnt/vendor/xgimiconfig/G0114/kstAdjust/",
           "desc": ""
         },
         {
@@ -152,7 +152,7 @@
         },
         {
           "name": "下点（需要修改坐标）",
-          "cmd": "gmpfUnit correctKeystone2 0 414 0 3472 524 0 1574 3838 1966",
+          "cmd": "gmpfUnit correctKeystone2 0 1919 309 3839 24 1908 1535 3839 2150",
           "desc": "投影仪打开手动AK页面，使用此命令下点"
         },
         {
@@ -231,6 +231,21 @@
         {
           "name": "梯形下点",
           "cmd": "gmpfUnit correctKeystone2 0 358 0 3530 100 0 1492 3838 1574",
+          "desc": ""
+        },
+        {
+          "name": "分辨率相关",
+          "cmd": "wm size                          # 查看物理/生效分辨率\ncat /sys/class/graphics/fb0/modes           # framebuffer 模式\ncat /sys/class/graphics/fb0/virtual_size    # 虚拟尺寸\ndumpsys display | grep -iE \"refresh|rate\"   # 显示参数（分辨率/刷新率）",
+          "desc": ""
+        },
+        {
+          "name": "属性/系统信息",
+          "cmd": "logcat -c ; logcat | grep -iE \"GM_DSIP_DBG\"    # 清缓存 + 抓 DSIP 日志\nlogcat -s HDMI                                  # HDMI 模块日志\nlogcat | grep -iE \"HDMI|dsip|source\"           # 综合显示日志\ngmpfUnit externDisplay disp_dev read_source_timing  # 外接显示信息（R+ 专有）",
+          "desc": ""
+        },
+        {
+          "name": "设备信息",
+          "cmd": "getprop | grep -iE \"ro.build|display\"          # 系统版本/Display ID\ncat /proc/device-tree/xxx/hdmiin/status          # 检查 hdmiin 节点\ngmpfUnit dlpDebug cmd_help                       # dlp 调试帮助",
           "desc": ""
         }
       ]
@@ -330,7 +345,7 @@
         },
         {
           "name": "cmd_help",
-          "cmd": "gmpfUnit dlpDebug cmd_help;\nlogcat | grep -iE \"GM_DISP_DBG\"",
+          "cmd": "logcat | grep -iE \"GM_DISP_DBG\"&\ngmpfUnit dlpDebug cmd_help;",
           "desc": ""
         },
         {

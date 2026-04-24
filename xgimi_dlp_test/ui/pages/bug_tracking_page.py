@@ -337,11 +337,12 @@ class MtkBugTrackingPage(QWidget):
     # ── 生命周期 ─────────────────────────────────────────────────────────────
 
     def showEvent(self, event):
-        """页面第一次显示时自动触发 MTK 扫描。"""
+        """页面显示时不自动扫描，需要用户手动点击扫描按钮。"""
         super().showEvent(event)
         if self._first_show:
             self._first_show = False
-            self._on_start_scan()
+            # 已禁用自动扫描，由用户手动触发
+            # self._on_start_scan()
 
     # ── UI 搭建 ──────────────────────────────────────────────────────────────
 

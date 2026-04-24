@@ -28,6 +28,7 @@ from ui.pages.bug_tracking_page import MtkBugTrackingPage
 from ui.pages.device_lab_page import DeviceLabPage
 from ui.pages.serial_page import SerialPage
 from ui.pages.ai_settings_page import AISettingsPage
+from ui.pages.log_locator_page import LogLocatorPage
 from ui.widgets.ai_chat_panel import AIChatPanel
 from core.app_meta import APP_NAME, APP_AUTHOR_EMAIL, APP_SIGNATURE, APP_VERSION, full_app_title
 from core.admin_console_store import AdminConsoleStore
@@ -48,6 +49,7 @@ NAV_ITEMS = [
     {"name": "设备联调台", "icon": "🎛", "enabled": True},
     {"name": "硬件测试",   "icon": "🔧", "enabled": True},
     {"name": "MTK问题跟踪", "icon": "🐛", "enabled": True},
+    {"name": "日志定位",     "icon": "🔍", "enabled": True},
     {"name": "AI 助手",     "icon": "🧠", "enabled": True},
 ]
 
@@ -55,7 +57,7 @@ NAV_GROUPS = [
     ("数据处理", ["数据预处理", "分析执行", "SVM训练"]),
     ("系统管理", ["配置管理", "历史浏览", "开发文档"]),
     ("设备工作台", ["串口调试", "设备联调台", "硬件测试"]),
-    ("BUG追踪",   ["MTK问题跟踪"]),
+    ("BUG追踪",   ["MTK问题跟踪", "日志定位"]),
     ("AI",       ["AI 助手"]),
 ]
 
@@ -286,6 +288,11 @@ class MainWindow(QMainWindow):
         self.page_stack.addWidget(self.test_page)
         self.bug_tracking_page = MtkBugTrackingPage()
         self.page_stack.addWidget(self.bug_tracking_page)
+        self.log_locator_page = LogLocatorPage(
+            config_mgr=self._config_mgr,
+            log_panel=self.log_panel,
+        )
+        self.page_stack.addWidget(self.log_locator_page)
         self.ai_settings_page = AISettingsPage(
             config_mgr=self._config_mgr,
             log_panel=self.log_panel,
