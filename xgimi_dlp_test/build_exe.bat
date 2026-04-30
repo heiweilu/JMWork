@@ -36,14 +36,14 @@ if errorlevel 1 (
 )
 
 :: ---------- 检查依赖 ----------
-echo [1/4] 检查项目依赖...
+echo [1/5] 检查项目依赖...
 pip install -r requirements.txt --quiet --no-warn-script-location
 if errorlevel 1 (
     echo [警告] 部分依赖安装失败，继续打包（可能影响功能）
 )
 
 :: ---------- 清理旧构建 ----------
-echo [2/4] 清理旧构建产物...
+echo [2/5] 清理旧构建产物...
 if exist build\xgimi_dlp_test  rmdir /s /q build\xgimi_dlp_test
 if exist dist\xgimi_dlp_test   rmdir /s /q dist\xgimi_dlp_test
 if exist __pycache__ rmdir /s /q __pycache__
@@ -52,7 +52,7 @@ if exist __pycache__ rmdir /s /q __pycache__
 python -c "from pathlib import Path; from core.app_meta import APP_NAME, APP_VERSION, APP_SIGNATURE; version = str(APP_VERSION).lstrip('vV'); parts = (version.split('.') + ['0', '0', '0'])[:4]; major, minor, patch, build = [int(p or 0) for p in parts]; text = f'''VSVersionInfo(\n  ffi=FixedFileInfo(\n    filevers=({major}, {minor}, {patch}, {build}),\n    prodvers=({major}, {minor}, {patch}, {build}),\n    mask=0x3f,\n    flags=0x0,\n    OS=0x40004,\n    fileType=0x1,\n    subtype=0x0,\n    date=(0, 0)\n  ),\n  kids=[\n    StringFileInfo([\n      StringTable(\'080404B0\', [\n        StringStruct(\'CompanyName\', \'{APP_SIGNATURE}\'),\n        StringStruct(\'FileDescription\', \'{APP_NAME}\'),\n        StringStruct(\'FileVersion\', \'{APP_VERSION}\'),\n        StringStruct(\'InternalName\', \'xgimi_dlp_test\'),\n        StringStruct(\'OriginalFilename\', \'xgimi_dlp_test.exe\'),\n        StringStruct(\'ProductName\', \'{APP_NAME}\'),\n        StringStruct(\'ProductVersion\', \'{APP_VERSION}\')\n      ])\n    ]),\n    VarFileInfo([VarStruct(\'Translation\', [2052, 1200])])\n  ]\n)'''; Path('build').mkdir(exist_ok=True); Path('build/version_info.txt').write_text(text, encoding='utf-8')"
 
 :: ---------- 打包 ----------
-echo [3/4] 开始打包（首次可能需要 3-8 分钟）...
+echo [3/5] 开始打包（首次可能需要 3-8 分钟）...
 python -m PyInstaller xgimi_dlp_test.spec --clean --noconfirm
 if errorlevel 1 (
     echo.
@@ -60,8 +60,13 @@ if errorlevel 1 (
     pause & exit /b 1
 )
 
+:: ---------- 创建运行时输出目录占位 ----------
+echo [4/5] 创建运行时输出目录...
+if not exist dist\xgimi_dlp_test\_internal\reports mkdir dist\xgimi_dlp_test\_internal\reports
+if not exist dist\xgimi_dlp_test\_internal\logs    mkdir dist\xgimi_dlp_test\_internal\logs
+
 :: ---------- 写入版本信息文件 ----------
-echo [4/4] 写入版本信息...
+echo [5/5] 写入版本信息...
 for /f "tokens=*" %%i in ('python -c "import datetime; print(datetime.datetime.now().strftime(\"%%Y%%m%%d_%%H%%M%%S\"))"') do set BUILD_TIME=%%i
 echo BUILD_TIME=%BUILD_TIME% > dist\xgimi_dlp_test\BUILD_INFO.txt
 echo SOURCE=xgimi_dlp_test >> dist\xgimi_dlp_test\BUILD_INFO.txt

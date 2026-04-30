@@ -19,19 +19,36 @@ ROOT = os.path.dirname(os.path.abspath(SPEC))
 sys.path.insert(0, ROOT)
 VERSION_FILE = os.path.join(ROOT, 'build', 'version_info.txt')
 
+# ---------- 辅助函数：递归收集目录文件，支持排除 ----------
+def _collect_dir(root_dir, dest_prefix, exclude_names=None):
+    """递归收集目录下所有文件到 datas 列表，排除指定文件名或目录名。"""
+    result = []
+    exclude_names = exclude_names or []
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        # 过滤掉需要排除的目录（不遍历）
+        dirnames[:] = [d for d in dirnames if d not in exclude_names]
+        for f in filenames:
+            if f in exclude_names:
+                continue
+            src = os.path.join(dirpath, f)
+            rel = os.path.relpath(dirpath, root_dir)
+            dst = os.path.join(dest_prefix, rel) if rel != '.' else dest_prefix
+            result.append((src, dst))
+    return result
+
+
 # ---------- 数据文件收集 ----------
-datas = [
-    # 配置文件
-    (os.path.join(ROOT, 'config'),  'config'),
-    # 资源文件（固件、参考图片）
-    (os.path.join(ROOT, 'assets'),  'assets'),
-    # 模块源码（自动发现时 importlib 需要文件存在）
-    (os.path.join(ROOT, 'modules'), 'modules'),
-    # 报告目录占位（保证目录结构完整）
-    (os.path.join(ROOT, 'reports'), 'reports'),
-    # 日志目录占位
-    (os.path.join(ROOT, 'logs'),    'logs'),
-]
+datas = []
+# 配置文件（排除敏感信息 + 运行时状态文件）
+datas += _collect_dir(os.path.join(ROOT, 'config'), 'config',
+                      exclude_names=['ai_config.json', 'admin_console.json'])
+# 资源文件（排除 doc/ — 手动添加的文档，不随包分发）
+datas += _collect_dir(os.path.join(ROOT, 'assets'), 'assets',
+                      exclude_names=['doc'])
+# 模块源码
+datas += _collect_dir(os.path.join(ROOT, 'modules'), 'modules')
+# 报告和日志目录是运行时输出目录，不随包分发
+# 应用会在运行时通过 os.makedirs(..., exist_ok=True) 自动创建
 
 # 收集 PyQt6 附带的平台插件 / 样式插件
 datas += collect_data_files('PyQt6', subdir='Qt6/plugins')

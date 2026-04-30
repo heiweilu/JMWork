@@ -32,6 +32,14 @@ data/data_temp/
 # AI 配置（含 API Key 等敏感信息）
 config/ai_config.json
 
+# 手动添加的文档（不随包分发）
+assets/doc/
+
+# 运行时状态数据（管理员控制台、历史浏览等）
+config/admin_console.json
+config/bug_tracking_data.json
+config/device_lab_profile.json
+
 # 系统文件
 Thumbs.db
 .DS_Store
