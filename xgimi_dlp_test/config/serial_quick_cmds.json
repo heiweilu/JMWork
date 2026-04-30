@@ -345,7 +345,7 @@
         },
         {
           "name": "cmd_help",
-          "cmd": "logcat | grep -iE \"GM_DISP_DBG\"&\ngmpfUnit dlpDebug cmd_help;",
+          "cmd": "logcat | grep -iE \"GM_DISP_DBG\"&\ngmpfUnit dlpDebug cmd_help",
           "desc": ""
         },
         {
