@@ -10,6 +10,7 @@ MTK eService 问题单状态爬取 Worker
   2. Action Buttons 中 **没有** "Reopen Issue"（有 Reopen 说明 MTK 已处理/关闭，轮到我们行动）
 """
 
+import sys
 import re
 import traceback
 from datetime import datetime
@@ -63,10 +64,11 @@ class MtkScanWorker(QThread):
         try:
             from playwright.sync_api import sync_playwright, TimeoutError as _PwTimeout
         except ImportError:
+            py = sys.executable
             self.scan_error.emit(
-                "未安装 playwright，请在终端依次执行：\n"
-                "  pip install playwright\n"
-                "  playwright install chromium"
+                f"未安装 playwright，请在以下 Python 环境依次执行：\n"
+                f"  {py} -m pip install playwright\n"
+                f"  {py} -m playwright install chromium"
             )
             return
 

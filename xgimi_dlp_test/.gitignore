@@ -43,3 +43,8 @@ config/device_lab_profile.json
 # 系统文件
 Thumbs.db
 .DS_Store
+
+.github/
+.wolf/
+test_ppt/
+test_ppt2/

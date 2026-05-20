@@ -117,6 +117,11 @@
         {
           "name": "remount",
           "cmd": "su; remount; chmod 777 -R /mnt/scratch/overlay; cd /;"
+        },
+        {
+          "name": "修改modelname",
+          "cmd": "cri set XgimiModelName G0064",
+          "desc": ""
         }
       ]
     },

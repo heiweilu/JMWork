@@ -52,6 +52,8 @@ datas += _collect_dir(os.path.join(ROOT, 'modules'), 'modules')
 
 # 收集 PyQt6 附带的平台插件 / 样式插件
 datas += collect_data_files('PyQt6', subdir='Qt6/plugins')
+# Playwright 数据文件（驱动 node.exe 等）
+datas += collect_data_files('playwright')
 
 # ---------- 隐藏导入（动态 import 不能被静态解析的模块）----------
 hidden_imports = [
@@ -132,6 +134,7 @@ hidden_imports = [
     'workers',
     'workers.serial_worker',
     'workers.task_worker',
+    'workers.mtk_scan_worker',
     'dlpc_sdk',
     'dlpc_sdk.dlp_manager',
     'dlpc_sdk.dlpc843x',
@@ -158,7 +161,8 @@ hidden_imports = [
     'ui.widgets.param_editor',
     'ui.widgets.matplotlib_canvas',
     'ui.widgets.tree_workspace',
-]
+    # Playwright 动态导入子模块（MTK 问题单扫描）
+] + collect_submodules('playwright')
 
 # ---------- 主分析 ----------
 a = Analysis(
