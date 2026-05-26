@@ -60,13 +60,28 @@ if errorlevel 1 (
     pause & exit /b 1
 )
 
+:: ---------- 复制 Playwright Chromium Headless Shell ----------
+echo [4/6] 复制 Playwright Chromium Headless Shell（约260MB，请稍候）...
+for /f "tokens=*" %%i in ('python -c "import subprocess,re; r=subprocess.check_output([\"python\",\"-m\",\"playwright\",\"install\",\"--dry-run\"],stderr=subprocess.STDOUT,text=True); m=re.search(r\"chromium-headless-shell v(\d+)\",r); print(\"chromium_headless_shell-\"+m.group(1) if m else \"\")"') do set HEADLESS_VER=%%i
+if "%HEADLESS_VER%"=="" (
+    echo [警告] 无法确定 Headless Shell 版本，MTK 扫描功能需手动安装：playwright install chromium
+) else (
+    set HEADLESS_SRC=%LOCALAPPDATA%\ms-playwright\%HEADLESS_VER%
+    if exist "!HEADLESS_SRC!" (
+        xcopy /E /I /Q /Y "!HEADLESS_SRC!" "dist\xgimi_dlp_test\ms-playwright\!HEADLESS_VER!\"
+        echo [Playwright] !HEADLESS_VER! 复制完成
+    ) else (
+        echo [警告] !HEADLESS_SRC! 不存在，请先运行：playwright install chromium
+    )
+)
+
 :: ---------- 创建运行时输出目录占位 ----------
-echo [4/5] 创建运行时输出目录...
+echo [5/6] 创建运行时输出目录...
 if not exist dist\xgimi_dlp_test\_internal\reports mkdir dist\xgimi_dlp_test\_internal\reports
 if not exist dist\xgimi_dlp_test\_internal\logs    mkdir dist\xgimi_dlp_test\_internal\logs
 
 :: ---------- 写入版本信息文件 ----------
-echo [5/5] 写入版本信息...
+echo [6/6] 写入版本信息...
 for /f "tokens=*" %%i in ('python -c "import datetime; print(datetime.datetime.now().strftime(\"%%Y%%m%%d_%%H%%M%%S\"))"') do set BUILD_TIME=%%i
 echo BUILD_TIME=%BUILD_TIME% > dist\xgimi_dlp_test\BUILD_INFO.txt
 echo SOURCE=xgimi_dlp_test >> dist\xgimi_dlp_test\BUILD_INFO.txt

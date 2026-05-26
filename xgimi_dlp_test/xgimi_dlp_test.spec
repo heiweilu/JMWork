@@ -176,7 +176,10 @@ a = Analysis(
     hiddenimports=hidden_imports,
     hookspath=[os.path.join(ROOT, 'hooks')],
     hooksconfig={},
-    runtime_hooks=[os.path.join(ROOT, 'hooks', 'rthook_cv2.py')],
+    runtime_hooks=[
+        os.path.join(ROOT, 'hooks', 'rthook_cv2.py'),
+        os.path.join(ROOT, 'hooks', 'rthook_playwright.py'),
+    ],
     excludes=[
         'tkinter', '_tkinter', 'wx', 'gi',
     ],
